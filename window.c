@@ -30,6 +30,7 @@
 #include <unistd.h>
 
 #include "tmux.h"
+#include "tmate.h"
 
 /*
  * Each window is attached to a number of panes, each of which is a pty. This
@@ -328,6 +329,8 @@ window_create(const char *name, const char *cmd, const char *shell,
 	} else
 		w->name = default_window_name(w);
 
+	tmate_sync_window(w);
+
 	return (w);
 }
 
@@ -374,6 +377,7 @@ window_set_name(struct window *w, const char *new_name)
 	free(w->name);
 	w->name = xstrdup(new_name);
 	notify_window_renamed(w);
+	tmate_sync_window(w);
 }
 
 void
@@ -691,6 +695,8 @@ window_pane_create(struct window *w, u_int sx, u_int sy, u_int hlimit)
 	wp->pipe_off = 0;
 	wp->pipe_event = NULL;
 
+	wp->tmate_off = 0;
+
 	wp->saved_grid = NULL;
 
 	screen_init(&wp->base, sx, sy, hlimit);
@@ -872,13 +878,24 @@ window_pane_read_callback(unused struct bufferevent *bufev, void *data)
 
 	new_size = EVBUFFER_LENGTH(wp->event->input) - wp->pipe_off;
 	if (wp->pipe_fd != -1 && new_size > 0) {
+		/* FIXME tmux:
+		 * - new_data = EVBUFFER_DATA(wp->event->input);
+		 * + new_data = EVBUFFER_DATA(wp->event->input) + wp->pipe_off;
+		 * also, can the buffer be too small?
+		 */
 		new_data = EVBUFFER_DATA(wp->event->input);
 		bufferevent_write(wp->pipe_event, new_data, new_size);
 	}
 
+	new_size = EVBUFFER_LENGTH(wp->event->input) - wp->tmate_off;
+	new_data = EVBUFFER_DATA(wp->event->input) + wp->tmate_off;
+	if (new_size > 0)
+		tmate_pty_data(wp, new_data, new_size);
+
 	input_parse(wp);
 
 	wp->pipe_off = EVBUFFER_LENGTH(wp->event->input);
+	wp->tmate_off = EVBUFFER_LENGTH(wp->event->input);
 
 	/*
 	 * If we get here, we're not outputting anymore, so set the silence

@@ -168,9 +168,9 @@ makesocketpath(const char *label)
 
 	uid = getuid();
 	if ((s = getenv("TMPDIR")) == NULL || *s == '\0')
-		xsnprintf(base, sizeof base, "%s/tmux-%u", _PATH_TMP, uid);
+		xsnprintf(base, sizeof base, "%s/tmate-%u", _PATH_TMP, uid);
 	else
-		xsnprintf(base, sizeof base, "%s/tmux-%u", s, uid);
+		xsnprintf(base, sizeof base, "%s/tmate-%u", s, uid);
 
 	if (mkdir(base, S_IRWXU) != 0 && errno != EEXIST)
 		return (NULL);
@@ -244,7 +244,8 @@ main(int argc, char **argv)
 	malloc_options = (char *) "AFGJPX";
 #endif
 
-	quiet = flags = 0;
+	flags = IDENTIFY_256COLOURS | IDENTIFY_UTF8;
+	quiet = 0;
 	label = path = NULL;
 	login_shell = (**argv == '-');
 	while ((opt = getopt(argc, argv, "28c:Cdf:lL:qS:uUvV")) != -1) {

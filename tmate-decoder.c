@@ -1,0 +1,118 @@
+#include "tmate.h"
+
+int tmate_sx = -1;
+int tmate_sy = -1;
+
+struct tmate_unpacker {
+	msgpack_object *argv;
+	int argc;
+};
+
+static void decoder_error(void)
+{
+	tmate_fatal("Received a bad message");
+}
+
+static void init_unpacker(struct tmate_unpacker *uk,
+			  msgpack_object obj)
+{
+	if (obj.type != MSGPACK_OBJECT_ARRAY)
+		decoder_error();
+
+	uk->argv = obj.via.array.ptr;
+	uk->argc = obj.via.array.size;
+}
+
+static int64_t unpack_int(struct tmate_unpacker *uk)
+{
+	int64_t val;
+
+	if (uk->argc == 0)
+		decoder_error();
+
+	if (uk->argv[0].type != MSGPACK_OBJECT_POSITIVE_INTEGER &&
+	    uk->argv[0].type != MSGPACK_OBJECT_NEGATIVE_INTEGER)
+		decoder_error();
+
+	val = uk->argv[0].via.i64;
+
+	uk->argv++;
+	uk->argc--;
+
+	return val;
+}
+
+static void tmate_client_key(struct tmate_unpacker *uk)
+{
+	struct client *c;
+	int key = unpack_int(uk);
+
+	/* Very gross. other clients cannot even detach */
+
+	if (ARRAY_LENGTH(&clients) > 0) {
+		c = ARRAY_ITEM(&clients, 0);
+		server_client_handle_key(c, key);
+	}
+}
+
+static void tmate_client_resize(struct tmate_unpacker *uk)
+{
+	/* A bit gross as well */
+	tmate_sx = unpack_int(uk);
+	tmate_sy = unpack_int(uk);
+	recalculate_sizes();
+
+	/* TODO Handle reconnection cases */
+}
+
+static void handle_message(msgpack_object obj)
+{
+	struct tmate_unpacker _uk;
+	struct tmate_unpacker *uk = &_uk;
+	int cmd;
+
+	init_unpacker(uk, obj);
+
+	switch (unpack_int(uk)) {
+	case TMATE_CLIENT_KEY:		tmate_client_key(uk); break;
+	case TMATE_CLIENT_RESIZE:	tmate_client_resize(uk); break;
+	default:			decoder_error();
+	}
+}
+
+void tmate_decoder_commit(struct tmate_decoder *decoder, size_t len)
+{
+	msgpack_unpacked result;
+
+	msgpack_unpacker_buffer_consumed(&decoder->unpacker, len);
+
+	msgpack_unpacked_init(&result);
+	while (msgpack_unpacker_next(&decoder->unpacker, &result)) {
+		handle_message(result.data);
+	}
+	msgpack_unpacked_destroy(&result);
+
+	if (msgpack_unpacker_message_size(&decoder->unpacker) >
+						TMATE_MAX_MESSAGE_SIZE) {
+		tmate_fatal("Message too big");
+	}
+}
+
+void tmate_decoder_get_buffer(struct tmate_decoder *decoder,
+			      char **buf, size_t *len)
+{
+	/* rewind the buffer if possible */
+	if (msgpack_unpacker_buffer_capacity(&decoder->unpacker) <
+						TMATE_MAX_MESSAGE_SIZE) {
+		msgpack_unpacker_expand_buffer(&decoder->unpacker, 0);
+	}
+
+	*buf = msgpack_unpacker_buffer(&decoder->unpacker);
+	*len = msgpack_unpacker_buffer_capacity(&decoder->unpacker);
+}
+
+void tmate_decoder_init(struct tmate_decoder *decoder)
+{
+	if (!msgpack_unpacker_init(&decoder->unpacker, 2*TMATE_MAX_MESSAGE_SIZE))
+		tmate_fatal("cannot initialize the unpacker");
+}

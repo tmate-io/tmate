@@ -21,6 +21,7 @@
 #include <string.h>
 
 #include "tmux.h"
+#include "tmate.h"
 
 /*
  * Recalculate window and session sizes.
@@ -71,6 +72,17 @@ recalculate_sizes(void)
 					ssy = c->tty.sy;
 			}
 		}
+
+#ifdef TMATE
+		/* We assume a single session */
+		if (tmate_sx > 0 && tmate_sy > 0) {
+			if ((u_int)tmate_sx < ssx)
+				ssx = tmate_sx;
+			if ((u_int)tmate_sy < ssy)
+				ssy = tmate_sy;
+		}
+#endif
+
 		if (ssx == UINT_MAX || ssy == UINT_MAX) {
 			s->flags |= SESSION_UNATTACHED;
 			continue;

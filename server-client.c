@@ -27,6 +27,7 @@
 #include <unistd.h>
 
 #include "tmux.h"
+#include "tmate.h"
 
 void	server_client_check_focus(struct window_pane *);
 void	server_client_check_resize(struct window_pane *);
@@ -510,6 +511,9 @@ server_client_loop(void)
 		w = ARRAY_ITEM(&windows, i);
 		if (w == NULL)
 			continue;
+
+		if (w->flags & WINDOW_REDRAW)
+			tmate_sync_window(w);
 
 		w->flags &= ~WINDOW_REDRAW;
 		TAILQ_FOREACH(wp, &w->panes, entry) {

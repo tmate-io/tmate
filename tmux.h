@@ -19,6 +19,8 @@
 #ifndef TMUX_H
 #define TMUX_H
 
+#define TMATE
+
 #define PROTOCOL_VERSION 7
 
 #include <sys/param.h>
@@ -958,6 +960,8 @@ struct window_pane {
 	int		 pipe_fd;
 	struct bufferevent *pipe_event;
 	size_t		 pipe_off;
+
+	size_t		 tmate_off;
 
 	struct screen	*screen;
 	struct screen	 base;

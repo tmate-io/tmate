@@ -25,6 +25,7 @@
 #include <time.h>
 
 #include "tmux.h"
+#include "tmate.h"
 
 /* Global session list. */
 struct sessions	sessions;
@@ -89,6 +90,11 @@ session_create(const char *name, const char *cmd, const char *cwd,
     char **cause)
 {
 	struct session	*s;
+
+	if (next_session_id != 0) {
+		xasprintf(cause, "multi sessions is not supported with tmate");
+		return NULL;
+	}
 
 	s = xmalloc(sizeof *s);
 	s->references = 0;

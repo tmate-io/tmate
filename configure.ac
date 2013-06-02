@@ -107,6 +107,9 @@ AC_MSG_RESULT($found_glibc)
 # Look for clock_gettime. Must come before event_init.
 AC_SEARCH_LIBS(clock_gettime, rt)
 
+AC_SEARCH_LIBS(ssh_new, ssh)
+AC_SEARCH_LIBS(msgpack_object_print, msgpack)
+
 # Look for libevent.
 PKG_CHECK_MODULES(
 	LIBEVENT,

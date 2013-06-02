@@ -36,6 +36,7 @@
 #include <unistd.h>
 
 #include "tmux.h"
+#include "tmate.h"
 
 /*
  * Main server functions.
@@ -195,6 +196,9 @@ server_start(int lockfd, char *lockfile)
 	evtimer_add(&server_ev_second, &tv);
 
 	set_signals(server_signal_callback);
+
+	tmate_client_start();
+
 	server_loop();
 	exit(0);
 }

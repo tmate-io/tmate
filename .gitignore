@@ -15,3 +15,6 @@ tmux
 Makefile
 Makefile.in
 configure
+tmate
+cscope.*
+ctags
