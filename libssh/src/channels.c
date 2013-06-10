@@ -314,7 +314,7 @@ static int channel_open(ssh_channel channel, const char *type_c, int window,
 pending:
   /* wait until channel is opened by server */
   err = ssh_handle_packets_termination(session, SSH_TIMEOUT_USER, ssh_channel_open_termination, channel);
-  if (err != SSH_OK || session->session_state == SSH_SESSION_STATE_ERROR)
+  if (session->session_state == SSH_SESSION_STATE_ERROR)
     err = SSH_ERROR;
 end:
   if(channel->state == SSH_CHANNEL_STATE_OPEN)

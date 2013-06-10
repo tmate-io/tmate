@@ -537,8 +537,10 @@ int ssh_handle_packets_termination(ssh_session session, int timeout,
 		ret = ssh_handle_packets(session, tm);
 		if(ret == SSH_ERROR)
 		  break;
-		if(ssh_timeout_elapsed(&ts,timeout))
+		if(ssh_timeout_elapsed(&ts,timeout)) {
+		  ret = fct(user) ? SSH_OK : SSH_AGAIN;
 		  break;
+		}
 		tm = ssh_timeout_update(&ts, timeout);
 	}
 	return ret;
