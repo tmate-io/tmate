@@ -22,7 +22,7 @@ CFLAGS += -D_GNU_SOURCE
 endif
 
 CFLAGS += -Wno-unused-parameter -Wno-unused-variable
-CFLAGS += -Ilibssh/include/
+CFLAGS += -Ilibssh/include/ -Imsgpack/src
 
 # Set flags for gcc. gcc4 whines abouts silly stuff so it needs slightly
 # different flags.
@@ -33,8 +33,7 @@ CFLAGS += -O0 -g
 CFLAGS += -Wno-long-long -Wall -W -Wnested-externs -Wformat=2
 CFLAGS += -Wmissing-prototypes -Wstrict-prototypes -Wmissing-declarations
 CFLAGS += -Wwrite-strings -Wshadow -Wpointer-arith -Wsign-compare
-CFLAGS += -Wundef -Wbad-function-cast -Winline -Wcast-align
-CFLAGS += -Wdeclaration-after-statement
+CFLAGS += -Wbad-function-cast -Winline -Wcast-align
 CPPFLAGS += -DDEBUG
 else
 CFLAGS += -O2
@@ -239,8 +238,16 @@ if NO_B64_NTOP
 nodist_tmate_SOURCES += compat/b64_ntop.c
 endif
 
-tmate_LDADD = libssh/build/src/libssh.a
+tmate_LDADD = \
+	libssh/build/src/libssh.a \
+	msgpack/src/.libs/libmsgpackc.a
+
+*.c: $(tmate_LDADD)
 
 libssh/build/src/libssh.a:
 	cd libssh/build && cmake .. -DWITH_SFTP=OFF -DWITH_SERVER=OFF -DWITH_PCAP=OFF -DWITH_STATIC_LIB=ON
 	+make -C libssh/build ssh_static
+
+msgpack/src/.libs/libmsgpackc.a:
+	cd msgpack && ./bootstrap && ./configure
+	+make -C msgpack/src libmsgpackc.la
