@@ -146,7 +146,7 @@ static void on_session_event(struct tmate_ssh_client *client)
 		case SSH_AGAIN:
 			return;
 		case SSH_ERROR:
-			tmate_debug("Error opening session: %s", ssh_get_error(session));
+			tmate_debug("Error opening channel: %s", ssh_get_error(session));
 			reconnect_session(client);
 			return;
 		case SSH_OK:
