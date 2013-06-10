@@ -98,6 +98,7 @@ static void on_session_event(struct tmate_ssh_client *client)
 		ssh_options_set(session, SSH_OPTIONS_LOG_VERBOSITY, &verbosity);
 		ssh_options_set(session, SSH_OPTIONS_PORT, &port);
 		ssh_options_set(session, SSH_OPTIONS_USER, "tmate");
+		ssh_options_set(session, SSH_OPTIONS_COMPRESSION, "yes");
 
 		tmate_debug("Connecting...");
 		client->state = SSH_CONNECT;
