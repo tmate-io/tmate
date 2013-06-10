@@ -18,3 +18,4 @@ configure
 tmate
 cscope.*
 ctags
+*.log
