@@ -47,18 +47,6 @@ static void register_input_stream_event(struct tmate_ssh_client *client)
 	}
 }
 
-static int __ssh_userauth_autopubkey(ssh_session session, const char *passphrase)
-{
-	int ret;
-
-	/* For some reason, auth doesn't work in blocking mode :( */
-	ssh_set_blocking(session, 1);
-	ret = ssh_userauth_autopubkey(session, passphrase);
-	ssh_set_blocking(session, 0);
-
-	return ret;
-}
-
 static void consume_channel(struct tmate_ssh_client *client)
 {
 	char *buf;
@@ -134,7 +122,7 @@ static void on_session_event(struct tmate_ssh_client *client)
 	/* TODO Authenticate server */
 
 	case SSH_AUTH:
-		switch (__ssh_userauth_autopubkey(session, NULL)) {
+		switch (ssh_userauth_autopubkey(session, NULL)) {
 		case SSH_AUTH_AGAIN:
 			return;
 		case SSH_AUTH_PARTIAL:
