@@ -107,8 +107,12 @@ AC_MSG_RESULT($found_glibc)
 # Look for clock_gettime. Must come before event_init.
 AC_SEARCH_LIBS(clock_gettime, rt)
 
-AC_SEARCH_LIBS(ssh_new, ssh)
-AC_SEARCH_LIBS(msgpack_object_print, msgpack)
+AC_CHECK_LIB(z, inflate, [],
+	     [AC_MSG_ERROR([zlib library required])])
+AC_CHECK_LIB(crypto,CRYPTO_new_ex_data, [],
+	     [AC_MSG_ERROR([OpenSSL library required])])
+AC_CHECK_LIB(ssl, SSL_library_init, [],
+	     [AC_MSG_ERROR([OpenSSL library required])])
 
 # Look for libevent.
 PKG_CHECK_MODULES(

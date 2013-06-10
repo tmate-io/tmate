@@ -1,0 +1,12 @@
+project(clienttests C)
+
+add_cmocka_test(torture_algorithms torture_algorithms.c ${TORTURE_LIBRARY})
+add_cmocka_test(torture_auth torture_auth.c ${TORTURE_LIBRARY})
+add_cmocka_test(torture_connect torture_connect.c ${TORTURE_LIBRARY})
+add_cmocka_test(torture_knownhosts torture_knownhosts.c ${TORTURE_LIBRARY})
+add_cmocka_test(torture_proxycommand torture_proxycommand.c ${TORTURE_LIBRARY})
+add_cmocka_test(torture_session torture_session.c ${TORTURE_LIBRARY})
+if (WITH_SFTP)
+    add_cmocka_test(torture_sftp_static torture_sftp_static.c ${TORTURE_LIBRARY})
+    add_cmocka_test(torture_sftp_dir torture_sftp_dir.c ${TORTURE_LIBRARY})
+endif (WITH_SFTP)

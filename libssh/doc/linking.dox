@@ -1,0 +1,24 @@
+/**
+
+@page libssh_linking The Linking HowTo
+
+@section dynamic Dynamic Linking
+
+On UNIX and Windows systems its the same, you need at least the libssh.h
+header file and the libssh shared library.
+
+@section static Static Linking
+
+@warning <b>The libssh library is licensed under the LGPL! Make sure you
+understand what this means to your codebase if you want to distribute
+binaries and link statically against LGPL code!</b>
+
+On UNIX systems linking against the static version of the library is the
+same as linking against the shared library. Both have the same name. Some
+build system require to use the full path to the static library.
+
+On Windows you need to define LIBSSH_STATIC in the compiler command
+line. This is required cause the dynamic library needs to specify the
+dllimport attribute.
+
+*/

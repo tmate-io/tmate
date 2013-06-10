@@ -1,0 +1,59 @@
+Coding Style Conventions
+========================
+
+Coding style guidelines are about reducing the number of unnecessary
+reformatting patches and making things easier for developers to work together.
+
+You don't have to like them or even agree with them, but once put in place we
+all have to abide by them (or vote to change them).  However, coding style
+should never outweigh coding itself and so the guidelines described here are
+hopefully easy enough to follow as they are very common and supported by tools
+and editors.
+
+The basic style for C code is the Linux kernel coding style [1] with one
+excecption, we use 4 spaces instead of tabs. This closely matches what most
+libssh developers use already anyways, with a few exceptions as mentioned
+below.
+
+To shorthen this here are the highlights:
+
+* Maximum line width is 80 characters
+
+  The reason is not about people with low-res screens but rather sticking
+  to 80 columns prevents you from easily nesting more than one level of
+  if statements or other code blocks.
+
+* Use 4 spaces to indent
+
+* No trailing whitespaces
+
+* Follow the K&R guidelines.  We won't go through all of them here. Do you
+  have a copy of "The C Programming Language" anyways right?
+
+Editors
+========
+
+VIM
+----
+
+set ts=4 sw=4 et cindent
+
+For Vim, the following settings in $HOME/.vimrc will also deal with
+displaying trailing whitespace:
+
+    if has("syntax") && (&t_Co > 2 || has("gui_running"))
+        syntax on
+        function! ActivateInvisibleCharIndicator()
+            syntax match TrailingSpace "[ \t]\+$" display containedin=ALL
+            highlight TrailingSpace ctermbg=Red
+        endf
+        autocmd BufNewFile,BufRead * call ActivateInvisibleCharIndicator()
+    endif
+    " Show tabs, trailing whitespace, and continued lines visually
+    set list listchars=tab:»·,trail:·,extends:…
+
+    " highlight overly long lines same as TODOs.
+    set textwidth=80
+    autocmd BufNewFile,BufRead *.c,*.h exec 'match Todo /\%>' . &textwidth . 'v.\+/'
+
+[1] https://www.kernel.org/doc/Documentation/CodingStyle
