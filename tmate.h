@@ -57,6 +57,9 @@ extern void tmate_decoder_commit(struct tmate_decoder *decoder, size_t len);
 
 /* tmate-ssh-client.c */
 
+#define TMATE_HOST "tmate.io"
+#define TMATE_PORT 22
+
 typedef struct ssh_session_struct* ssh_session;
 typedef struct ssh_channel_struct* ssh_channel;
 
