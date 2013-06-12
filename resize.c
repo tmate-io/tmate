@@ -62,6 +62,10 @@ recalculate_sizes(void)
 			if (c == NULL || c->flags & CLIENT_SUSPENDED)
 				continue;
 			if (c->session == s) {
+#ifdef TMATE
+				if (c->flags & CLIENT_FORCE_STATUS)
+					has_status = 1;
+#endif
 				if (c->tty.sx < ssx)
 					ssx = c->tty.sx;
 				if (has_status &&

@@ -169,6 +169,13 @@ const struct options_table_entry session_options_table[] = {
 	  .default_num = 750
 	},
 
+	{ .name = "tmate-display-time",
+	  .type = OPTIONS_TABLE_NUMBER,
+	  .minimum = 1,
+	  .maximum = INT_MAX,
+	  .default_num = 30000
+	},
+
 	{ .name = "history-limit",
 	  .type = OPTIONS_TABLE_NUMBER,
 	  .minimum = 0,

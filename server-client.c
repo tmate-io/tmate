@@ -271,6 +271,9 @@ server_client_status_timer(void)
 		s = c->session;
 
 		if (!options_get_number(&s->options, "status"))
+#ifdef TMATE
+			if (!(c->flags & CLIENT_FORCE_STATUS))
+#endif
 			continue;
 		interval = options_get_number(&s->options, "status-interval");
 
@@ -395,6 +398,9 @@ server_client_handle_key(struct client *c, int key)
 
 	/* Handle status line. */
 	if (!(c->flags & CLIENT_READONLY)) {
+#ifdef TMATE
+		if (!(c->flags & CLIENT_FORCE_STATUS))
+#endif
 		status_message_clear(c);
 		server_clear_identify(c);
 	}
@@ -635,6 +641,10 @@ server_client_reset_state(struct client *c)
 	tty_region(&c->tty, 0, c->tty.sy - 1);
 
 	status = options_get_number(oo, "status");
+#ifdef TMATE
+	if (c->flags & CLIENT_FORCE_STATUS)
+		status = 1;
+#endif
 	if (!window_pane_visible(wp) || wp->yoff + s->cy >= c->tty.sy - status)
 		tty_cursor(&c->tty, 0, 0);
 	else {

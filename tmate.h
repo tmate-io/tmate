@@ -44,6 +44,7 @@ extern void tmate_status(const char *left, const char *right);
 /* tmate-decoder.c */
 
 enum tmate_client_commands {
+	TMATE_REPLY_HEADER,
 	TMATE_CLIENT_PANE_KEY,
 	TMATE_CLIENT_RESIZE,
 	TMATE_CLIENT_CMD,
@@ -111,5 +112,10 @@ extern void tmate_client_start(void);
 
 /* tmate-debug.c */
 extern void tmate_print_trace (void);
+
+/* tmate-msg.c */
+
+extern void __tmate_status_message(const char *fmt, va_list ap);
+extern void printflike1 tmate_status_message(const char *fmt, ...);
 
 #endif

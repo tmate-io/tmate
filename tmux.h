@@ -1332,6 +1332,9 @@ struct client {
 #define CLIENT_REDRAWWINDOW 0x1000
 #define CLIENT_CONTROL 0x2000
 #define CLIENT_FOCUSED 0x4000
+#ifdef TMATE
+#define CLIENT_FORCE_STATUS 0x800000
+#endif
 	int		 flags;
 
 	struct event	 identify_timer;

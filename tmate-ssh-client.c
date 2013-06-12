@@ -11,8 +11,10 @@ static void consume_channel(struct tmate_ssh_client *client);
 static void flush_input_stream(struct tmate_ssh_client *client);
 static void __flush_input_stream(evutil_socket_t fd, short what, void *arg);
 static void __on_session_event(evutil_socket_t fd, short what, void *arg);
-static void disconnect_session(struct tmate_ssh_client *client);
-static void reconnect_session(struct tmate_ssh_client *client);
+static void printflike2 disconnect_session(struct tmate_ssh_client *client,
+					   const char *fmt, ...);
+static void printflike2 reconnect_session(struct tmate_ssh_client *client,
+					  const char *fmt, ...);
 
 static void log_function(ssh_session session, int priority,
 		  const char *message, void *userdata)
@@ -56,9 +58,8 @@ static void consume_channel(struct tmate_ssh_client *client)
 		tmate_decoder_get_buffer(client->decoder, &buf, &len);
 		len = ssh_channel_read_nonblocking(client->channel, buf, len, 0);
 		if (len < 0) {
-			tmate_debug("Error reading from channel: %s",
-				    ssh_get_error(client->session));
-			reconnect_session(client);
+			reconnect_session(client, "Error reading from channel: %s",
+					  ssh_get_error(client->session));
 			break;
 		}
 
@@ -107,7 +108,7 @@ static void on_session_event(struct tmate_ssh_client *client)
 		ssh_options_set(session, SSH_OPTIONS_USER, "tmate");
 		ssh_options_set(session, SSH_OPTIONS_COMPRESSION, "yes");
 
-		tmate_debug("Connecting...");
+		tmate_status_message("Connecting to %s...", TMATE_HOST);
 		client->state = SSH_CONNECT;
 		/* fall through */
 
@@ -117,8 +118,8 @@ static void on_session_event(struct tmate_ssh_client *client)
 			register_session_fd_event(client);
 			return;
 		case SSH_ERROR:
-			tmate_debug("Error connecting: %s", ssh_get_error(session));
-			reconnect_session(client);
+			reconnect_session(client, "Error connecting: %s",
+					  ssh_get_error(session));
 			return;
 		case SSH_OK:
 			register_session_fd_event(client);
@@ -129,8 +130,7 @@ static void on_session_event(struct tmate_ssh_client *client)
 
 	case SSH_AUTH_SERVER:
 		if ((hash_len = ssh_get_pubkey_hash(session, &hash)) < 0) {
-			tmate_debug("Cannnot authenticate server");
-			disconnect_session(client);
+			disconnect_session(client, "Cannnot authenticate server");
 			return;
 		}
 
@@ -165,8 +165,7 @@ static void on_session_event(struct tmate_ssh_client *client)
 		free(hash_str);
 
 		if (!match) {
-			tmate_debug("Cannnot authenticate server");
-			disconnect_session(client);
+			disconnect_session(client, "Cannnot authenticate server");
 			return;
 		}
 
@@ -180,12 +179,11 @@ static void on_session_event(struct tmate_ssh_client *client)
 		case SSH_AUTH_PARTIAL:
 		case SSH_AUTH_INFO:
 		case SSH_AUTH_DENIED:
-			tmate_debug("Access denied. Try again later.");
-			disconnect_session(client);
+			disconnect_session(client, "Access denied. Try again later.");
 			return;
 		case SSH_AUTH_ERROR:
-			tmate_debug("Auth error: %s", ssh_get_error(session));
-			reconnect_session(client);
+			reconnect_session(client, "Auth error: %s",
+					  ssh_get_error(session));
 			return;
 		case SSH_AUTH_SUCCESS:
 			tmate_debug("Auth successful");
@@ -198,8 +196,8 @@ static void on_session_event(struct tmate_ssh_client *client)
 		case SSH_AGAIN:
 			return;
 		case SSH_ERROR:
-			tmate_debug("Error opening channel: %s", ssh_get_error(session));
-			reconnect_session(client);
+			reconnect_session(client, "Error opening channel: %s",
+					  ssh_get_error(session));
 			return;
 		case SSH_OK:
 			tmate_debug("Session opened, initalizing tmate");
@@ -212,8 +210,8 @@ static void on_session_event(struct tmate_ssh_client *client)
 		case SSH_AGAIN:
 			return;
 		case SSH_ERROR:
-			tmate_debug("Error initializing tmate: %s", ssh_get_error(session));
-			reconnect_session(client);
+			reconnect_session(client, "Error initializing tmate: %s",
+					  ssh_get_error(session));
 			return;
 		case SSH_OK:
 			tmate_debug("Ready");
@@ -230,8 +228,7 @@ static void on_session_event(struct tmate_ssh_client *client)
 	case SSH_READY:
 		consume_channel(client);
 		if (!ssh_is_connected(session)) {
-			tmate_debug("Disconnected");
-			reconnect_session(client);
+			reconnect_session(client, "Disconnected");
 			return;
 		}
 	}
@@ -255,9 +252,8 @@ static void flush_input_stream(struct tmate_ssh_client *client)
 
 		written = ssh_channel_write(client->channel, buf, len);
 		if (written < 0) {
-			tmate_debug("Error writing to channel: %s",
-				    ssh_get_error(client->session));
-			reconnect_session(client);
+			reconnect_session(client, "Error writing to channel: %s",
+					  ssh_get_error(client->session));
 			return;
 		}
 
@@ -275,8 +271,11 @@ static void __on_session_event(evutil_socket_t fd, short what, void *arg)
 	on_session_event(arg);
 }
 
-static void disconnect_session(struct tmate_ssh_client *client)
+static void __disconnect_session(struct tmate_ssh_client *client,
+				 const char *fmt, va_list va)
 {
+	__tmate_status_message(fmt, va);
+
 	if (event_initialized(&client->ev_ssh)) {
 		event_del(&client->ev_ssh);
 		client->ev_ssh.ev_flags = 0;
@@ -297,6 +296,16 @@ static void disconnect_session(struct tmate_ssh_client *client)
 	client->state = SSH_NONE;
 }
 
+static void printflike2 disconnect_session(struct tmate_ssh_client *client,
+					   const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	__disconnect_session(client, fmt, ap);
+	va_end(ap);
+}
+
 static void connect_session(struct tmate_ssh_client *client)
 {
 	if (!client->session) {
@@ -310,11 +319,15 @@ static void on_reconnect_timer(evutil_socket_t fd, short what, void *arg)
 	connect_session(arg);
 }
 
-static void reconnect_session(struct tmate_ssh_client *client)
+static void printflike2 reconnect_session(struct tmate_ssh_client *client,
+					  const char *fmt, ...)
 {
 	struct timeval tv;
+	va_list ap;
 
-	disconnect_session(client);
+	va_start(ap, fmt);
+	__disconnect_session(client, fmt, ap);
+	va_end(ap);
 
 	/* Not yet implemented... */
 #if 0

@@ -181,6 +181,7 @@ dist_tmate_SOURCES = \
 	tmate-ssh-client.c \
 	tmate-encoder.c \
 	tmate-decoder.c \
+	tmate-msg.c \
 	tmate.c \
 	tmux.c \
 	tty-acs.c \

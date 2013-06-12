@@ -171,6 +171,9 @@ status_redraw(struct client *c)
 
 	/* No status line? */
 	if (c->tty.sy == 0 || !options_get_number(&s->options, "status"))
+#ifdef TMATE
+		if (c->tty.sy == 0 || !(c->flags & CLIENT_FORCE_STATUS))
+#endif
 		return (1);
 	left = right = NULL;
 	larrow = rarrow = 0;
@@ -802,6 +805,7 @@ status_message_set(struct client *c, const char *fmt, ...)
 		}
 	}
 
+	/* FIXME tmux: session can be NULL */
 	delay = options_get_number(&c->session->options, "display-time");
 	tv.tv_sec = delay / 1000;
 	tv.tv_usec = (delay % 1000) * 1000L;
@@ -826,6 +830,12 @@ status_message_clear(struct client *c)
 	c->message_string = NULL;
 
 	c->tty.flags &= ~(TTY_NOCURSOR|TTY_FREEZE);
+#ifdef TMATE
+	if (c->flags & CLIENT_FORCE_STATUS) {
+		c->flags &= ~CLIENT_FORCE_STATUS;
+		recalculate_sizes();
+	}
+#endif
 	c->flags |= CLIENT_REDRAW; /* screen was frozen and may have changed */
 
 	screen_reinit(&c->status);
