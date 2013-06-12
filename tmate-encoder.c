@@ -1,5 +1,3 @@
-#include <time.h>
-
 #include "tmate.h"
 
 static int msgpack_write(void *data, const char *buf, unsigned int len)
@@ -86,4 +84,29 @@ void tmate_pty_data(struct window_pane *wp, const char *buf, size_t len)
 		buf += to_write;
 		len -= to_write;
 	}
+}
+
+static const struct cmd_entry *replicated_cmds[] = {
+	&cmd_bind_key_entry,
+	&cmd_unbind_key_entry,
+	&cmd_set_option_entry,
+	&cmd_set_window_option_entry,
+	NULL
+};
+
+int tmate_should_replicate_cmd(const struct cmd_entry *cmd)
+{
+	const struct cmd_entry **ptr;
+
+	for (ptr = replicated_cmds; *ptr; ptr++)
+		if (*ptr == cmd)
+			return 1;
+	return 0;
+}
+
+void tmate_cmd(const char *cmd)
+{
+	pack(array, 2);
+	pack(int, TMATE_CMD);
+	pack(string, cmd);
 }

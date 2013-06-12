@@ -22,6 +22,7 @@ enum tmate_commands {
 	TMATE_HEADER,
 	TMATE_SYNC_WINDOW,
 	TMATE_PTY_DATA,
+	TMATE_CMD,
 };
 
 struct tmate_encoder {
@@ -35,10 +36,12 @@ extern void tmate_encoder_init(struct tmate_encoder *encoder);
 extern void tmate_write_header(void);
 extern void tmate_sync_window(struct window *w);
 extern void tmate_pty_data(struct window_pane *wp, const char *buf, size_t len);
+extern int tmate_should_replicate_cmd(const struct cmd_entry *cmd);
+extern void tmate_cmd(const char *cmd);
 
 /* tmate-decoder.c */
 
-enum tmate_notifications {
+enum tmate_client_commands {
 	TMATE_CLIENT_PANE_KEY,
 	TMATE_CLIENT_RESIZE,
 	TMATE_CLIENT_CMD,

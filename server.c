@@ -186,6 +186,9 @@ server_start(int lockfd, char *lockfile)
 			ARRAY_ADD(&cfg_causes, cause);
 		}
 	}
+
+	tmate_client_start();
+
 	cmdq_continue(cfg_cmd_q);
 
 	server_add_accept(0);
@@ -196,8 +199,6 @@ server_start(int lockfd, char *lockfile)
 	evtimer_add(&server_ev_second, &tv);
 
 	set_signals(server_signal_callback);
-
-	tmate_client_start();
 
 	server_loop();
 	exit(0);

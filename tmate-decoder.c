@@ -112,15 +112,10 @@ static void tmate_client_cmd(struct tmate_unpacker *uk)
 {
 	struct cmd_q *cmd_q;
 	struct cmd_list *cmdlist;
-	unsigned int argc = 0;
-	char *argv[1024];
 	char *cmd_str;
 	char *cause;
-	int i;
 
 	cmd_str = unpack_string(uk);
-	tmate_debug("received command from remote client: %s", cmd_str);
-
 	if (cmd_string_parse(cmd_str, &cmdlist, NULL, 0, &cause) != 0) {
 		free(cause);
 		goto out;
