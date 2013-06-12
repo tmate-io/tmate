@@ -35,36 +35,81 @@ void tmate_write_header(void)
 	pack(int, TMATE_PROTOCOL_VERSION);
 }
 
-void tmate_sync_window(struct window *w)
+void tmate_sync_layout(void)
 {
+	struct session *s;
+	struct winlink *wl;
+	struct window *w;
 	struct window_pane *wp;
 	int num_panes = 0;
+	int num_windows = 0;
 	int active_pane_id = -1;
+	int active_window_id = -1;
 
-	pack(array, 7);
-	pack(int, TMATE_SYNC_WINDOW);
+	/*
+	 * We only allow one session, it makes our lives easier.
+	 * Especially when the HTML5 client will come along.
+	 * We make no distinction between a winlink and its window.
+	 * TODO send the winlink in the current session stack order.
+	 */
 
-	pack(int, w->id);
-	pack(string, w->name);
-	pack(int, w->sx);
-	pack(int, w->sy);
+	s = RB_MIN(sessions, &sessions);
+	if (!s)
+		return;
 
-	TAILQ_FOREACH(wp, &w->panes, entry)
-		num_panes++;
-
-	pack(array, num_panes);
-	TAILQ_FOREACH(wp, &w->panes, entry) {
-		pack(array, 5);
-		pack(int, wp->id);
-		pack(int, wp->sx);
-		pack(int, wp->sy);
-		pack(int, wp->xoff);
-		pack(int, wp->yoff);
-
-		if (wp == w->active)
-			active_pane_id = wp->id;
+	num_windows = 0;
+	RB_FOREACH(wl, winlinks, &s->windows) {
+		if (wl->window)
+			num_windows++;
 	}
-	pack(int, active_pane_id);
+
+	if (!num_windows)
+		return;
+
+	pack(array, 5);
+	pack(int, TMATE_SYNC_LAYOUT);
+
+	pack(int, s->sx);
+	pack(int, s->sy);
+
+	pack(array, num_windows);
+	RB_FOREACH(wl, winlinks, &s->windows) {
+		w = wl->window;
+		if (!w)
+			continue;
+
+		pack(array, 4);
+		pack(int, w->id);
+		pack(string, w->name);
+
+		num_panes = 0;
+		TAILQ_FOREACH(wp, &w->panes, entry)
+			num_panes++;
+
+		pack(array, num_panes);
+		TAILQ_FOREACH(wp, &w->panes, entry) {
+			pack(array, 5);
+			pack(int, wp->id);
+			pack(int, wp->sx);
+			pack(int, wp->sy);
+			pack(int, wp->xoff);
+			pack(int, wp->yoff);
+
+			if (wp == w->active)
+				active_pane_id = wp->id;
+		}
+		pack(int, active_pane_id);
+
+		if (wl == s->curw)
+			active_window_id = w->id;
+	}
+
+	if (active_window_id == -1) {
+		wl = RB_MIN(winlinks, &s->windows);
+		active_window_id = wl->window->id;
+	}
+
+	pack(int, active_window_id);
 }
 
 void tmate_pty_data(struct window_pane *wp, const char *buf, size_t len)

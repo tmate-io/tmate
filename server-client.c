@@ -491,6 +491,8 @@ server_client_loop(void)
 	struct window_pane	*wp;
 	u_int		 	 i;
 
+	int tmate_should_sync_layout = 0;
+
 	for (i = 0; i < ARRAY_LENGTH(&clients); i++) {
 		c = ARRAY_ITEM(&clients, i);
 		if (c == NULL)
@@ -513,7 +515,7 @@ server_client_loop(void)
 			continue;
 
 		if (w->flags & WINDOW_REDRAW)
-			tmate_sync_window(w);
+			tmate_should_sync_layout = 1;
 
 		w->flags &= ~WINDOW_REDRAW;
 		TAILQ_FOREACH(wp, &w->panes, entry) {
@@ -522,6 +524,9 @@ server_client_loop(void)
 			wp->flags &= ~PANE_REDRAW;
 		}
 	}
+
+	if (tmate_should_sync_layout)
+		tmate_sync_layout();
 }
 
 /* Check if pane should be resized. */

@@ -91,10 +91,12 @@ session_create(const char *name, const char *cmd, const char *cwd,
 {
 	struct session	*s;
 
+#ifdef TMATE
 	if (next_session_id != 0) {
 		xasprintf(cause, "multi sessions is not supported with tmate");
 		return NULL;
 	}
+#endif
 
 	s = xmalloc(sizeof *s);
 	s->references = 0;
@@ -270,6 +272,11 @@ session_new(struct session *s,
 		options_set_number(&w->options, "remain-on-exit", 1);
 
 	session_group_synchronize_from(s);
+
+#ifdef TMATE
+	tmate_sync_layout();
+#endif
+
 	return (wl);
 }
 
@@ -423,6 +430,11 @@ session_set_current(struct session *s, struct winlink *wl)
 	winlink_stack_push(&s->lastw, s->curw);
 	s->curw = wl;
 	winlink_clear_flags(wl);
+
+#ifdef TMATE
+	tmate_sync_layout();
+#endif
+
 	return (0);
 }
 

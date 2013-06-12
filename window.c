@@ -329,8 +329,6 @@ window_create(const char *name, const char *cmd, const char *shell,
 	} else
 		w->name = default_window_name(w);
 
-	tmate_sync_window(w);
-
 	return (w);
 }
 
@@ -377,7 +375,7 @@ window_set_name(struct window *w, const char *new_name)
 	free(w->name);
 	w->name = xstrdup(new_name);
 	notify_window_renamed(w);
-	tmate_sync_window(w);
+	tmate_sync_layout();
 }
 
 void
