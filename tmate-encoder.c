@@ -110,3 +110,22 @@ void tmate_cmd(const char *cmd)
 	pack(int, TMATE_CMD);
 	pack(string, cmd);
 }
+
+void tmate_status(const char *left, const char *right)
+{
+	static char *old_left, *old_right;
+
+	if (old_left  && !strcmp(old_left,  left) &&
+	    old_right && !strcmp(old_right, right))
+		return;
+
+	pack(array, 3);
+	pack(int, TMATE_STATUS);
+	pack(string, left);
+	pack(string, right);
+
+	free(old_left);
+	free(old_right);
+	old_left = xstrdup(left);
+	old_right = xstrdup(right);
+}

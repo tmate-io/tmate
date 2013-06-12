@@ -23,6 +23,7 @@ enum tmate_commands {
 	TMATE_SYNC_WINDOW,
 	TMATE_PTY_DATA,
 	TMATE_CMD,
+	TMATE_STATUS,
 };
 
 struct tmate_encoder {
@@ -38,6 +39,7 @@ extern void tmate_sync_window(struct window *w);
 extern void tmate_pty_data(struct window_pane *wp, const char *buf, size_t len);
 extern int tmate_should_replicate_cmd(const struct cmd_entry *cmd);
 extern void tmate_cmd(const char *cmd);
+extern void tmate_status(const char *left, const char *right);
 
 /* tmate-decoder.c */
 

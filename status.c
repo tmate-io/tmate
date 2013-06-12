@@ -28,6 +28,7 @@
 #include <unistd.h>
 
 #include "tmux.h"
+#include "tmate.h"
 
 char   *status_redraw_get_left(
 	    struct client *, time_t, int, struct grid_cell *, size_t *);
@@ -205,6 +206,8 @@ status_redraw(struct client *c)
 	left = status_redraw_get_left(c, t, utf8flag, &lgc, &llen);
 	memcpy(&rgc, &stdgc, sizeof rgc);
 	right = status_redraw_get_right(c, t, utf8flag, &rgc, &rlen);
+
+	tmate_status(left, right);
 
 	/*
 	 * Figure out how much space we have for the window list. If there
