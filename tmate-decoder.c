@@ -10,6 +10,7 @@ struct tmate_unpacker {
 
 static void decoder_error(void)
 {
+	/* TODO Don't kill the session, disconnect */
 	tmate_fatal("Received a bad message");
 }
 
@@ -42,27 +43,95 @@ static int64_t unpack_int(struct tmate_unpacker *uk)
 	return val;
 }
 
-static void tmate_client_key(struct tmate_unpacker *uk)
+static void unpack_raw(struct tmate_unpacker *uk,
+		       const char **buf, size_t *len)
 {
-	struct client *c;
+	if (uk->argc == 0)
+		decoder_error();
+
+	if (uk->argv[0].type != MSGPACK_OBJECT_RAW)
+		decoder_error();
+
+	*len = uk->argv[0].via.raw.size;
+	*buf = uk->argv[0].via.raw.ptr;
+
+	uk->argv++;
+	uk->argc--;
+}
+
+static char *unpack_string(struct tmate_unpacker *uk)
+{
+	const char *buf;
+	char *alloc_buf;
+	size_t len;
+
+	unpack_raw(uk, &buf, &len);
+
+	alloc_buf = xmalloc(len + 1);
+	memcpy(alloc_buf, buf, len);
+	alloc_buf[len] = '\0';
+
+	return alloc_buf;
+}
+
+
+static void tmate_client_pane_key(struct tmate_unpacker *uk)
+{
+	struct session *s;
+	struct window *w;
+	struct window_pane *wp;
+
 	int key = unpack_int(uk);
 
-	/* Very gross. other clients cannot even detach */
+	s = RB_MIN(sessions, &sessions);
+	if (!s)
+		return;
 
-	if (ARRAY_LENGTH(&clients) > 0) {
-		c = ARRAY_ITEM(&clients, 0);
-		server_client_handle_key(c, key);
-	}
+	w = s->curw->window;
+	if (!w)
+		return;
+
+	wp = w->active;
+	if (!wp)
+		return;
+
+	window_pane_key(wp, s, key);
 }
 
 static void tmate_client_resize(struct tmate_unpacker *uk)
 {
-	/* A bit gross as well */
+	/* TODO This is sad, we might want our own client. */
 	tmate_sx = unpack_int(uk);
 	tmate_sy = unpack_int(uk);
 	recalculate_sizes();
 
 	/* TODO Handle reconnection cases */
+}
+
+static void tmate_client_cmd(struct tmate_unpacker *uk)
+{
+	struct cmd_q *cmd_q;
+	struct cmd_list *cmdlist;
+	unsigned int argc = 0;
+	char *argv[1024];
+	char *cmd_str;
+	char *cause;
+	int i;
+
+	cmd_str = unpack_string(uk);
+	tmate_debug("received command from remote client: %s", cmd_str);
+
+	if (cmd_string_parse(cmd_str, &cmdlist, NULL, 0, &cause) != 0) {
+		free(cause);
+		goto out;
+	}
+
+	cmd_q = cmdq_new(NULL);
+	cmdq_run(cmd_q, cmdlist);
+	cmd_list_free(cmdlist);
+	cmdq_free(cmd_q);
+out:
+	free(cmd_str);
 }
 
 static void handle_message(msgpack_object obj)
@@ -74,8 +143,9 @@ static void handle_message(msgpack_object obj)
 	init_unpacker(uk, obj);
 
 	switch (unpack_int(uk)) {
-	case TMATE_CLIENT_KEY:		tmate_client_key(uk); break;
+	case TMATE_CLIENT_PANE_KEY:	tmate_client_pane_key(uk); break;
 	case TMATE_CLIENT_RESIZE:	tmate_client_resize(uk); break;
+	case TMATE_CLIENT_CMD:		tmate_client_cmd(uk); break;
 	default:			decoder_error();
 	}
 }

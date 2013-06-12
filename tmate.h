@@ -39,8 +39,9 @@ extern void tmate_pty_data(struct window_pane *wp, const char *buf, size_t len);
 /* tmate-decoder.c */
 
 enum tmate_notifications {
-	TMATE_CLIENT_KEY,
+	TMATE_CLIENT_PANE_KEY,
 	TMATE_CLIENT_RESIZE,
+	TMATE_CLIENT_CMD,
 };
 
 struct tmate_decoder {
