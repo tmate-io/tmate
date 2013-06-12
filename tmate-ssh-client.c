@@ -316,9 +316,12 @@ static void reconnect_session(struct tmate_ssh_client *client)
 
 	disconnect_session(client);
 
+	/* Not yet implemented... */
+#if 0
 	tv.tv_sec = 1;
 	tv.tv_usec = 0;
 	evtimer_add(&client->ev_ssh_reconnect, &tv);
+#endif
 }
 
 void tmate_ssh_client_init(struct tmate_ssh_client *client,
