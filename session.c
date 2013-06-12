@@ -273,10 +273,6 @@ session_new(struct session *s,
 
 	session_group_synchronize_from(s);
 
-#ifdef TMATE
-	tmate_sync_layout();
-#endif
-
 	return (wl);
 }
 
@@ -292,6 +288,10 @@ session_attach(struct session *s, struct window *w, int idx, char **cause)
 	}
 	winlink_set_window(wl, w);
 	notify_window_linked(s, w);
+
+#ifdef TMATE
+	tmate_sync_layout();
+#endif
 
 	session_group_synchronize_from(s);
 	return (wl);
@@ -309,6 +309,11 @@ session_detach(struct session *s, struct winlink *wl)
 	notify_window_unlinked(s, wl->window);
 	winlink_stack_remove(&s->lastw, wl);
 	winlink_remove(&s->windows, wl);
+
+#ifdef TMATE
+	tmate_sync_layout();
+#endif
+
 	session_group_synchronize_from(s);
 	if (RB_EMPTY(&s->windows)) {
 		session_destroy(s);

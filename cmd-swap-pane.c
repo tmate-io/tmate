@@ -85,6 +85,13 @@ cmd_swap_pane_exec(struct cmd *self, struct cmd_q *cmdq)
 	}
 	server_unzoom_window(src_w);
 
+#ifdef TMATE
+	if (src_w != dst_w) {
+		cmdq_error(cmdq, "swap pane on different window is not supported with tmate");
+		return (CMD_RETURN_ERROR);
+	}
+#endif
+
 	if (src_wp == dst_wp)
 		return (CMD_RETURN_NORMAL);
 

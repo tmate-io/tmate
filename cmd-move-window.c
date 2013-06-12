@@ -41,6 +41,10 @@ const struct cmd_entry cmd_move_window_entry = {
 enum cmd_retval
 cmd_move_window_exec(struct cmd *self, struct cmd_q *cmdq)
 {
+#ifdef TMATE
+	cmdq_error(cmdq, "move window is not supported with tmate");
+	return (CMD_RETURN_ERROR);
+#else
 	struct args	*args = self->args;
 	struct session	*src, *dst, *s;
 	struct winlink	*wl;
@@ -73,4 +77,5 @@ cmd_move_window_exec(struct cmd *self, struct cmd_q *cmdq)
 	recalculate_sizes();
 
 	return (CMD_RETURN_NORMAL);
+#endif
 }

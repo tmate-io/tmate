@@ -372,6 +372,16 @@ window_remove_ref(struct window *w)
 void
 window_set_name(struct window *w, const char *new_name)
 {
+#ifdef TMATE
+	/*
+	 * We don't want to sync the layout too much.
+	 * We might want to have some sort of timer for when to
+	 * sync the layout.
+	 */
+	if (!strcmp(w->name, new_name))
+		return;
+#endif
+
 	free(w->name);
 	w->name = xstrdup(new_name);
 	notify_window_renamed(w);

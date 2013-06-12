@@ -44,13 +44,13 @@ void tmate_sync_layout(void)
 	int num_panes = 0;
 	int num_windows = 0;
 	int active_pane_id = -1;
-	int active_window_id = -1;
+	int active_window_idx = -1;
 
 	/*
 	 * We only allow one session, it makes our lives easier.
 	 * Especially when the HTML5 client will come along.
-	 * We make no distinction between a winlink and its window.
-	 * TODO send the winlink in the current session stack order.
+	 * We make no distinction between a winlink and its window except
+	 * that we send the winlink idx to draw the status bar properly.
 	 */
 
 	s = RB_MIN(sessions, &sessions);
@@ -78,8 +78,11 @@ void tmate_sync_layout(void)
 		if (!w)
 			continue;
 
+		if (active_window_idx == -1)
+			active_window_idx = wl->idx;
+
 		pack(array, 4);
-		pack(int, w->id);
+		pack(int, wl->idx);
 		pack(string, w->name);
 
 		num_panes = 0;
@@ -99,17 +102,12 @@ void tmate_sync_layout(void)
 				active_pane_id = wp->id;
 		}
 		pack(int, active_pane_id);
-
-		if (wl == s->curw)
-			active_window_id = w->id;
 	}
 
-	if (active_window_id == -1) {
-		wl = RB_MIN(winlinks, &s->windows);
-		active_window_id = wl->window->id;
-	}
+	if (s->curw)
+		active_window_idx = s->curw->idx;
 
-	pack(int, active_window_id);
+	pack(int, active_window_idx);
 }
 
 void tmate_pty_data(struct window_pane *wp, const char *buf, size_t len)
