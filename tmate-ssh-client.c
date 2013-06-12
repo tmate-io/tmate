@@ -71,6 +71,13 @@ static void consume_channel(struct tmate_ssh_client *client)
 
 static void on_session_event(struct tmate_ssh_client *client)
 {
+	ssh_key pubkey;
+	int key_type;
+	unsigned char *hash;
+	ssize_t hash_len;
+	char *hash_str;
+	int match;
+
 	int verbosity = SSH_LOG_RARE;
 	int port = TMATE_PORT;
 
@@ -94,10 +101,10 @@ static void on_session_event(struct tmate_ssh_client *client)
 		}
 
 		ssh_set_blocking(session, 0);
-		ssh_options_set(session, SSH_OPTIONS_HOST, "localhost");
+		ssh_options_set(session, SSH_OPTIONS_HOST, TMATE_HOST);
 		ssh_options_set(session, SSH_OPTIONS_LOG_VERBOSITY, &verbosity);
 		ssh_options_set(session, SSH_OPTIONS_PORT, &port);
-		ssh_options_set(session, SSH_OPTIONS_USER, TMATE_HOST);
+		ssh_options_set(session, SSH_OPTIONS_USER, "tmate");
 		ssh_options_set(session, SSH_OPTIONS_COMPRESSION, "yes");
 
 		tmate_debug("Connecting...");
@@ -116,13 +123,57 @@ static void on_session_event(struct tmate_ssh_client *client)
 		case SSH_OK:
 			register_session_fd_event(client);
 			tmate_debug("Connected");
-			client->state = SSH_AUTH;
+			client->state = SSH_AUTH_SERVER;
 			/* fall through */
 		}
 
-	/* TODO Authenticate server */
+	case SSH_AUTH_SERVER:
+		if ((hash_len = ssh_get_pubkey_hash(session, &hash)) < 0) {
+			tmate_debug("Cannnot authenticate server");
+			disconnect_session(client);
+			return;
+		}
 
-	case SSH_AUTH:
+		hash_str = ssh_get_hexa(hash, hash_len);
+		if (!hash_str)
+			tmate_fatal("malloc failed");
+
+		if (ssh_get_publickey(session, &pubkey) < 0)
+			tmate_fatal("ssh_get_publickey");
+
+#ifdef DEVENV
+		match = 1;
+#else
+		key_type = ssh_key_type(pubkey);
+		switch (key_type) {
+		case SSH_KEYTYPE_DSS:
+			match = !strcmp(hash_str, TMATE_HOST_DSA_KEY);
+			break;
+		case SSH_KEYTYPE_RSA:
+			match = !strcmp(hash_str, TMATE_HOST_RSA_KEY);
+			break;
+		case SSH_KEYTYPE_ECDSA:
+			match = !strcmp(hash_str, TMATE_HOST_ECDSA_KEY);
+			break;
+		default:
+			match = 0;
+		}
+#endif
+
+		ssh_key_free(pubkey);
+		ssh_clean_pubkey_hash(&hash);
+		free(hash_str);
+
+		if (!match) {
+			tmate_debug("Cannnot authenticate server");
+			disconnect_session(client);
+			return;
+		}
+
+		client->state = SSH_AUTH_CLIENT;
+		/* fall through */
+
+	case SSH_AUTH_CLIENT:
 		switch (ssh_userauth_autopubkey(session, NULL)) {
 		case SSH_AUTH_AGAIN:
 			return;

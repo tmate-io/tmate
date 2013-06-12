@@ -69,6 +69,9 @@ extern void tmate_decoder_commit(struct tmate_decoder *decoder, size_t len);
 #else
 #define TMATE_HOST "tmate.io"
 #define TMATE_PORT 22
+#define TMATE_HOST_DSA_KEY   "f5:26:31:c3:8a:78:6e:5c:77:74:0f:41:5b:5f:21:88"
+#define TMATE_HOST_RSA_KEY   "af:2d:81:c1:fe:49:70:2d:7f:09:a9:d7:4b:32:e3:be"
+#define TMATE_HOST_ECDSA_KEY "c7:a1:51:36:d2:bb:35:4b:0a:1a:c0:43:97:74:ea:42"
 #endif
 
 typedef struct ssh_session_struct* ssh_session;
@@ -78,7 +81,8 @@ enum tmate_ssh_client_state_types {
 	SSH_NONE,
 	SSH_INIT,
 	SSH_CONNECT,
-	SSH_AUTH,
+	SSH_AUTH_SERVER,
+	SSH_AUTH_CLIENT,
 	SSH_OPEN_CHANNEL,
 	SSH_BOOTSTRAP,
 	SSH_READY,
