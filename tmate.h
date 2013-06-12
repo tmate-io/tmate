@@ -109,4 +109,7 @@ extern void tmate_ssh_client_init(struct tmate_ssh_client *client,
 extern struct tmate_encoder *tmate_encoder;
 extern void tmate_client_start(void);
 
+/* tmate-debug.c */
+extern void tmate_print_trace (void);
+
 #endif

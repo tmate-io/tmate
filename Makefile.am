@@ -177,6 +177,7 @@ dist_tmate_SOURCES = \
 	session.c \
 	signal.c \
 	status.c \
+	tmate-debug.c \
 	tmate-ssh-client.c \
 	tmate-encoder.c \
 	tmate-decoder.c \
