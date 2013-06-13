@@ -115,23 +115,36 @@ static void tmate_client_resize(struct tmate_unpacker *uk)
 	/* TODO Handle reconnection cases */
 }
 
-static void tmate_client_cmd(struct tmate_unpacker *uk)
+static void tmate_client_exec_cmd(struct tmate_unpacker *uk)
 {
 	struct cmd_q *cmd_q;
 	struct cmd_list *cmdlist;
-	char *cmd_str;
 	char *cause;
 
-	cmd_str = unpack_string(uk);
+	int client_id = unpack_int(uk);
+	char *cmd_str = unpack_string(uk);
+
 	if (cmd_string_parse(cmd_str, &cmdlist, NULL, 0, &cause) != 0) {
+		tmate_failed_cmd(client_id, cause);
 		free(cause);
 		goto out;
 	}
+
+	/* error messages land in cfg_causes */
+	ARRAY_FREE(&cfg_causes);
 
 	cmd_q = cmdq_new(NULL);
 	cmdq_run(cmd_q, cmdlist);
 	cmd_list_free(cmdlist);
 	cmdq_free(cmd_q);
+
+	if (!ARRAY_EMPTY(&cfg_causes)) {
+		cause = ARRAY_ITEM(&cfg_causes, 0);
+		tmate_failed_cmd(client_id, cause);
+		free(cause);
+		ARRAY_FREE(&cfg_causes);
+	}
+
 out:
 	free(cmd_str);
 }
@@ -148,7 +161,7 @@ static void handle_message(msgpack_object obj)
 	case TMATE_REPLY_HEADER:	tmate_reply_header(uk); break;
 	case TMATE_CLIENT_PANE_KEY:	tmate_client_pane_key(uk); break;
 	case TMATE_CLIENT_RESIZE:	tmate_client_resize(uk); break;
-	case TMATE_CLIENT_CMD:		tmate_client_cmd(uk); break;
+	case TMATE_CLIENT_EXEC_CMD:	tmate_client_exec_cmd(uk); break;
 	default:			decoder_error();
 	}
 }

@@ -147,11 +147,19 @@ int tmate_should_replicate_cmd(const struct cmd_entry *cmd)
 	return 0;
 }
 
-void tmate_cmd(const char *cmd)
+void tmate_exec_cmd(const char *cmd)
 {
 	pack(array, 2);
-	pack(int, TMATE_CMD);
+	pack(int, TMATE_EXEC_CMD);
 	pack(string, cmd);
+}
+
+void tmate_failed_cmd(int client_id, const char *cause)
+{
+	pack(array, 3);
+	pack(int, TMATE_FAILED_CMD);
+	pack(int, client_id);
+	pack(string, cause);
 }
 
 void tmate_status(const char *left, const char *right)

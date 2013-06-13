@@ -137,7 +137,14 @@ cmdq_error(struct cmd_q *cmdq, const char *fmt, ...)
 	va_end(ap);
 
 	if (c == NULL) {
+#ifdef TMATE
+		if (cmd->file && cmd->line)
+			xasprintf(&cause, "%s:%u: %s", cmd->file, cmd->line, msg);
+		else
+			xasprintf(&cause, "%s", msg);
+#else
 		xasprintf(&cause, "%s:%u: %s", cmd->file, cmd->line, msg);
+#endif
 		ARRAY_ADD(&cfg_causes, cause);
 	} else if (c->session == NULL || (c->flags & CLIENT_CONTROL)) {
 		evbuffer_add(c->stderr_data, msg, msglen);
@@ -228,7 +235,7 @@ cmdq_continue(struct cmd_q *cmdq)
 
 #ifdef TMATE
 			if (tmate_should_replicate_cmd(cmdq->cmd->entry))
-				tmate_cmd(s);
+				tmate_exec_cmd(s);
 #endif
 
 			guard = cmdq_guard(cmdq, "begin");

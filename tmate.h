@@ -22,7 +22,8 @@ enum tmate_commands {
 	TMATE_HEADER,
 	TMATE_SYNC_LAYOUT,
 	TMATE_PTY_DATA,
-	TMATE_CMD,
+	TMATE_EXEC_CMD,
+	TMATE_FAILED_CMD,
 	TMATE_STATUS,
 };
 
@@ -38,7 +39,8 @@ extern void tmate_write_header(void);
 extern void tmate_sync_layout(void);
 extern void tmate_pty_data(struct window_pane *wp, const char *buf, size_t len);
 extern int tmate_should_replicate_cmd(const struct cmd_entry *cmd);
-extern void tmate_cmd(const char *cmd);
+extern void tmate_exec_cmd(const char *cmd);
+extern void tmate_failed_cmd(int client_id, const char *cause);
 extern void tmate_status(const char *left, const char *right);
 
 /* tmate-decoder.c */
@@ -47,7 +49,7 @@ enum tmate_client_commands {
 	TMATE_REPLY_HEADER,
 	TMATE_CLIENT_PANE_KEY,
 	TMATE_CLIENT_RESIZE,
-	TMATE_CLIENT_CMD,
+	TMATE_CLIENT_EXEC_CMD,
 };
 
 struct tmate_decoder {
