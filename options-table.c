@@ -132,7 +132,7 @@ const struct options_table_entry session_options_table[] = {
 
 	{ .name = "default-terminal",
 	  .type = OPTIONS_TABLE_STRING,
-	  .default_str = "screen"
+	  .default_str = "screen-256color"
 	},
 
 	{ .name = "destroy-unattached",
