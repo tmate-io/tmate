@@ -25,6 +25,7 @@ enum tmate_commands {
 	TMATE_EXEC_CMD,
 	TMATE_FAILED_CMD,
 	TMATE_STATUS,
+	TMATE_SYNC_COPY_MODE,
 };
 
 struct tmate_encoder {
@@ -42,6 +43,7 @@ extern int tmate_should_replicate_cmd(const struct cmd_entry *cmd);
 extern void tmate_exec_cmd(const char *cmd);
 extern void tmate_failed_cmd(int client_id, const char *cause);
 extern void tmate_status(const char *left, const char *right);
+extern void tmate_sync_copy_mode(struct window_pane *wp);
 
 /* tmate-decoder.c */
 

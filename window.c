@@ -1045,6 +1045,8 @@ window_pane_reset_mode(struct window_pane *wp)
 
 	wp->screen = &wp->base;
 	wp->flags |= PANE_REDRAW;
+
+	tmate_sync_copy_mode(wp);
 }
 
 void

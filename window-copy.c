@@ -22,6 +22,7 @@
 #include <string.h>
 
 #include "tmux.h"
+#include "tmate.h"
 
 struct screen *window_copy_init(struct window_pane *);
 void	window_copy_free(struct window_pane *);
@@ -87,68 +88,6 @@ const struct window_mode window_copy_mode = {
 	window_copy_key,
 	window_copy_mouse,
 	NULL,
-};
-
-enum window_copy_input_type {
-	WINDOW_COPY_OFF,
-	WINDOW_COPY_NUMERICPREFIX,
-	WINDOW_COPY_SEARCHUP,
-	WINDOW_COPY_SEARCHDOWN,
-	WINDOW_COPY_JUMPFORWARD,
-	WINDOW_COPY_JUMPBACK,
-	WINDOW_COPY_JUMPTOFORWARD,
-	WINDOW_COPY_JUMPTOBACK,
-	WINDOW_COPY_GOTOLINE,
-};
-
-/*
- * Copy-mode's visible screen (the "screen" field) is filled from one of
- * two sources: the original contents of the pane (used when we
- * actually enter via the "copy-mode" command, to copy the contents of
- * the current pane), or else a series of lines containing the output
- * from an output-writing tmux command (such as any of the "show-*" or
- * "list-*" commands).
- *
- * In either case, the full content of the copy-mode grid is pointed at
- * by the "backing" field, and is copied into "screen" as needed (that
- * is, when scrolling occurs). When copy-mode is backed by a pane,
- * backing points directly at that pane's screen structure (&wp->base);
- * when backed by a list of output-lines from a command, it points at
- * a newly-allocated screen structure (which is deallocated when the
- * mode ends).
- */
-struct window_copy_mode_data {
-	struct screen	screen;
-
-	struct screen  *backing;
-	int		backing_written; /* backing display has started */
-
-	struct mode_key_data mdata;
-
-	u_int		oy;
-
-	u_int		selx;
-	u_int		sely;
-
-	u_int		rectflag; /* are we in rectangle copy mode? */
-
-	u_int		cx;
-	u_int		cy;
-
-	u_int		lastcx; /* position in last line with content */
-	u_int		lastsx; /* size of last line with content */
-
-	enum window_copy_input_type inputtype;
-	const char     *inputprompt;
-	char	       *inputstr;
-
-	int		numprefix;
-
-	enum window_copy_input_type searchtype;
-	char	       *searchstr;
-
-	enum window_copy_input_type jumptype;
-	char		jumpchar;
 };
 
 struct screen *
@@ -223,6 +162,8 @@ window_copy_init_from_pane(struct window_pane *wp)
 		window_copy_write_line(wp, &ctx, i);
 	screen_write_cursormove(&ctx, data->cx, data->cy);
 	screen_write_stop(&ctx);
+
+	tmate_sync_copy_mode(wp);
 }
 
 void
@@ -359,8 +300,8 @@ window_copy_resize(struct window_pane *wp, u_int sx, u_int sy)
 	window_copy_redraw_screen(wp);
 }
 
-void
-window_copy_key(struct window_pane *wp, struct session *sess, int key)
+static void
+__window_copy_key(struct window_pane *wp, struct session *sess, int key)
 {
 	const char			*word_separators;
 	struct window_copy_mode_data	*data = wp->modedata;
@@ -739,6 +680,13 @@ input_off:
 	window_copy_redraw_lines(wp, screen_size_y(s) - 1, 1);
 }
 
+void
+window_copy_key(struct window_pane *wp, struct session *sess, int key)
+{
+	__window_copy_key(wp, sess, key);
+	tmate_sync_copy_mode(wp);
+}
+
 int
 window_copy_key_input(struct window_pane *wp, int key)
 {
@@ -826,8 +774,8 @@ window_copy_key_numeric_prefix(struct window_pane *wp, int key)
 	return (0);
 }
 
-void
-window_copy_mouse(
+static void
+__window_copy_mouse(
     struct window_pane *wp, struct session *sess, struct mouse_event *m)
 {
 	struct window_copy_mode_data	*data = wp->modedata;
@@ -886,6 +834,14 @@ reset_mode:
 		window_copy_copy_selection(wp, -1);
 		window_pane_reset_mode(wp);
 	}
+}
+
+void
+window_copy_mouse(
+    struct window_pane *wp, struct session *sess, struct mouse_event *m)
+{
+	__window_copy_mouse(wp, sess, m);
+	tmate_sync_copy_mode(wp);
 }
 
 void

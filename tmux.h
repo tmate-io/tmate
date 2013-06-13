@@ -2235,6 +2235,70 @@ void		 layout_set_active_changed(struct window *);
 extern const struct window_mode window_clock_mode;
 
 /* window-copy.c */
+enum window_copy_input_type {
+	WINDOW_COPY_OFF,
+	WINDOW_COPY_NUMERICPREFIX,
+	WINDOW_COPY_SEARCHUP,
+	WINDOW_COPY_SEARCHDOWN,
+	WINDOW_COPY_JUMPFORWARD,
+	WINDOW_COPY_JUMPBACK,
+	WINDOW_COPY_JUMPTOFORWARD,
+	WINDOW_COPY_JUMPTOBACK,
+	WINDOW_COPY_GOTOLINE,
+};
+
+/*
+ * Copy-mode's visible screen (the "screen" field) is filled from one of
+ * two sources: the original contents of the pane (used when we
+ * actually enter via the "copy-mode" command, to copy the contents of
+ * the current pane), or else a series of lines containing the output
+ * from an output-writing tmux command (such as any of the "show-*" or
+ * "list-*" commands).
+ *
+ * In either case, the full content of the copy-mode grid is pointed at
+ * by the "backing" field, and is copied into "screen" as needed (that
+ * is, when scrolling occurs). When copy-mode is backed by a pane,
+ * backing points directly at that pane's screen structure (&wp->base);
+ * when backed by a list of output-lines from a command, it points at
+ * a newly-allocated screen structure (which is deallocated when the
+ * mode ends).
+ */
+struct window_copy_mode_data {
+	struct screen	screen;
+
+	struct screen  *backing;
+	int		backing_written; /* backing display has started */
+
+	struct mode_key_data mdata;
+
+	u_int		oy;
+
+	u_int		selx;
+	u_int		sely;
+
+	u_int		rectflag; /* are we in rectangle copy mode? */
+
+	u_int		cx;
+	u_int		cy;
+
+	u_int		lastcx; /* position in last line with content */
+	u_int		lastsx; /* size of last line with content */
+
+	enum window_copy_input_type inputtype;
+	const char     *inputprompt;
+	char	       *inputstr;
+
+	int		numprefix;
+
+	enum window_copy_input_type searchtype;
+	char	       *searchstr;
+
+	enum window_copy_input_type jumptype;
+	char		jumpchar;
+};
+
+
+
 extern const struct window_mode window_copy_mode;
 void		 window_copy_init_from_pane(struct window_pane *);
 void		 window_copy_init_for_output(struct window_pane *);

@@ -153,7 +153,6 @@ static void handle_message(msgpack_object obj)
 {
 	struct tmate_unpacker _uk;
 	struct tmate_unpacker *uk = &_uk;
-	int cmd;
 
 	init_unpacker(uk, obj);
 

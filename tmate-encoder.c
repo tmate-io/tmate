@@ -180,3 +180,39 @@ void tmate_status(const char *left, const char *right)
 	old_left = xstrdup(left);
 	old_right = xstrdup(right);
 }
+
+void tmate_sync_copy_mode(struct window_pane *wp)
+{
+	struct window_copy_mode_data *data = wp->modedata;
+
+	pack(array, 3);
+	pack(int, TMATE_SYNC_COPY_MODE);
+
+	pack(int, wp->id);
+
+	if (wp->mode != &window_copy_mode) {
+		pack(array, 0);
+		return;
+	}
+	pack(array, 5);
+
+	pack(int, data->oy);
+	pack(int, data->cx);
+	pack(int, data->cy);
+
+	if (data->screen.sel.flag) {
+		pack(array, 3);
+		pack(int, data->selx);
+		pack(int, data->sely);
+		pack(int, data->rectflag);
+	} else
+		pack(array, 0);
+
+	if (data->inputprompt) {
+		pack(array, 3);
+		pack(int, data->inputtype);
+		pack(string, data->inputprompt);
+		pack(string, data->inputstr);
+	} else
+		pack(array, 0);
+}
