@@ -74,12 +74,11 @@ static char *unpack_string(struct tmate_unpacker *uk)
 	return alloc_buf;
 }
 
-static void tmate_reply_header(struct tmate_unpacker *uk)
+static void tmate_notify(struct tmate_unpacker *uk)
 {
-	unsigned long flags = unpack_int(uk);
-	char *remote_session = unpack_string(uk);
-
-	tmate_status_message("Remote session: %s", remote_session);
+	char *msg = unpack_string(uk);
+	tmate_status_message("%s", msg);
+	free(msg);
 }
 
 static void tmate_client_pane_key(struct tmate_unpacker *uk)
@@ -157,7 +156,7 @@ static void handle_message(msgpack_object obj)
 	init_unpacker(uk, obj);
 
 	switch (unpack_int(uk)) {
-	case TMATE_REPLY_HEADER:	tmate_reply_header(uk); break;
+	case TMATE_NOTIFY:		tmate_notify(uk); break;
 	case TMATE_CLIENT_PANE_KEY:	tmate_client_pane_key(uk); break;
 	case TMATE_CLIENT_RESIZE:	tmate_client_resize(uk); break;
 	case TMATE_CLIENT_EXEC_CMD:	tmate_client_exec_cmd(uk); break;

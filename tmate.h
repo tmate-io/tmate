@@ -48,7 +48,7 @@ extern void tmate_sync_copy_mode(struct window_pane *wp);
 /* tmate-decoder.c */
 
 enum tmate_client_commands {
-	TMATE_REPLY_HEADER,
+	TMATE_NOTIFY,
 	TMATE_CLIENT_PANE_KEY,
 	TMATE_CLIENT_RESIZE,
 	TMATE_CLIENT_EXEC_CMD,

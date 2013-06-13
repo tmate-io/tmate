@@ -16,7 +16,7 @@ static void tmate_status_message_client(struct client *c, const char *message)
 	status_prompt_clear(c);
 	status_message_clear(c);
 
-	xasprintf(&c->message_string, "tmate: %s", message);
+	xasprintf(&c->message_string, "[tmate] %s", message);
 
 	ARRAY_EXPAND(&c->message_log, 1);
 	msg = &ARRAY_LAST(&c->message_log);
