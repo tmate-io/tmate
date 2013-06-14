@@ -165,6 +165,7 @@ makesocketpath(const char *label)
 	char		base[MAXPATHLEN], realbase[MAXPATHLEN], *path, *s;
 	struct stat	sb;
 	u_int		uid;
+	int do_random_label = 1;
 
 	uid = getuid();
 	if ((s = getenv("TMPDIR")) == NULL || *s == '\0')
@@ -189,7 +190,16 @@ makesocketpath(const char *label)
 	if (realpath(base, realbase) == NULL)
 		strlcpy(realbase, base, sizeof realbase);
 
+	if (!label) {
+		do_random_label = 1;
+		label = "XXXXXX";
+	}
+
 	xasprintf(&path, "%s/%s", realbase, label);
+
+	if (do_random_label)
+		mktemp(path);
+
 	return (path);
 }
 
@@ -381,16 +391,12 @@ main(int argc, char **argv)
 		if (label == NULL) {
 			if (environ_path != NULL)
 				path = xstrdup(environ_path);
-			else
-				label = xstrdup("default");
 		}
 
 		/* -L or default set. */
-		if (label != NULL) {
-			if ((path = makesocketpath(label)) == NULL) {
-				fprintf(stderr, "can't create socket\n");
-				exit(1);
-			}
+		if ((path = makesocketpath(label)) == NULL) {
+			fprintf(stderr, "can't create socket\n");
+			exit(1);
 		}
 	}
 	free(label);
