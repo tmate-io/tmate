@@ -79,7 +79,7 @@ static void on_session_event(struct tmate_ssh_client *client)
 	char *hash_str;
 	int match;
 
-	int verbosity = SSH_LOG_RARE;
+	int verbosity = SSH_LOG_NOLOG + debug_level;
 	int port = TMATE_PORT;
 
 	ssh_session session = client->session;
