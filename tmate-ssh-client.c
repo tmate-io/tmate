@@ -179,7 +179,7 @@ static void on_session_event(struct tmate_ssh_client *client)
 		case SSH_AUTH_PARTIAL:
 		case SSH_AUTH_INFO:
 		case SSH_AUTH_DENIED:
-			disconnect_session(client, "Access denied. Try again later.");
+			disconnect_session(client, "Access denied. Check your SSH keys.");
 			return;
 		case SSH_AUTH_ERROR:
 			reconnect_session(client, "Auth error: %s",
