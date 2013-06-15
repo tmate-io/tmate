@@ -1109,7 +1109,7 @@ int ssh_userauth_publickey_auto(ssh_session session,
 #ifndef _WIN32
     /* Try authentication with ssh-agent first */
         rc = ssh_userauth_agent(session, username);
-        if (rc == SSH_AUTH_ERROR || rc == SSH_AUTH_SUCCESS) {
+        if (rc == SSH_AUTH_SUCCESS) {
             return rc;
         }
         if (rc == SSH_AUTH_AGAIN)
