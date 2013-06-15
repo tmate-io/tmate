@@ -394,9 +394,11 @@ main(int argc, char **argv)
 		}
 
 		/* -L or default set. */
-		if ((path = makesocketpath(label)) == NULL) {
-			fprintf(stderr, "can't create socket\n");
-			exit(1);
+		if (!path) {
+			if ((path = makesocketpath(label)) == NULL) {
+				fprintf(stderr, "can't create socket\n");
+				exit(1);
+			}
 		}
 	}
 	free(label);
