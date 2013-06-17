@@ -3,6 +3,7 @@
 
 #include <sys/types.h>
 #include <msgpack.h>
+#include <libssh/libssh.h>
 #include <event.h>
 
 #include "tmux.h"
@@ -78,9 +79,6 @@ extern void tmate_decoder_commit(struct tmate_decoder *decoder, size_t len);
 #define TMATE_HOST_RSA_KEY   "af:2d:81:c1:fe:49:70:2d:7f:09:a9:d7:4b:32:e3:be"
 #define TMATE_HOST_ECDSA_KEY "c7:a1:51:36:d2:bb:35:4b:0a:1a:c0:43:97:74:ea:42"
 #endif
-
-typedef struct ssh_session_struct* ssh_session;
-typedef struct ssh_channel_struct* ssh_channel;
 
 enum tmate_ssh_client_state_types {
 	SSH_NONE,
