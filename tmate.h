@@ -17,7 +17,7 @@
 
 #define TMATE_MAX_MESSAGE_SIZE (16*1024)
 
-#define TMATE_PROTOCOL_VERSION 1
+#define TMATE_PROTOCOL_VERSION 2
 
 enum tmate_commands {
 	TMATE_HEADER,

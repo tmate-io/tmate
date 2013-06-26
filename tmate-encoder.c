@@ -203,7 +203,8 @@ void tmate_sync_copy_mode(struct window_pane *wp)
 	if (data->screen.sel.flag) {
 		pack(array, 3);
 		pack(int, data->selx);
-		pack(int, data->sely);
+		pack(int, -data->sely + screen_hsize(data->backing)
+				      + screen_size_y(data->backing) - 1);
 		pack(int, data->rectflag);
 	} else
 		pack(array, 0);
