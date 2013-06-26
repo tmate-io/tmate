@@ -82,6 +82,7 @@ cmdq_print(struct cmd_q *cmdq, const char *fmt, ...)
 			window_pane_reset_mode(w->active);
 			window_pane_set_mode(w->active, &window_copy_mode);
 			window_copy_init_for_output(w->active);
+			tmate_sync_copy_mode(w->active);
 		}
 		window_copy_vadd(w->active, fmt, ap);
 	}

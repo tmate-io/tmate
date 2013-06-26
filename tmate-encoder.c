@@ -194,7 +194,8 @@ void tmate_sync_copy_mode(struct window_pane *wp)
 		pack(array, 0);
 		return;
 	}
-	pack(array, 5);
+	pack(array, 6);
+	pack(int, data->backing == &wp->base);
 
 	pack(int, data->oy);
 	pack(int, data->cx);
@@ -216,4 +217,12 @@ void tmate_sync_copy_mode(struct window_pane *wp)
 		pack(string, data->inputstr);
 	} else
 		pack(array, 0);
+}
+
+void tmate_write_copy_mode(struct window_pane *wp, const char *str)
+{
+	pack(array, 3);
+	pack(int, TMATE_WRITE_COPY_MODE);
+	pack(int, wp->id);
+	pack(string, str);
 }

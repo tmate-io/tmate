@@ -49,6 +49,16 @@ cmd_list_keys_exec(struct cmd *self, struct cmd_q *cmdq)
 	size_t			 used;
 	int			 width, keywidth;
 
+#ifdef TMATE
+	/* XXX TODO Really nasty hack, we really need our own client instance... */
+	struct client fake_client;
+	if (!cmdq->client) {
+		cmdq->client = &fake_client;
+		cmdq->client->flags = 0;
+		cmdq->client->session = RB_MIN(sessions, &sessions);
+	}
+#endif
+
 	if (args_has(args, 't'))
 		return (cmd_list_keys_table(self, cmdq));
 

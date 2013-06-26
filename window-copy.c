@@ -216,6 +216,9 @@ window_copy_vadd(struct window_pane *wp, const char *fmt, va_list ap)
 	struct grid_cell		 gc;
 	int				 utf8flag;
 	u_int				 old_hsize;
+#ifdef TMATE
+	char				*msg;
+#endif
 
 	if (backing == &wp->base)
 		return;
@@ -234,7 +237,14 @@ window_copy_vadd(struct window_pane *wp, const char *fmt, va_list ap)
 		screen_write_linefeed(&back_ctx, 0);
 	} else
 		data->backing_written = 1;
+#ifdef TMATE
+	xvasprintf(&msg, fmt, ap);
+	screen_write_nputs(&back_ctx, 0, &gc, utf8flag, "%s", msg);
+	tmate_write_copy_mode(wp, msg);
+	free(msg);
+#else
 	screen_write_vnputs(&back_ctx, 0, &gc, utf8flag, fmt, ap);
+#endif
 	screen_write_stop(&back_ctx);
 
 	data->oy += screen_hsize(data->backing) - old_hsize;
