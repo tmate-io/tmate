@@ -411,8 +411,10 @@ int pki_key_generate_ecdsa(ssh_key key, int parameter) {
     switch (parameter) {
         case 384:
             nid = NID_secp384r1;
+            break;
         case 512:
             nid = NID_secp521r1;
+            break;
         case 256:
         default:
             nid = NID_X9_62_prime256v1;
@@ -850,6 +852,7 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
             e = make_ecpoint_string(EC_KEY_get0_group(key->ecdsa),
                                     EC_KEY_get0_public_key(key->ecdsa));
             if (e == NULL) {
+                ssh_buffer_free(buffer);
                 return NULL;
             }
 

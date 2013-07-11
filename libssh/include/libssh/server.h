@@ -379,6 +379,8 @@ LIBSSH_API int ssh_channel_write_stderr(ssh_channel channel,
                                                 const void *data,
                                                 uint32_t len);
 
+LIBSSH_API int ssh_send_keepalive(ssh_session session);
+
 /* deprecated functions */
 SSH_DEPRECATED LIBSSH_API int ssh_accept(ssh_session session);
 SSH_DEPRECATED LIBSSH_API int channel_write_stderr(ssh_channel channel,

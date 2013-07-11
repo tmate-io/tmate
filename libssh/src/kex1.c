@@ -47,6 +47,9 @@ static ssh_string make_rsa1_string(ssh_string e, ssh_string n){
 
   buffer = ssh_buffer_new();
   rsa = ssh_string_from_char("ssh-rsa1");
+  if (rsa == NULL) {
+      goto error;
+  }
 
   if (buffer_add_ssh_string(buffer, rsa) < 0) {
     goto error;
@@ -375,7 +378,7 @@ SSH_PACKET_CALLBACK(ssh_packet_publickey1){
     goto error;
   }
   hostkey = make_rsa1_string(host_exp,host_mod);
-  if (serverkey == NULL) {
+  if (hostkey == NULL) {
     goto error;
   }
   if (build_session_id1(session, server_mod, host_mod) < 0) {

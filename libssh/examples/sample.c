@@ -60,9 +60,12 @@ struct ssh_callbacks_struct cb = {
 
 static void add_cmd(char *cmd){
     int n;
-    for(n=0;cmds[n] && (n<MAXCMD);n++);
-    if(n==MAXCMD)
+
+    for (n = 0; (n < MAXCMD) && cmds[n] != NULL; n++);
+
+    if (n == MAXCMD) {
         return;
+    }
     cmds[n]=strdup(cmd);
 }
 

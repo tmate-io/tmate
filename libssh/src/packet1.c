@@ -144,6 +144,7 @@ int ssh_packet_socket_callback1(const void *data, size_t receivedlen, void *user
 
       session->in_packet.len = len;
       session->packet_state = PACKET_STATE_SIZEREAD;
+      /* FALL THROUGH */
     case PACKET_STATE_SIZEREAD:
       len = session->in_packet.len;
       /* SSH-1 has a fixed padding lenght */
@@ -158,7 +159,6 @@ int ssh_packet_socket_callback1(const void *data, size_t receivedlen, void *user
       packet = (char *)data + processed;
 
       if (buffer_add_data(session->in_buffer,packet,to_be_read) < 0) {
-        SAFE_FREE(packet);
         goto error;
       }
       processed += to_be_read;

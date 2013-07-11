@@ -271,6 +271,7 @@ int ssh_agent_get_ident_count(struct ssh_session_struct *session) {
   unsigned int type = 0;
   unsigned int c1 = 0, c2 = 0;
   uint8_t buf[4] = {0};
+  int rc;
 
   switch (session->version) {
     case 1:
@@ -287,9 +288,14 @@ int ssh_agent_get_ident_count(struct ssh_session_struct *session) {
 
   /* send message to the agent requesting the list of identities */
   request = ssh_buffer_new();
+  if (request == NULL) {
+      ssh_set_error_oom(request);
+      return -1;
+  }
   if (buffer_add_u8(request, c1) < 0) {
-    ssh_set_error(session, SSH_FATAL, "Not enough space");
-    return -1;
+      ssh_set_error_oom(request);
+      ssh_buffer_free(request);
+      return -1;
   }
 
   reply = ssh_buffer_new();
@@ -307,16 +313,26 @@ int ssh_agent_get_ident_count(struct ssh_session_struct *session) {
   ssh_buffer_free(request);
 
   /* get message type and verify the answer */
-  buffer_get_u8(reply, (uint8_t *) &type);
+  rc = buffer_get_u8(reply, (uint8_t *) &type);
+  if (rc != sizeof(uint8_t)) {
+    ssh_set_error(session, SSH_FATAL,
+        "Bad authentication reply size: %d", rc);
+    ssh_buffer_free(reply);
+    return -1;
+  }
+
   SSH_LOG(session, SSH_LOG_WARN,
       "Answer type: %d, expected answer: %d",
       type, c2);
+
   if (agent_failed(type)) {
-    return 0;
+      ssh_buffer_free(reply);
+      return 0;
   } else if (type != c2) {
-    ssh_set_error(session, SSH_FATAL,
-        "Bad authentication reply message type: %d", type);
-    return -1;
+      ssh_set_error(session, SSH_FATAL,
+          "Bad authentication reply message type: %d", type);
+      ssh_buffer_free(reply);
+      return -1;
   }
 
   buffer_get_u32(reply, (uint32_t *) buf);

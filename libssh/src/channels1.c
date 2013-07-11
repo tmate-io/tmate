@@ -288,6 +288,8 @@ SSH_PACKET_CALLBACK(ssh_packet_data1){
 SSH_PACKET_CALLBACK(ssh_packet_close1){
   ssh_channel channel = ssh_get_channel1(session);
   uint32_t status;
+  int rc;
+
   (void)type;
   (void)user;
 
@@ -305,7 +307,10 @@ SSH_PACKET_CALLBACK(ssh_packet_close1){
   channel->state = SSH_CHANNEL_STATE_CLOSED;
   channel->remote_eof = 1;
 
-  buffer_add_u8(session->out_buffer, SSH_CMSG_EXIT_CONFIRMATION);
+  rc = buffer_add_u8(session->out_buffer, SSH_CMSG_EXIT_CONFIRMATION);
+  if (rc < 0) {
+    return SSH_PACKET_NOT_USED;
+  }
   packet_send(session);
 
   return SSH_PACKET_USED;

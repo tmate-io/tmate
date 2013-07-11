@@ -1107,12 +1107,9 @@ int ssh_userauth_publickey_auto(ssh_session session,
     state = session->auth_auto_state;
     if (state->state == SSH_AUTH_AUTO_STATE_NONE) {
 #ifndef _WIN32
-    /* Try authentication with ssh-agent first */
+        /* Try authentication with ssh-agent first */
         rc = ssh_userauth_agent(session, username);
-        if (rc == SSH_AUTH_SUCCESS) {
-            return rc;
-        }
-        if (rc == SSH_AUTH_AGAIN)
+        if (rc == SSH_AUTH_SUCCESS)
             return rc;
 #endif
         state->state = SSH_AUTH_AUTO_STATE_PUBKEY;

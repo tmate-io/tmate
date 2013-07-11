@@ -83,7 +83,8 @@ static void torture_channel_read_error(void **state) {
     assert_true(rc == SSH_OK);
 
     /* send crap and for server to send us a disconnect */
-    write(ssh_get_fd(session),"AAAA", 4);
+    rc = write(ssh_get_fd(session),"AAAA", 4);
+    assert_int_equal(rc, 4);
 
     for (i=0;i<20;++i){
         rc = ssh_channel_read(channel,buffer,sizeof(buffer),0);

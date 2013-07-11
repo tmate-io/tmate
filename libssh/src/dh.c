@@ -765,8 +765,14 @@ int make_sessionid(ssh_session session) {
         ssh_log(session,SSH_LOG_WARNING,"ECDH parameted missing");
         goto error;
     }
-    buffer_add_ssh_string(buf,session->next_crypto->ecdh_client_pubkey);
-    buffer_add_ssh_string(buf,session->next_crypto->ecdh_server_pubkey);
+    rc = buffer_add_ssh_string(buf,session->next_crypto->ecdh_client_pubkey);
+    if (rc < 0) {
+        goto error;
+    }
+    rc = buffer_add_ssh_string(buf,session->next_crypto->ecdh_server_pubkey);
+    if (rc < 0) {
+        goto error;
+    }
 #endif
   }
   num = make_bignum_string(session->next_crypto->k);

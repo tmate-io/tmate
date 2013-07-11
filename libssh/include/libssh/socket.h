@@ -55,8 +55,8 @@ int ssh_socket_get_status(ssh_socket s);
 int ssh_socket_buffered_write_bytes(ssh_socket s);
 int ssh_socket_data_available(ssh_socket s);
 int ssh_socket_data_writable(ssh_socket s);
-void ssh_socket_set_nonblocking(socket_t fd);
-void ssh_socket_set_blocking(socket_t fd);
+int ssh_socket_set_nonblocking(socket_t fd);
+int ssh_socket_set_blocking(socket_t fd);
 
 void ssh_socket_set_callbacks(ssh_socket s, ssh_socket_callbacks callbacks);
 int ssh_socket_pollcallback(struct ssh_poll_handle_struct *p, socket_t fd, int revents, void *v_s);

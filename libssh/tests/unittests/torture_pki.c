@@ -85,12 +85,14 @@ static char *read_file(const char *filename) {
     char *key;
     int fd;
     int size;
+    int rc;
     struct stat buf;
 
     assert_true(filename != NULL);
     assert_true(*filename != '\0');
 
-    stat(filename, &buf);
+    rc = stat(filename, &buf);
+    assert_int_equal(rc, 0);
 
     key = malloc(buf.st_size + 1);
     assert_true(key != NULL);

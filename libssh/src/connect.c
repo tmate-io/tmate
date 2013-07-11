@@ -139,6 +139,7 @@ static int ssh_connect_ai_timeout(ssh_session session, const char *host,
   int timeout_ms;
   ssh_pollfd_t fds;
   int rc = 0;
+  int ret;
   socklen_t len = sizeof(rc);
 
   enter_function();
@@ -148,7 +149,13 @@ static int ssh_connect_ai_timeout(ssh_session session, const char *host,
    */
   timeout_ms=timeout * 1000 + usec / 1000;
 
-  ssh_socket_set_nonblocking(s);
+  rc = ssh_socket_set_nonblocking(s);
+  if (rc < 0) {
+      ssh_set_error(session, SSH_FATAL,
+          "Failed to set socket non-blocking for %s:%d", host, port);
+      ssh_connect_socket_close(s);
+      return -1;
+  }
 
   ssh_log(session, SSH_LOG_RARE, "Trying to connect to host: %s:%d with "
       "timeout %d ms", host, port, timeout_ms);
@@ -181,11 +188,11 @@ static int ssh_connect_ai_timeout(ssh_session session, const char *host,
     leave_function();
     return -1;
   }
-  rc = 0;
+  rc = -1;
 
   /* Get connect(2) return code. Zero means no error */
-  getsockopt(s, SOL_SOCKET, SO_ERROR,(char *) &rc, &len);
-  if (rc != 0) {
+  ret = getsockopt(s, SOL_SOCKET, SO_ERROR,(char *) &rc, &len);
+  if (ret < 0 || rc != 0) {
     ssh_set_error(session, SSH_FATAL,
         "Connect to %s:%d failed: %s", host, port, strerror(rc));
     ssh_connect_socket_close(s);
@@ -195,7 +202,14 @@ static int ssh_connect_ai_timeout(ssh_session session, const char *host,
 
   /* s is connected ? */
   ssh_log(session, SSH_LOG_PACKET, "Socket connected with timeout\n");
-  ssh_socket_set_blocking(s);
+  ret = ssh_socket_set_blocking(s);
+  if (ret < 0) {
+      ssh_set_error(session, SSH_FATAL,
+          "Failed to set socket as blocking connecting to %s:%d failed: %s",
+          host, port, strerror(errno));
+      ssh_connect_socket_close(s);
+      return -1;
+  }
 
   leave_function();
   return s;
@@ -344,7 +358,7 @@ socket_t ssh_connect_host_nonblocking(ssh_session session, const char *host,
             "Failed to resolve bind address %s (%s)",
             bind_addr,
             gai_strerror(rc));
-        close(s);
+        ssh_connect_socket_close(s);
         s=-1;
         break;
       }
@@ -367,7 +381,15 @@ socket_t ssh_connect_host_nonblocking(ssh_session session, const char *host,
         continue;
       }
     }
-    ssh_socket_set_nonblocking(s);
+
+    rc = ssh_socket_set_nonblocking(s);
+    if (rc < 0) {
+        ssh_set_error(session, SSH_FATAL,
+            "Failed to set socket non-blocking for %s:%d", host, port);
+        ssh_connect_socket_close(s);
+        s = -1;
+        continue;
+    }
 
     connect(s, itr->ai_addr, itr->ai_addrlen);
     break;

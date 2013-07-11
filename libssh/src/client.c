@@ -405,6 +405,7 @@ static void ssh_client_connection_callback(ssh_session session){
 			if (dh_handshake(session) == SSH_ERROR) {
 				goto error;
 			}
+            /* FALL THROUGH */
 		case SSH_SESSION_STATE_DH:
 			if(session->dh_handshake_state==DH_STATE_FINISHED){
 				set_status(session,1.0f);
@@ -617,7 +618,7 @@ void ssh_disconnect(ssh_session session) {
 
   enter_function();
 
-  if (ssh_socket_is_open(session->socket)) {
+  if (session->socket != NULL && ssh_socket_is_open(session->socket)) {
     if (buffer_add_u8(session->out_buffer, SSH2_MSG_DISCONNECT) < 0) {
       goto error;
     }
@@ -642,7 +643,7 @@ void ssh_disconnect(ssh_session session) {
   }
 error:
   session->alive = 0;
-  if(session->socket){
+  if (session->socket != NULL){
     ssh_socket_reset(session->socket);
   }
   session->opts.fd = SSH_INVALID_SOCKET;

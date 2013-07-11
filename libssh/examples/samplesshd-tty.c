@@ -307,10 +307,13 @@ static int main_loop(ssh_channel chan) {
     }
     if(ssh_event_add_fd(event, fd, events, copy_fd_to_chan, chan) != SSH_OK) {
         printf("Couldn't add an fd to the event\n");
+        ssh_event_free(event);
         return -1;
     }
     if(ssh_event_add_session(event, session) != SSH_OK) {
         printf("Couldn't add the session to the event\n");
+        ssh_event_remove_fd(event, fd);
+        ssh_event_free(event);
         return -1;
     }
 

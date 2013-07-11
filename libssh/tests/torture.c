@@ -110,6 +110,7 @@ int torture_rmdirs(const char *path) {
                 len = strlen(path) + strlen(dp->d_name) + 2;
                 fname = malloc(len);
                 if (fname == NULL) {
+                    closedir(d);
                     return -1;
                 }
                 snprintf(fname, len, "%s/%s", path, dp->d_name);

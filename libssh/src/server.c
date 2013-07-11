@@ -927,7 +927,7 @@ int ssh_message_auth_interactive_request(ssh_message msg, const char *name,
     r = buffer_add_ssh_string(msg->session->out_buffer, tmp);
     ssh_string_free(tmp);
     if (r < 0) {
-        goto error;
+        return SSH_ERROR;
     }
 
     /* echo[i] */
@@ -1003,9 +1003,6 @@ int ssh_message_auth_interactive_request(ssh_message msg, const char *name,
   }
 
   return r;
-error:
-  if(tmp) ssh_string_free(tmp);
-  return SSH_ERROR;
 }
 
 int ssh_message_auth_reply_success(ssh_message msg, int partial) {
@@ -1198,6 +1195,41 @@ int ssh_execute_message_callbacks(ssh_session session){
     }
   }
   return SSH_OK;
+}
+
+int ssh_send_keepalive(ssh_session session)
+{
+	/* TODO check the reply and all that */
+	struct ssh_string_struct *req;
+	int reply = 1;
+	int rc = SSH_ERROR;
+
+	enter_function();
+	req = ssh_string_from_char("keepalive@openssh.com");
+	if (req == NULL) {
+		ssh_set_error_oom(session);
+		goto out;
+	}
+
+	if (buffer_add_u8(session->out_buffer, SSH2_MSG_GLOBAL_REQUEST) < 0 ||
+	    buffer_add_ssh_string(session->out_buffer, req) < 0 ||
+	    buffer_add_u8(session->out_buffer, reply == 0 ? 0 : 1) < 0) {
+		ssh_set_error_oom(session);
+		goto out;
+	}
+
+	if (packet_send(session) == SSH_ERROR)
+		goto out;
+
+	ssh_handle_packets(session, 0);
+
+	ssh_log(session, SSH_LOG_PACKET, "Sent a keepalive");
+	rc = SSH_OK;
+
+out:
+	ssh_string_free(req);
+	leave_function();
+	return rc;
 }
 
 /** @} */

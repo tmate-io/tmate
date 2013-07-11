@@ -230,7 +230,10 @@ int ssh_socket_pollcallback(struct ssh_poll_handle_struct *p, socket_t fd, int r
 		/* Check if we are in a connecting state */
 		if(s->state==SSH_SOCKET_CONNECTING){
 			s->state=SSH_SOCKET_ERROR;
-			getsockopt(fd,SOL_SOCKET,SO_ERROR,(char *)&err,&errlen);
+			r = getsockopt(fd, SOL_SOCKET, SO_ERROR, (char *)&err, &errlen);
+            if (r < 0) {
+                err = errno;
+            }
 			s->last_errno=err;
 			ssh_socket_close(s);
 			if(s->callbacks && s->callbacks->connected)
@@ -305,7 +308,10 @@ int ssh_socket_pollcallback(struct ssh_poll_handle_struct *p, socket_t fd, int r
 			ssh_log(s->session,SSH_LOG_PACKET,"Received POLLOUT in connecting state");
 			s->state = SSH_SOCKET_CONNECTED;
 			ssh_poll_set_events(p,POLLOUT | POLLIN);
-			ssh_socket_set_blocking(ssh_socket_get_fd_in(s));
+            r = ssh_socket_set_blocking(ssh_socket_get_fd_in(s));
+            if (r < 0) {
+                return -1;
+            }
 			if(s->callbacks && s->callbacks->connected)
 				s->callbacks->connected(SSH_SOCKET_CONNECTED_OK,0,s->callbacks->userdata);
 			return 0;
@@ -711,23 +717,23 @@ int ssh_socket_get_status(ssh_socket s) {
 }
 
 #ifdef _WIN32
-void ssh_socket_set_nonblocking(socket_t fd) {
+int ssh_socket_set_nonblocking(socket_t fd) {
   u_long nonblocking = 1;
-  ioctlsocket(fd, FIONBIO, &nonblocking);
+  return ioctlsocket(fd, FIONBIO, &nonblocking);
 }
 
-void ssh_socket_set_blocking(socket_t fd) {
+int ssh_socket_set_blocking(socket_t fd) {
   u_long nonblocking = 0;
-  ioctlsocket(fd, FIONBIO, &nonblocking);
+  return ioctlsocket(fd, FIONBIO, &nonblocking);
 }
 
 #else /* _WIN32 */
-void ssh_socket_set_nonblocking(socket_t fd) {
-  fcntl(fd, F_SETFL, O_NONBLOCK);
+int ssh_socket_set_nonblocking(socket_t fd) {
+  return fcntl(fd, F_SETFL, O_NONBLOCK);
 }
 
-void ssh_socket_set_blocking(socket_t fd) {
-  fcntl(fd, F_SETFL, 0);
+int ssh_socket_set_blocking(socket_t fd) {
+  return fcntl(fd, F_SETFL, 0);
 }
 #endif /* _WIN32 */
 

@@ -460,6 +460,7 @@ int ssh_send_kex(ssh_session session, int server_kex) {
       goto error;
     }
     ssh_string_free(str);
+    str = NULL;
   }
 
   if (buffer_add_u8(session->out_buffer, 0) < 0) {

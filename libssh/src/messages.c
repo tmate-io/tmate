@@ -135,7 +135,9 @@ void ssh_message_queue(ssh_session session, ssh_message message){
             }
             session->ssh_message_list = ssh_list_new();
         }
-        ssh_list_append(session->ssh_message_list, message);
+        if (session->ssh_message_list != NULL) {
+            ssh_list_append(session->ssh_message_list, message);
+        }
     }
 }
 
@@ -1252,6 +1254,7 @@ SSH_PACKET_CALLBACK(ssh_packet_global_request){
 
     msg = ssh_message_new(session);
     if (msg == NULL) {
+        ssh_string_free_char(request);
         return SSH_PACKET_NOT_USED;
     }
     msg->type = SSH_REQUEST_GLOBAL;

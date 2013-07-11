@@ -133,7 +133,7 @@ static char **ssh_get_knownhost_line(ssh_session session, FILE **file,
       *ptr = '\0';
     }
 
-    if (!buffer[0] || buffer[0] == '#') {
+    if (buffer[0] == '\0' || buffer[0] == '#') {
       continue; /* skip empty lines */
     }
 
