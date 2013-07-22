@@ -19,6 +19,7 @@ static int msgpack_write(void *data, const char *buf, unsigned int len)
 void tmate_encoder_init(struct tmate_encoder *encoder)
 {
 	msgpack_packer_init(&encoder->pk, encoder, &msgpack_write);
+	encoder->ev_readable.ev_flags = 0;
 	encoder->buffer = evbuffer_new();
 }
 

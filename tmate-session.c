@@ -87,7 +87,7 @@ static void lookup_and_connect(void)
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
 
-	tmate_status_message("Looking up %s...", TMATE_HOST);
+	tmate_info("Looking up %s...", TMATE_HOST);
 	(void)evdns_getaddrinfo(ev_dnsbase, TMATE_HOST, NULL,
 				&hints, dns_cb, NULL);
 }
@@ -96,9 +96,13 @@ void tmate_session_init(void)
 {
 	tmate_catch_sigsegv();
 
-	TAILQ_INIT(&tmate_session.clients);
 	tmate_encoder_init(&tmate_session.encoder);
 	tmate_decoder_init(&tmate_session.decoder);
+
+	TAILQ_INIT(&tmate_session.clients);
+
+	tmate_session.need_passphrase = 0;
+	tmate_session.passphrase = NULL;
 
 	/* The header will be written as soon as the first client connects */
 	tmate_write_header();

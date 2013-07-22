@@ -117,6 +117,7 @@ struct tmate_ssh_client {
 	 * has to be in the struct itself).
 	 */
 	struct ssh_callbacks_struct ssh_callbacks;
+	char *tried_passphrase;
 	ssh_session session;
 	ssh_channel channel;
 
@@ -127,7 +128,6 @@ TAILQ_HEAD(tmate_ssh_clients, tmate_ssh_client);
 
 extern struct tmate_ssh_client *tmate_ssh_client_alloc(struct tmate_session *session,
 						       const char *server_ip);
-extern void tmate_ssh_client_free(struct tmate_ssh_client *client);
 
 /* tmate-session.c */
 
@@ -141,6 +141,8 @@ struct tmate_session {
 	 * losers are disconnected and killed.
 	 */
 	struct tmate_ssh_clients clients;
+	int need_passphrase;
+	char *passphrase;
 };
 
 extern struct tmate_session tmate_session;

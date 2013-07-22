@@ -2245,6 +2245,10 @@ enum window_copy_input_type {
 	WINDOW_COPY_JUMPTOFORWARD,
 	WINDOW_COPY_JUMPTOBACK,
 	WINDOW_COPY_GOTOLINE,
+
+#ifdef TMATE
+	WINDOW_COPY_PASSWORD,
+#endif
 };
 
 /*
@@ -2263,6 +2267,11 @@ enum window_copy_input_type {
  * a newly-allocated screen structure (which is deallocated when the
  * mode ends).
  */
+
+#ifdef TMATE
+typedef void (*copy_password_callback)(const char *password, void *private);
+#endif
+
 struct window_copy_mode_data {
 	struct screen	screen;
 
@@ -2295,6 +2304,11 @@ struct window_copy_mode_data {
 
 	enum window_copy_input_type jumptype;
 	char		jumpchar;
+
+#ifdef TMATE
+	copy_password_callback password_cb;
+	void		*password_cb_private;
+#endif
 };
 
 
@@ -2305,6 +2319,9 @@ void		 window_copy_init_for_output(struct window_pane *);
 void printflike2 window_copy_add(struct window_pane *, const char *, ...);
 void		 window_copy_vadd(struct window_pane *, const char *, va_list);
 void		 window_copy_pageup(struct window_pane *);
+
+int	window_copy_update_selection(struct window_pane *);
+void	window_copy_redraw_screen(struct window_pane *);
 
 /* window-choose.c */
 extern const struct window_mode window_choose_mode;

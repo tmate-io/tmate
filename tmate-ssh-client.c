@@ -10,10 +10,11 @@ static void consume_channel(struct tmate_ssh_client *client);
 static void flush_input_stream(struct tmate_ssh_client *client);
 static void __flush_input_stream(evutil_socket_t fd, short what, void *arg);
 static void __on_session_event(evutil_socket_t fd, short what, void *arg);
-static void printflike2 disconnect_session(struct tmate_ssh_client *client,
-					   const char *fmt, ...);
+static void printflike2 kill_session(struct tmate_ssh_client *client,
+				     const char *fmt, ...);
 static void printflike2 reconnect_session(struct tmate_ssh_client *client,
 					  const char *fmt, ...);
+static void on_session_event(struct tmate_ssh_client *client);
 
 static void log_function(ssh_session session, int priority,
 		  const char *message, void *userdata)
@@ -79,7 +80,7 @@ static void connection_complete(struct tmate_ssh_client *connected_client)
 			continue;
 
 		assert(!client->has_encoder);
-		tmate_ssh_client_free(client);
+		kill_session(client, NULL);
 	}
 }
 
@@ -97,6 +98,66 @@ static char *get_identity(void)
 		xasprintf(&identity, "%%d/%s", identity);
 
 	return identity;
+}
+
+static int passphrase_callback(const char *prompt, char *buf, size_t len,
+			       int echo, int verify, void *userdata)
+{
+	struct tmate_ssh_client *client = userdata;
+
+	client->tmate_session->need_passphrase = 1;
+
+	if (client->tmate_session->passphrase)
+		strncpy(buf, client->tmate_session->passphrase, len);
+	else
+		strcpy(buf, "");
+
+	return 0;
+}
+
+static void on_passphrase_read(const char *passphrase, void *private)
+{
+	struct tmate_ssh_client *client = private;
+
+	client->tmate_session->passphrase = xstrdup(passphrase);
+	on_session_event(client);
+}
+
+static void request_passphrase(struct tmate_ssh_client *client)
+{
+	struct window_pane *wp;
+	struct window_copy_mode_data *data;
+
+	/*
+	 * We'll display the prompt on the first pane.
+	 * It doesn't make much sense, but it's simpler to reuse the copy mode
+	 * and its key parsing logic compared to rolling something on our own.
+	 */
+	wp = RB_MIN(window_pane_tree, &all_window_panes);
+
+	if (wp->mode) {
+		data = wp->modedata;
+		if (data->inputtype == WINDOW_COPY_PASSWORD) {
+			/* We are already requesting the passphrase */
+			return;
+		}
+		window_pane_reset_mode(wp);
+	}
+
+	window_pane_set_mode(wp, &window_copy_mode);
+	window_copy_init_from_pane(wp);
+	data = wp->modedata;
+
+	data->inputtype = WINDOW_COPY_PASSWORD;
+	data->inputprompt = "SSH key passphrase";
+
+	mode_key_init(&data->mdata, &mode_key_tree_vi_edit);
+
+	window_copy_update_selection(wp);
+	window_copy_redraw_screen(wp);
+
+	data->password_cb = on_passphrase_read;
+	data->password_cb_private = client;
 }
 
 static void on_session_event(struct tmate_ssh_client *client)
@@ -139,6 +200,11 @@ static void on_session_event(struct tmate_ssh_client *client)
 		ssh_options_set(session, SSH_OPTIONS_COMPRESSION, "yes");
 
 		if ((identity = get_identity())) {
+			/*
+			 * FIXME libssh will continue with the next set of
+			 * keys if the identity has a passphrase and the
+			 * regular one doesn't.
+			 */
 			ssh_options_set(session, SSH_OPTIONS_IDENTITY, identity);
 			free(identity);
 		}
@@ -164,7 +230,7 @@ static void on_session_event(struct tmate_ssh_client *client)
 
 	case SSH_AUTH_SERVER:
 		if ((hash_len = ssh_get_pubkey_hash(session, &hash)) < 0) {
-			disconnect_session(client, "Cannot authenticate server");
+			kill_session(client, "Cannot authenticate server");
 			return;
 		}
 
@@ -199,7 +265,7 @@ static void on_session_event(struct tmate_ssh_client *client)
 		free(hash_str);
 
 		if (!match) {
-			disconnect_session(client, "Cannot authenticate server");
+			kill_session(client, "Cannot authenticate server");
 			return;
 		}
 
@@ -216,14 +282,18 @@ static void on_session_event(struct tmate_ssh_client *client)
 		/* fall through */
 
 	case SSH_AUTH_CLIENT:
-		switch (ssh_userauth_autopubkey(session, NULL)) {
+		client->tried_passphrase = client->tmate_session->passphrase;
+		switch (ssh_userauth_autopubkey(session, client->tried_passphrase)) {
 		case SSH_AUTH_AGAIN:
 			return;
 		case SSH_AUTH_PARTIAL:
 		case SSH_AUTH_INFO:
 		case SSH_AUTH_DENIED:
-			disconnect_session(client, "Access denied. Check your SSH keys "
-					           "(passphrases are not supported yet).");
+			if (client->tmate_session->need_passphrase &&
+			    !client->tried_passphrase)
+				request_passphrase(client);
+			else
+				kill_session(client, "Access denied. Check your SSH keys.");
 			return;
 		case SSH_AUTH_ERROR:
 			reconnect_session(client, "Auth error: %s",
@@ -316,12 +386,12 @@ static void __on_session_event(evutil_socket_t fd, short what, void *arg)
 	on_session_event(arg);
 }
 
-static void __disconnect_session(struct tmate_ssh_client *client,
-				 const char *fmt, va_list va)
+static void __kill_session(struct tmate_ssh_client *client,
+			   const char *fmt, va_list va)
 {
 	struct tmate_encoder *encoder;
 
-	if (fmt)
+	if (fmt && TAILQ_EMPTY(&client->tmate_session->clients))
 		__tmate_status_message(fmt, va);
 	else
 		tmate_debug("Disconnecting %s", client->server_ip);
@@ -348,14 +418,19 @@ static void __disconnect_session(struct tmate_ssh_client *client,
 	client->state = SSH_NONE;
 }
 
-static void printflike2 disconnect_session(struct tmate_ssh_client *client,
-					   const char *fmt, ...)
+static void printflike2 kill_session(struct tmate_ssh_client *client,
+				     const char *fmt, ...)
 {
 	va_list ap;
 
+	TAILQ_REMOVE(&client->tmate_session->clients, client, node);
+
 	va_start(ap, fmt);
-	__disconnect_session(client, fmt, ap);
+	__kill_session(client, fmt, ap);
 	va_end(ap);
+
+	free(client->server_ip);
+	free(client);
 }
 
 static void connect_session(struct tmate_ssh_client *client)
@@ -377,8 +452,12 @@ static void printflike2 reconnect_session(struct tmate_ssh_client *client,
 	struct timeval tv;
 	va_list ap;
 
+#if 1
+	TAILQ_REMOVE(&client->tmate_session->clients, client, node);
+#endif
+
 	va_start(ap, fmt);
-	__disconnect_session(client, fmt, ap);
+	__kill_session(client, fmt, ap);
 	va_end(ap);
 
 	/* Not yet implemented... */
@@ -389,16 +468,17 @@ static void printflike2 reconnect_session(struct tmate_ssh_client *client,
 #endif
 }
 
-
 struct tmate_ssh_client *tmate_ssh_client_alloc(struct tmate_session *session,
 						const char *server_ip)
 {
 	struct tmate_ssh_client *client;
 	client = xmalloc(sizeof(*client));
 
+	memset(&client->ssh_callbacks, 0, sizeof(client->ssh_callbacks));
 	ssh_callbacks_init(&client->ssh_callbacks);
 	client->ssh_callbacks.log_function = log_function;
 	client->ssh_callbacks.userdata = client;
+	client->ssh_callbacks.auth_function = passphrase_callback;
 
 	client->tmate_session = session;
 	TAILQ_INSERT_TAIL(&session->clients, client, node);
@@ -409,18 +489,12 @@ struct tmate_ssh_client *tmate_ssh_client_alloc(struct tmate_session *session,
 	client->channel = NULL;
 	client->has_encoder = 0;
 
+	client->ev_ssh.ev_flags = 0;
+
 	evtimer_assign(&client->ev_ssh_reconnect, ev_base,
 		       on_reconnect_timer, client);
 
 	connect_session(client);
 
 	return client;
-}
-
-void tmate_ssh_client_free(struct tmate_ssh_client *client)
-{
-	disconnect_session(client, NULL);
-	TAILQ_REMOVE(&client->tmate_session->clients, client, node);
-	free(client->server_ip);
-	free(client);
 }

@@ -34,7 +34,6 @@ void	window_copy_mouse(
 	    struct window_pane *, struct session *, struct mouse_event *);
 
 void	window_copy_redraw_lines(struct window_pane *, u_int, u_int);
-void	window_copy_redraw_screen(struct window_pane *);
 void	window_copy_write_line(
 	    struct window_pane *, struct screen_write_ctx *, u_int);
 void	window_copy_write_lines(
@@ -52,7 +51,6 @@ void	window_copy_search_down(struct window_pane *, const char *);
 void	window_copy_goto_line(struct window_pane *, const char *);
 void	window_copy_update_cursor(struct window_pane *, u_int, u_int);
 void	window_copy_start_selection(struct window_pane *);
-int	window_copy_update_selection(struct window_pane *);
 void   *window_copy_get_selection(struct window_pane *, size_t *);
 void	window_copy_copy_buffer(struct window_pane *, int, void *, size_t);
 void	window_copy_copy_pipe(
@@ -135,6 +133,10 @@ window_copy_init(struct window_pane *wp)
 		mode_key_init(&data->mdata, &mode_key_tree_vi_copy);
 
 	data->backing = NULL;
+
+#ifdef TMATE
+	data->password_cb = NULL;
+#endif
 
 	return (s);
 }
@@ -614,7 +616,10 @@ __window_copy_key(struct window_pane *wp, struct session *sess, int key)
 		case WINDOW_COPY_JUMPTOFORWARD:
 		case WINDOW_COPY_JUMPTOBACK:
 		case WINDOW_COPY_NUMERICPREFIX:
+#ifdef TMATE
+		case WINDOW_COPY_PASSWORD:
 			break;
+#endif
 		case WINDOW_COPY_SEARCHUP:
 			if (cmd == MODEKEYCOPY_SEARCHAGAIN) {
 				for (; np != 0; np--) {
@@ -746,7 +751,18 @@ window_copy_key_input(struct window_pane *wp, int key)
 			window_copy_goto_line(wp, data->inputstr);
 			*data->inputstr = '\0';
 			break;
+#ifdef TMATE
+		case WINDOW_COPY_PASSWORD:
+			if (data->password_cb) {
+				data->password_cb(data->inputstr,
+						  data->password_cb_private);
+			}
+			*data->inputstr = '\0';
+			window_copy_copy_selection(wp, -1);
+			window_pane_reset_mode(wp);
+#endif
 		}
+
 		data->numprefix = -1;
 		return (1);
 	case MODEKEY_OTHER:
@@ -1081,24 +1097,46 @@ window_copy_write_line(
 	struct screen			*s = &data->screen;
 	struct options			*oo = &wp->window->options;
 	struct grid_cell		 gc;
+#ifdef TMATE
+	char				 hdr[256];
+#else
 	char				 hdr[32];
+#endif
 	size_t	 			 last, xoff = 0, size = 0;
 
 	window_mode_attrs(&gc, oo);
 
 	last = screen_size_y(s) - 1;
 	if (py == 0) {
+#ifdef TMATE
+		if (data->inputtype != WINDOW_COPY_PASSWORD) {
+#endif
 		size = xsnprintf(hdr, sizeof hdr,
 		    "[%u/%u]", data->oy, screen_hsize(data->backing));
 		if (size > screen_size_x(s))
 			size = screen_size_x(s);
 		screen_write_cursormove(ctx, screen_size_x(s) - size, 0);
 		screen_write_puts(ctx, &gc, "%s", hdr);
+#ifdef TMATE
+		}
+#endif
 	} else if (py == last && data->inputtype != WINDOW_COPY_OFF) {
 		if (data->inputtype == WINDOW_COPY_NUMERICPREFIX) {
 			xoff = size = xsnprintf(hdr, sizeof hdr,
 			    "Repeat: %u", data->numprefix);
 		} else {
+
+#ifdef TMATE
+			if (data->inputtype == WINDOW_COPY_PASSWORD) {
+				int password_len = strlen(data->inputstr);
+				xoff = size = xsnprintf(hdr, sizeof hdr, "%s: ", data->inputprompt);
+				memset(hdr+xoff, '*', password_len);
+				xoff += password_len;
+				size += password_len;
+				hdr[xoff] = '\0';
+			}
+			else
+#endif
 			xoff = size = xsnprintf(hdr, sizeof hdr,
 			    "%s: %s", data->inputprompt, data->inputstr);
 		}
