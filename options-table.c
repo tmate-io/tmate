@@ -176,6 +176,11 @@ const struct options_table_entry session_options_table[] = {
 	  .default_num = 30000
 	},
 
+	{ .name = "tmate-identity",
+	  .type = OPTIONS_TABLE_STRING,
+	  .default_str = ""
+	},
+
 	{ .name = "history-limit",
 	  .type = OPTIONS_TABLE_NUMBER,
 	  .minimum = 0,

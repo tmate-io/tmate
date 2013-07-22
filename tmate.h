@@ -144,6 +144,7 @@ struct tmate_session {
 };
 
 extern struct tmate_session tmate_session;
+extern void tmate_session_init(void);
 extern void tmate_session_start(void);
 
 /* tmate-debug.c */

@@ -92,7 +92,7 @@ static void lookup_and_connect(void)
 				&hints, dns_cb, NULL);
 }
 
-void tmate_session_start(void)
+void tmate_session_init(void)
 {
 	tmate_catch_sigsegv();
 
@@ -100,8 +100,17 @@ void tmate_session_start(void)
 	tmate_encoder_init(&tmate_session.encoder);
 	tmate_decoder_init(&tmate_session.decoder);
 
-	lookup_and_connect();
-
 	/* The header will be written as soon as the first client connects */
 	tmate_write_header();
+}
+
+void tmate_session_start(void)
+{
+	/* We split init and start because:
+	 * - We need to process the tmux config file during the connection as
+	 *   we are setting up the tmate identity.
+	 * - While we are parsing the config file, we need to be able to
+	 *   serialize it, and so we need a worker encoder.
+	 */
+	lookup_and_connect();
 }

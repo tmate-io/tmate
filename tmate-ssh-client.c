@@ -83,8 +83,25 @@ static void connection_complete(struct tmate_ssh_client *connected_client)
 	}
 }
 
+static char *get_identity(void)
+{
+	char *identity;
+
+	identity = options_get_string(&global_s_options, "tmate-identity");
+	if (!strlen(identity))
+		return NULL;
+
+	if (strchr(identity, '/'))
+		identity = xstrdup(identity);
+	else
+		xasprintf(&identity, "%%d/%s", identity);
+
+	return identity;
+}
+
 static void on_session_event(struct tmate_ssh_client *client)
 {
+	char *identity;
 	ssh_key pubkey;
 	int key_type;
 	unsigned char *hash;
@@ -120,6 +137,11 @@ static void on_session_event(struct tmate_ssh_client *client)
 		ssh_options_set(session, SSH_OPTIONS_PORT, &port);
 		ssh_options_set(session, SSH_OPTIONS_USER, "tmate");
 		ssh_options_set(session, SSH_OPTIONS_COMPRESSION, "yes");
+
+		if ((identity = get_identity())) {
+			ssh_options_set(session, SSH_OPTIONS_IDENTITY, identity);
+			free(identity);
+		}
 
 		client->state = SSH_CONNECT;
 		/* fall through */
