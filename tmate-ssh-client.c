@@ -1,9 +1,8 @@
-#include <libssh/libssh.h>
-#include <libssh/callbacks.h>
 #include <sys/socket.h>
 #include <netinet/tcp.h>
 #include <stdio.h>
 #include <event.h>
+#include <assert.h>
 
 #include "tmate.h"
 
@@ -19,13 +18,9 @@ static void printflike2 reconnect_session(struct tmate_ssh_client *client,
 static void log_function(ssh_session session, int priority,
 		  const char *message, void *userdata)
 {
-	tmate_debug("[%d] %s", priority, message);
+	struct tmate_ssh_client *client = userdata;
+	tmate_debug("[%s] [%d] %s", client->server_ip, priority, message);
 }
-
-static struct ssh_callbacks_struct ssh_session_callbacks = {
-	.log_function = log_function
-};
-
 
 static void register_session_fd_event(struct tmate_ssh_client *client)
 {
@@ -42,20 +37,24 @@ static void register_session_fd_event(struct tmate_ssh_client *client)
 
 static void register_input_stream_event(struct tmate_ssh_client *client)
 {
-	if (!event_initialized(&client->encoder->ev_readable)) {
-		event_assign(&client->encoder->ev_readable, ev_base, -1,
+	struct tmate_encoder *encoder = &client->tmate_session->encoder;
+
+	if (!event_initialized(&encoder->ev_readable)) {
+		event_assign(&encoder->ev_readable, ev_base, -1,
 			     EV_READ | EV_PERSIST, __flush_input_stream, client);
-		event_add(&client->encoder->ev_readable, NULL);
+		event_add(&encoder->ev_readable, NULL);
+		client->has_encoder = 1;
 	}
 }
 
 static void consume_channel(struct tmate_ssh_client *client)
 {
+	struct tmate_decoder *decoder = &client->tmate_session->decoder;
 	char *buf;
 	ssize_t len;
 
 	for (;;) {
-		tmate_decoder_get_buffer(client->decoder, &buf, &len);
+		tmate_decoder_get_buffer(decoder, &buf, &len);
 		len = ssh_channel_read_nonblocking(client->channel, buf, len, 0);
 		if (len < 0) {
 			reconnect_session(client, "Error reading from channel: %s",
@@ -66,7 +65,21 @@ static void consume_channel(struct tmate_ssh_client *client)
 		if (len == 0)
 			break;
 
-		tmate_decoder_commit(client->decoder, len);
+		tmate_decoder_commit(decoder, len);
+	}
+}
+
+static void connection_complete(struct tmate_ssh_client *connected_client)
+{
+	struct tmate_session *session = connected_client->tmate_session;
+	struct tmate_ssh_client *client, *tmp_client;
+
+	TAILQ_FOREACH_SAFE(client, &session->clients, node, tmp_client) {
+		if (client == connected_client)
+			continue;
+
+		assert(!client->has_encoder);
+		tmate_ssh_client_free(client);
 	}
 }
 
@@ -93,7 +106,7 @@ static void on_session_event(struct tmate_ssh_client *client)
 			return;
 		}
 
-		ssh_set_callbacks(session, &ssh_session_callbacks);
+		ssh_set_callbacks(session, &client->ssh_callbacks);
 
 		client->channel = channel = ssh_channel_new(session);
 		if (!channel) {
@@ -102,13 +115,12 @@ static void on_session_event(struct tmate_ssh_client *client)
 		}
 
 		ssh_set_blocking(session, 0);
-		ssh_options_set(session, SSH_OPTIONS_HOST, TMATE_HOST);
+		ssh_options_set(session, SSH_OPTIONS_HOST, client->server_ip);
 		ssh_options_set(session, SSH_OPTIONS_LOG_VERBOSITY, &verbosity);
 		ssh_options_set(session, SSH_OPTIONS_PORT, &port);
 		ssh_options_set(session, SSH_OPTIONS_USER, "tmate");
 		ssh_options_set(session, SSH_OPTIONS_COMPRESSION, "yes");
 
-		tmate_status_message("Connecting to %s...", TMATE_HOST);
 		client->state = SSH_CONNECT;
 		/* fall through */
 
@@ -123,14 +135,14 @@ static void on_session_event(struct tmate_ssh_client *client)
 			return;
 		case SSH_OK:
 			register_session_fd_event(client);
-			tmate_debug("Connected");
+			tmate_debug("Establishing connection to %s", client->server_ip);
 			client->state = SSH_AUTH_SERVER;
 			/* fall through */
 		}
 
 	case SSH_AUTH_SERVER:
 		if ((hash_len = ssh_get_pubkey_hash(session, &hash)) < 0) {
-			disconnect_session(client, "Cannnot authenticate server");
+			disconnect_session(client, "Cannot authenticate server");
 			return;
 		}
 
@@ -165,11 +177,20 @@ static void on_session_event(struct tmate_ssh_client *client)
 		free(hash_str);
 
 		if (!match) {
-			disconnect_session(client, "Cannnot authenticate server");
+			disconnect_session(client, "Cannot authenticate server");
 			return;
 		}
 
+		/*
+		 * At this point, we abort other connection attempts to the
+		 * other tmate servers, since we have reached the fastest one.
+		 * We need to do it before we ask the user its passphrase,
+		 * otherwise the speed test would be biased.
+		 */
+		tmate_debug("Connected to %s", client->server_ip);
+		connection_complete(client);
 		client->state = SSH_AUTH_CLIENT;
+
 		/* fall through */
 
 	case SSH_AUTH_CLIENT:
@@ -179,7 +200,8 @@ static void on_session_event(struct tmate_ssh_client *client)
 		case SSH_AUTH_PARTIAL:
 		case SSH_AUTH_INFO:
 		case SSH_AUTH_DENIED:
-			disconnect_session(client, "Access denied. Check your SSH keys.");
+			disconnect_session(client, "Access denied. Check your SSH keys "
+					           "(passphrases are not supported yet).");
 			return;
 		case SSH_AUTH_ERROR:
 			reconnect_session(client, "Auth error: %s",
@@ -236,7 +258,8 @@ static void on_session_event(struct tmate_ssh_client *client)
 
 static void flush_input_stream(struct tmate_ssh_client *client)
 {
-	struct evbuffer *evb = client->encoder->buffer;
+	struct tmate_encoder *encoder = &client->tmate_session->encoder;
+	struct evbuffer *evb = encoder->buffer;
 	ssize_t len, written;
 	char *buf;
 
@@ -274,16 +297,23 @@ static void __on_session_event(evutil_socket_t fd, short what, void *arg)
 static void __disconnect_session(struct tmate_ssh_client *client,
 				 const char *fmt, va_list va)
 {
-	__tmate_status_message(fmt, va);
+	struct tmate_encoder *encoder;
+
+	if (fmt)
+		__tmate_status_message(fmt, va);
+	else
+		tmate_debug("Disconnecting %s", client->server_ip);
 
 	if (event_initialized(&client->ev_ssh)) {
 		event_del(&client->ev_ssh);
 		client->ev_ssh.ev_flags = 0;
 	}
 
-	if (event_initialized(&client->encoder->ev_readable)) {
-		event_del(&client->encoder->ev_readable);
-		client->encoder->ev_readable.ev_flags = 0;
+	if (client->has_encoder) {
+		encoder = &client->tmate_session->encoder;
+		event_del(&encoder->ev_readable);
+		encoder->ev_readable.ev_flags = 0;
+		client->has_encoder = 0;
 	}
 
 	if (client->session) {
@@ -337,21 +367,38 @@ static void printflike2 reconnect_session(struct tmate_ssh_client *client,
 #endif
 }
 
-void tmate_ssh_client_init(struct tmate_ssh_client *client,
-			   struct tmate_encoder *encoder,
-			   struct tmate_decoder *decoder)
-{
-	ssh_callbacks_init(&ssh_session_callbacks);
 
+struct tmate_ssh_client *tmate_ssh_client_alloc(struct tmate_session *session,
+						const char *server_ip)
+{
+	struct tmate_ssh_client *client;
+	client = xmalloc(sizeof(*client));
+
+	ssh_callbacks_init(&client->ssh_callbacks);
+	client->ssh_callbacks.log_function = log_function;
+	client->ssh_callbacks.userdata = client;
+
+	client->tmate_session = session;
+	TAILQ_INSERT_TAIL(&session->clients, client, node);
+
+	client->server_ip = xstrdup(server_ip);
 	client->state = SSH_NONE;
 	client->session = NULL;
 	client->channel = NULL;
-
-	client->encoder = encoder;
-	client->decoder = decoder;
+	client->has_encoder = 0;
 
 	evtimer_assign(&client->ev_ssh_reconnect, ev_base,
 		       on_reconnect_timer, client);
 
 	connect_session(client);
+
+	return client;
+}
+
+void tmate_ssh_client_free(struct tmate_ssh_client *client)
+{
+	disconnect_session(client, NULL);
+	TAILQ_REMOVE(&client->tmate_session->clients, client, node);
+	free(client->server_ip);
+	free(client);
 }

@@ -182,7 +182,7 @@ dist_tmate_SOURCES = \
 	tmate-encoder.c \
 	tmate-decoder.c \
 	tmate-msg.c \
-	tmate.c \
+	tmate-session.c \
 	tmux.c \
 	tty-acs.c \
 	tty-keys.c \

@@ -1,0 +1,107 @@
+#include <event2/dns.h>
+#include <event2/util.h>
+#include <event2/event.h>
+
+#include <sys/socket.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+
+#include "tmate.h"
+
+#define TMATE_DNS_RETRY_TIMEOUT 10
+
+struct tmate_session tmate_session;
+
+static struct evdns_base *ev_dnsbase;
+static struct event ev_dns_retry;
+static void lookup_and_connect(void);
+
+static void on_dns_retry(evutil_socket_t fd, short what, void *arg)
+{
+	lookup_and_connect();
+}
+
+static void dns_cb(int errcode, struct evutil_addrinfo *addr, void *ptr)
+{
+	struct tmate_ssh_client *client;
+	struct evutil_addrinfo *ai;
+	struct timeval tv;
+
+	if (errcode) {
+		tmate_status_message("%s lookup failure. Retrying in %d seconds (%s)",
+				     TMATE_HOST, TMATE_DNS_RETRY_TIMEOUT,
+				     evutil_gai_strerror(errcode));
+
+		tv.tv_sec = TMATE_DNS_RETRY_TIMEOUT;
+		tv.tv_usec = 0;
+
+		evtimer_assign(&ev_dns_retry, ev_base, on_dns_retry, NULL);
+		evtimer_add(&ev_dns_retry, &tv);
+
+		return;
+	}
+
+	tmate_status_message("Connecting to %s...", TMATE_HOST);
+
+	for (ai = addr; ai; ai = ai->ai_next) {
+		char buf[128];
+		const char *ip = NULL;
+		if (ai->ai_family == AF_INET) {
+			struct sockaddr_in *sin = (struct sockaddr_in *)ai->ai_addr;
+			ip = evutil_inet_ntop(AF_INET, &sin->sin_addr, buf, 128);
+		} else if (ai->ai_family == AF_INET6) {
+			struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)ai->ai_addr;
+			ip = evutil_inet_ntop(AF_INET6, &sin6->sin6_addr, buf, 128);
+		}
+
+		tmate_debug("Trying server %s", ip);
+
+		/*
+		 * Note: We don't deal with the client list. Clients manage it
+		 * and free client structs when necessary.
+		 */
+		(void)tmate_ssh_client_alloc(&tmate_session, ip);
+	}
+
+	evutil_freeaddrinfo(addr);
+
+	evdns_base_free(ev_dnsbase, 0);
+	ev_dnsbase = NULL;
+}
+
+static void lookup_and_connect(void)
+{
+	struct evutil_addrinfo hints;
+
+	if (!ev_dnsbase)
+		ev_dnsbase = evdns_base_new(ev_base, 1);
+	if (!ev_dnsbase)
+		tmate_fatal("Cannot initialize the DNS lookup service");
+
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_flags = 0;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = IPPROTO_TCP;
+
+	tmate_status_message("Looking up %s...", TMATE_HOST);
+	(void)evdns_getaddrinfo(ev_dnsbase, TMATE_HOST, NULL,
+				&hints, dns_cb, NULL);
+}
+
+void tmate_session_start(void)
+{
+	tmate_catch_sigsegv();
+
+	TAILQ_INIT(&tmate_session.clients);
+	tmate_encoder_init(&tmate_session.encoder);
+	tmate_decoder_init(&tmate_session.decoder);
+
+	lookup_and_connect();
+
+	/* The header will be written as soon as the first client connects */
+	tmate_write_header();
+}

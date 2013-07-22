@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <msgpack.h>
 #include <libssh/libssh.h>
+#include <libssh/callbacks.h>
 #include <event.h>
 
 #include "tmux.h"
@@ -17,7 +18,7 @@
 
 #define TMATE_MAX_MESSAGE_SIZE (16*1024)
 
-#define TMATE_PROTOCOL_VERSION 2
+#define TMATE_PROTOCOL_VERSION 3
 
 enum tmate_commands {
 	TMATE_HEADER,
@@ -72,7 +73,7 @@ extern void tmate_decoder_commit(struct tmate_decoder *decoder, size_t len);
 /* tmate-ssh-client.c */
 
 #ifdef DEVENV
-#define TMATE_HOST "127.0.0.1"
+#define TMATE_HOST "localhost"
 #define TMATE_PORT 2200
 #else
 #define TMATE_HOST "master.tmate.io"
@@ -94,28 +95,60 @@ enum tmate_ssh_client_state_types {
 };
 
 struct tmate_ssh_client {
+	/* XXX The "session" word is used for three things:
+	 * - the ssh session
+	 * - the tmate sesssion
+	 * - the tmux session
+	 * A tmux session is associated 1:1 with a tmate session.
+	 * An ssh session belongs to a tmate session, and a tmate session
+	 * has one ssh session, except during bootstrapping where
+	 * there is one ssh session per tmate server, and the first one wins.
+	 */
+	struct tmate_session *tmate_session;
+	TAILQ_ENTRY(tmate_ssh_client) node;
+
+	char *server_ip;
+
+	int has_encoder;
 	int state;
+
+	/*
+	 * ssh_callbacks is allocated because the libssh API sucks (userdata
+	 * has to be in the struct itself).
+	 */
+	struct ssh_callbacks_struct ssh_callbacks;
 	ssh_session session;
 	ssh_channel channel;
-
-	struct tmate_encoder *encoder;
-	struct tmate_decoder *decoder;
 
 	struct event ev_ssh;
 	struct event ev_ssh_reconnect;
 };
+TAILQ_HEAD(tmate_ssh_clients, tmate_ssh_client);
 
-extern void tmate_ssh_client_init(struct tmate_ssh_client *client,
-				  struct tmate_encoder *encoder,
-				  struct tmate_decoder *decoder);
+extern struct tmate_ssh_client *tmate_ssh_client_alloc(struct tmate_session *session,
+						       const char *server_ip);
+extern void tmate_ssh_client_free(struct tmate_ssh_client *client);
 
-/* tmate.c */
+/* tmate-session.c */
 
-extern struct tmate_encoder *tmate_encoder;
-extern void tmate_client_start(void);
+struct tmate_session {
+	struct tmate_encoder encoder;
+	struct tmate_decoder decoder;
+
+	/*
+	 * This list contains one connection per IP. The first connected
+	 * client wins, and saved in *client. When we have a winner, the
+	 * losers are disconnected and killed.
+	 */
+	struct tmate_ssh_clients clients;
+};
+
+extern struct tmate_session tmate_session;
+extern void tmate_session_start(void);
 
 /* tmate-debug.c */
-extern void tmate_print_trace (void);
+extern void tmate_print_trace(void);
+extern void tmate_catch_sigsegv(void);
 
 /* tmate-msg.c */
 

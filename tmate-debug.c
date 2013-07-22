@@ -73,3 +73,17 @@ void tmate_print_trace(void)
 
 	free (strings);
 }
+
+
+static void handle_sigsegv(int sig)
+{
+	/* TODO send stack trace to server */
+	tmate_info("CRASH, printing stack trace");
+	tmate_print_trace();
+	tmate_fatal("CRASHED");
+}
+
+void tmate_catch_sigsegv(void)
+{
+	signal(SIGSEGV, handle_sigsegv);
+}

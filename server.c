@@ -187,7 +187,7 @@ server_start(int lockfd, char *lockfile)
 		}
 	}
 
-	tmate_client_start();
+	tmate_session_start();
 
 	cmdq_continue(cfg_cmd_q);
 

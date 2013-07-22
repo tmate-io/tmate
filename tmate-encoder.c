@@ -1,5 +1,7 @@
 #include "tmate.h"
 
+#define DEFAULT_ENCODER (&tmate_session.encoder)
+
 static int msgpack_write(void *data, const char *buf, unsigned int len)
 {
 	struct tmate_encoder *encoder = data;
@@ -26,13 +28,14 @@ void tmate_encoder_init(struct tmate_encoder *encoder)
 	msgpack_pack_raw_body(pk, str, __strlen);	\
 } while(0)
 
-#define pack(what, ...) msgpack_pack_##what(&tmate_encoder->pk, __VA_ARGS__)
+#define pack(what, ...) msgpack_pack_##what(&DEFAULT_ENCODER->pk, __VA_ARGS__)
 
 void tmate_write_header(void)
 {
-	pack(array, 2);
+	pack(array, 3);
 	pack(int, TMATE_HEADER);
 	pack(int, TMATE_PROTOCOL_VERSION);
+	pack(string, VERSION);
 }
 
 void tmate_sync_layout(void)
