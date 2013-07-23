@@ -23,10 +23,15 @@ static void tmate_status_message_client(struct client *c, const char *message)
 	msg->msg_time = time(NULL);
 	msg->msg = xstrdup(c->message_string);
 
-	if (!s)
-		return;
+	if (s) {
+		limit = options_get_number(&s->options, "message-limit");
+		delay = options_get_number(&s->options, "tmate-display-time");
+	} else {
+		/* Very early in the connection process we won't have a session */
+		limit = options_get_number(&global_s_options, "message-limit");
+		delay = options_get_number(&global_s_options, "tmate-display-time");
+	}
 
-	limit = options_get_number(&s->options, "message-limit");
 	if (ARRAY_LENGTH(&c->message_log) > limit) {
 		limit = ARRAY_LENGTH(&c->message_log) - limit;
 		for (i = 0; i < limit; i++) {
@@ -36,7 +41,6 @@ static void tmate_status_message_client(struct client *c, const char *message)
 		}
 	}
 
-	delay = options_get_number(&c->session->options, "tmate-display-time");
 	tv.tv_sec = delay / 1000;
 	tv.tv_usec = (delay % 1000) * 1000L;
 
