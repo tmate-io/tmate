@@ -23,6 +23,7 @@ endif
 
 CFLAGS += -Wno-unused-parameter -Wno-unused-variable
 CFLAGS += -Ilibssh/include/ -Imsgpack/src
+CFLAGS += -rdynamic # for stack traces
 
 if IS_DEVENV
 CFLAGS += -DDEVENV

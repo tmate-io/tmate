@@ -62,13 +62,13 @@ void tmate_print_trace(void)
 	size = backtrace (array, 20);
 	strings = backtrace_symbols (array, size);
 
-	tmate_debug ("============ %zd stack frames ============", size);
+	tmate_info ("============ %zd stack frames ============", size);
 
 	for (i = 1; i < size; i++) {
 #if DEBUG
 		if (print_resolved_stack_frame(strings[i]) < 0)
 #endif
-			tmate_debug("%s", strings[i]);
+			tmate_info("%s", strings[i]);
 	}
 
 	free (strings);
