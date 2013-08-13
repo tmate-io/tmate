@@ -68,8 +68,12 @@ static void dns_cb(int errcode, struct evutil_addrinfo *addr, void *ptr)
 
 	evutil_freeaddrinfo(addr);
 
-	evdns_base_free(ev_dnsbase, 0);
-	ev_dnsbase = NULL;
+	/*
+	 * XXX For some reason, freeing the DNS resolver makes MacOSX flip out...
+	 * not sure what's going on...
+	 * evdns_base_free(ev_dnsbase, 0);
+	 * ev_dnsbase = NULL;
+	 */
 }
 
 static void lookup_and_connect(void)
