@@ -37,7 +37,7 @@ SSH_PACKET_CALLBACK(ssh_packet_publickey1);
 #endif
 
 int ssh_send_kex(ssh_session session, int server_kex);
-void ssh_list_kex(ssh_session session, struct ssh_kex_struct *kex);
+void ssh_list_kex(struct ssh_kex_struct *kex);
 int set_client_kex(ssh_session session);
 int ssh_kex_select_methods(ssh_session session);
 int verify_existing_algo(int algo, const char *name);

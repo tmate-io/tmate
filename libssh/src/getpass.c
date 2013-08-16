@@ -21,6 +21,8 @@
  * MA 02111-1307, USA.
  */
 
+#include "config.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -163,8 +165,12 @@ int ssh_getpass(const char *prompt,
 #else
 
 #include <fcntl.h>
+#ifdef HAVE_TERMIOS_H
 #include <termios.h>
+#endif
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 
 /**
  * @ingroup libssh_misc

@@ -59,14 +59,14 @@
  */
 static void socket_callback_connected(int code, int errno_code, void *user){
 	ssh_session session=(ssh_session)user;
-	enter_function();
+
 	if(session->session_state != SSH_SESSION_STATE_CONNECTING){
 		ssh_set_error(session,SSH_FATAL, "Wrong state in socket_callback_connected : %d",
 				session->session_state);
-		leave_function();
+
 		return;
 	}
-	ssh_log(session,SSH_LOG_RARE,"Socket connection callback: %d (%d)",code, errno_code);
+	SSH_LOG(SSH_LOG_RARE,"Socket connection callback: %d (%d)",code, errno_code);
 	if(code == SSH_SOCKET_CONNECTED_OK)
 		session->session_state=SSH_SESSION_STATE_SOCKET_CONNECTED;
 	else {
@@ -74,7 +74,6 @@ static void socket_callback_connected(int code, int errno_code, void *user){
 		ssh_set_error(session,SSH_FATAL,"%s",strerror(errno_code));
 	}
 	session->ssh_connection_callback(session);
-	leave_function();
 }
 
 /**
@@ -94,10 +93,10 @@ static int callback_receive_banner(const void *data, size_t len, void *user) {
   char *str = NULL;
   size_t i;
   int ret=0;
-  enter_function();
+
   if(session->session_state != SSH_SESSION_STATE_SOCKET_CONNECTED){
   	ssh_set_error(session,SSH_FATAL,"Wrong state in callback_receive_banner : %d",session->session_state);
-  	leave_function();
+
   	return SSH_ERROR;
   }
   for(i=0;i<len;++i){
@@ -115,20 +114,20 @@ static int callback_receive_banner(const void *data, size_t len, void *user) {
   		ret=i+1;
   		session->serverbanner=str;
   		session->session_state=SSH_SESSION_STATE_BANNER_RECEIVED;
-  		ssh_log(session,SSH_LOG_PACKET,"Received banner: %s",str);
+  		SSH_LOG(SSH_LOG_PACKET,"Received banner: %s",str);
 		session->ssh_connection_callback(session);
-  		leave_function();
+
   		return ret;
   	}
   	if(i>127){
   		/* Too big banner */
   		session->session_state=SSH_SESSION_STATE_ERROR;
   		ssh_set_error(session,SSH_FATAL,"Receiving banner: too large banner");
-  		leave_function();
+
   		return 0;
   	}
   }
-  leave_function();
+
   return ret;
 }
 
@@ -145,8 +144,6 @@ int ssh_send_banner(ssh_session session, int server) {
   const char *banner = NULL;
   char buffer[128] = {0};
   int err=SSH_ERROR;
-
-  enter_function();
 
   banner = session->version == 1 ? CLIENTBANNER1 : CLIENTBANNER2;
 
@@ -173,7 +170,7 @@ int ssh_send_banner(ssh_session session, int server) {
 #endif
   err=SSH_OK;
 end:
-  leave_function();
+
   return err;
 }
 
@@ -188,8 +185,6 @@ static int dh_handshake(ssh_session session) {
 
   int rc = SSH_AGAIN;
 
-  enter_function();
-
   switch (session->dh_handshake_state) {
     case DH_STATE_INIT:
       switch(session->next_crypto->kex_type){
@@ -203,12 +198,11 @@ static int dh_handshake(ssh_session session) {
           break;
 #endif
         default:
-          rc=SSH_ERROR;
-          goto error;
+          rc = SSH_ERROR;
       }
 
       if (rc == SSH_ERROR) {
-        goto error;
+          return SSH_ERROR;
       }
 
       session->dh_handshake_state = DH_STATE_INIT_SENT;
@@ -219,16 +213,14 @@ static int dh_handshake(ssh_session session) {
     	/* wait until ssh_packet_newkeys is called */
     	break;
     case DH_STATE_FINISHED:
-    	leave_function();
       return SSH_OK;
     default:
       ssh_set_error(session, SSH_FATAL, "Invalid state in dh_handshake(): %d",
           session->dh_handshake_state);
-      leave_function();
+
       return SSH_ERROR;
   }
-error:
-  leave_function();
+
   return rc;
 }
 
@@ -259,36 +251,37 @@ static int ssh_service_request_termination(void *s){
 int ssh_service_request(ssh_session session, const char *service) {
   ssh_string service_s = NULL;
   int rc=SSH_ERROR;
-  enter_function();
+
   if(session->auth_service_state != SSH_AUTH_SERVICE_NONE)
     goto pending;
   if (buffer_add_u8(session->out_buffer, SSH2_MSG_SERVICE_REQUEST) < 0) {
-    goto error;
+      return SSH_ERROR;
   }
   service_s = ssh_string_from_char(service);
   if (service_s == NULL) {
-    goto error;
+      return SSH_ERROR;
   }
 
   if (buffer_add_ssh_string(session->out_buffer,service_s) < 0) {
     ssh_string_free(service_s);
-    goto error;
+      return SSH_ERROR;
   }
   ssh_string_free(service_s);
   session->auth_service_state=SSH_AUTH_SERVICE_SENT;
   if (packet_send(session) == SSH_ERROR) {
     ssh_set_error(session, SSH_FATAL,
         "Sending SSH2_MSG_SERVICE_REQUEST failed.");
-    goto error;
+      return SSH_ERROR;
   }
 
-  ssh_log(session, SSH_LOG_PACKET,
+  SSH_LOG(SSH_LOG_PACKET,
       "Sent SSH_MSG_SERVICE_REQUEST (service %s)", service);
 pending:
   rc=ssh_handle_packets_termination(session,SSH_TIMEOUT_USER,
       ssh_service_request_termination, session);
-  if(rc == SSH_ERROR)
-    goto error;
+  if (rc == SSH_ERROR) {
+      return SSH_ERROR;
+  }
   switch(session->auth_service_state){
   case SSH_AUTH_SERVICE_DENIED:
     ssh_set_error(session,SSH_FATAL,"ssh_auth_service request denied");
@@ -305,8 +298,7 @@ pending:
     rc=SSH_ERROR;
     break;
   }
-error:
-  leave_function();
+
   return rc;
 }
 
@@ -324,7 +316,7 @@ error:
  */
 static void ssh_client_connection_callback(ssh_session session){
 	int ssh1,ssh2;
-	enter_function();
+
 	switch(session->session_state){
 		case SSH_SESSION_STATE_NONE:
 		case SSH_SESSION_STATE_CONNECTING:
@@ -335,7 +327,7 @@ static void ssh_client_connection_callback(ssh_session session){
 		    goto error;
 		  }
 		  set_status(session, 0.4f);
-		  ssh_log(session, SSH_LOG_RARE,
+		  SSH_LOG(SSH_LOG_RARE,
 		      "SSH server banner: %s", session->serverbanner);
 
 		  /* Here we analyze the different protocols the server allows. */
@@ -391,7 +383,7 @@ static void ssh_client_connection_callback(ssh_session session){
 			break;
 		case SSH_SESSION_STATE_KEXINIT_RECEIVED:
 			set_status(session,0.6f);
-			ssh_list_kex(session, &session->next_crypto->server_kex);
+			ssh_list_kex(&session->next_crypto->server_kex);
 			if (set_client_kex(session) < 0) {
 				goto error;
 			}
@@ -423,13 +415,13 @@ static void ssh_client_connection_callback(ssh_session session){
 		default:
 			ssh_set_error(session,SSH_FATAL,"Invalid state %d",session->session_state);
 	}
-	leave_function();
+
 	return;
-	error:
+error:
 	ssh_socket_close(session->socket);
 	session->alive = 0;
 	session->session_state=SSH_SESSION_STATE_ERROR;
-	leave_function();
+
 }
 
 /** @internal
@@ -466,7 +458,6 @@ int ssh_connect(ssh_session session) {
     return SSH_ERROR;
   }
 
-  enter_function();
   switch(session->pending_call_state){
   case SSH_PENDING_CALL_NONE:
   	break;
@@ -474,31 +465,28 @@ int ssh_connect(ssh_session session) {
   	goto pending;
   default:
   	ssh_set_error(session,SSH_FATAL,"Bad call during pending SSH call in ssh_connect");
-  	leave_function();
+
   	return SSH_ERROR;
   }
   session->alive = 0;
   session->client = 1;
 
   if (ssh_init() < 0) {
-    leave_function();
     return SSH_ERROR;
   }
   if (session->opts.fd == SSH_INVALID_SOCKET &&
       session->opts.host == NULL &&
       session->opts.ProxyCommand == NULL) {
     ssh_set_error(session, SSH_FATAL, "Hostname required");
-    leave_function();
     return SSH_ERROR;
   }
 
   ret = ssh_options_apply(session);
   if (ret < 0) {
       ssh_set_error(session, SSH_FATAL, "Couldn't apply options");
-      leave_function();
       return SSH_ERROR;
   }
-  ssh_log(session,SSH_LOG_RARE,"libssh %s, using threading %s", ssh_copyright(), ssh_threads_get_type());
+  SSH_LOG(SSH_LOG_RARE,"libssh %s, using threading %s", ssh_copyright(), ssh_threads_get_type());
   session->ssh_connection_callback = ssh_client_connection_callback;
   session->session_state=SSH_SESSION_STATE_CONNECTING;
   ssh_socket_set_callbacks(session->socket,&session->socket_callbacks);
@@ -521,14 +509,13 @@ int ssh_connect(ssh_session session) {
                            session->opts.bindaddr);
   }
   if (ret == SSH_ERROR) {
-    leave_function();
     return SSH_ERROR;
   }
 
   set_status(session, 0.2f);
 
   session->alive = 1;
-  ssh_log(session,SSH_LOG_PROTOCOL,"Socket connecting, now waiting for the callbacks to work");
+  SSH_LOG(SSH_LOG_PROTOCOL,"Socket connecting, now waiting for the callbacks to work");
 pending:
   session->pending_call_state=SSH_PENDING_CALL_CONNECT;
   if(ssh_is_blocking(session)) {
@@ -537,7 +524,7 @@ pending:
       if (timeout == 0) {
           timeout = 10 * 1000;
       }
-      ssh_log(session,SSH_LOG_PACKET,"ssh_connect: Actual timeout : %d", timeout);
+      SSH_LOG(SSH_LOG_PACKET,"ssh_connect: Actual timeout : %d", timeout);
       ret = ssh_handle_packets_termination(session, timeout, ssh_connect_termination, session);
       if (ret == SSH_ERROR || !ssh_connect_termination(session)) {
           ssh_set_error(session, SSH_FATAL,
@@ -554,12 +541,11 @@ pending:
           session->session_state = SSH_SESSION_STATE_ERROR;
       }
   }
-  ssh_log(session,SSH_LOG_PACKET,"ssh_connect: Actual state : %d",session->session_state);
+  SSH_LOG(SSH_LOG_PACKET,"ssh_connect: Actual state : %d",session->session_state);
   if(!ssh_is_blocking(session) && !ssh_connect_termination(session)){
-    leave_function();
     return SSH_AGAIN;
   }
-  leave_function();
+
   session->pending_call_state=SSH_PENDING_CALL_NONE;
   if(session->session_state == SSH_SESSION_STATE_ERROR || session->session_state == SSH_SESSION_STATE_DISCONNECTED)
   	return SSH_ERROR;
@@ -615,8 +601,6 @@ void ssh_disconnect(ssh_session session) {
   if (session == NULL) {
     return;
   }
-
-  enter_function();
 
   if (session->socket != NULL && ssh_socket_is_open(session->socket)) {
     if (buffer_add_u8(session->out_buffer, SSH2_MSG_DISCONNECT) < 0) {
@@ -683,8 +667,6 @@ error:
     ssh_list_free(session->packet_callbacks);
     session->packet_callbacks=NULL;
   }
-
-  leave_function();
 }
 
 const char *ssh_copyright(void) {

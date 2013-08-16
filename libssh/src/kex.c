@@ -272,12 +272,11 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit){
   char *strings[KEX_METHODS_SIZE];
   int i;
 
-  enter_function();
   (void)type;
   (void)user;
   memset(strings, 0, sizeof(strings));
   if (session->session_state == SSH_SESSION_STATE_AUTHENTICATED){
-      ssh_log(session,SSH_LOG_WARNING, "Other side initiating key re-exchange");
+      SSH_LOG(SSH_LOG_WARNING, "Other side initiating key re-exchange");
   } else if(session->session_state != SSH_SESSION_STATE_INITIAL_KEX){
   	ssh_set_error(session,SSH_FATAL,"SSH_KEXINIT received in wrong state");
   	goto error;
@@ -335,7 +334,6 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit){
     }
   }
 
-  leave_function();
   session->session_state=SSH_SESSION_STATE_KEXINIT_RECEIVED;
   session->dh_handshake_state=DH_STATE_INIT;
   session->ssh_connection_callback(session);
@@ -347,11 +345,11 @@ error:
   }
 
   session->session_state = SSH_SESSION_STATE_ERROR;
-  leave_function();
+
   return SSH_PACKET_USED;
 }
 
-void ssh_list_kex(ssh_session session, struct ssh_kex_struct *kex) {
+void ssh_list_kex(struct ssh_kex_struct *kex) {
   int i = 0;
 
 #ifdef DEBUG_CRYPTO
@@ -362,7 +360,7 @@ void ssh_list_kex(ssh_session session, struct ssh_kex_struct *kex) {
     if (kex->methods[i] == NULL) {
       continue;
     }
-    ssh_log(session, SSH_LOG_FUNCTIONS, "%s: %s",
+    SSH_LOG(SSH_LOG_FUNCTIONS, "%s: %s",
         ssh_kex_descriptions[i], kex->methods[i]);
   }
 }
@@ -395,17 +393,14 @@ int set_client_kex(ssh_session session){
 int ssh_kex_select_methods (ssh_session session){
     struct ssh_kex_struct *server = &session->next_crypto->server_kex;
     struct ssh_kex_struct *client = &session->next_crypto->client_kex;
-    int rc = SSH_ERROR;
     int i;
-
-    enter_function();
 
     for (i = 0; i < KEX_METHODS_SIZE; i++) {
         session->next_crypto->kex_methods[i]=ssh_find_matching(server->methods[i],client->methods[i]);
         if(session->next_crypto->kex_methods[i] == NULL && i < SSH_LANG_C_S){
             ssh_set_error(session,SSH_FATAL,"kex error : no match for method %s: server [%s], client [%s]",
                     ssh_kex_descriptions[i],server->methods[i],client->methods[i]);
-            goto error;
+            return SSH_ERROR;
         } else if ((i >= SSH_LANG_C_S) && (session->next_crypto->kex_methods[i] == NULL)) {
             /* we can safely do that for languages */
             session->next_crypto->kex_methods[i] = strdup("");
@@ -418,10 +413,8 @@ int ssh_kex_select_methods (ssh_session session){
     } else if(strcmp(session->next_crypto->kex_methods[SSH_KEX], "ecdh-sha2-nistp256") == 0){
       session->next_crypto->kex_type=SSH_KEX_ECDH_SHA2_NISTP256;
     }
-    rc = SSH_OK;
-error:
-    leave_function();
-    return rc;
+
+    return SSH_OK;
 }
 
 
@@ -431,8 +424,6 @@ int ssh_send_kex(ssh_session session, int server_kex) {
       &session->next_crypto->client_kex);
   ssh_string str = NULL;
   int i;
-
-  enter_function();
 
   if (buffer_add_u8(session->out_buffer, SSH2_MSG_KEXINIT) < 0) {
     goto error;
@@ -445,7 +436,7 @@ int ssh_send_kex(ssh_session session, int server_kex) {
     goto error;
   }
 
-  ssh_list_kex(session, kex);
+  ssh_list_kex(kex);
 
   for (i = 0; i < KEX_METHODS_SIZE; i++) {
     str = ssh_string_from_char(kex->methods[i]);
@@ -471,18 +462,15 @@ int ssh_send_kex(ssh_session session, int server_kex) {
   }
 
   if (packet_send(session) == SSH_ERROR) {
-    leave_function();
     return -1;
   }
 
-  leave_function();
   return 0;
 error:
   buffer_reinit(session->out_buffer);
   buffer_reinit(session->out_hashbuf);
   ssh_string_free(str);
 
-  leave_function();
   return -1;
 }
 

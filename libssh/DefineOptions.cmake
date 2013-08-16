@@ -1,3 +1,4 @@
+option(WITH_GSSAPI "Build with GSSAPI support" ON)
 option(WITH_ZLIB "Build with ZLIB support" ON)
 option(WITH_SSH1 "Build with SSH1 support" OFF)
 option(WITH_SFTP "Build with SFTP support" ON)

@@ -27,6 +27,8 @@
 #include <stdio.h>
 #ifndef _WIN32
 #include <arpa/inet.h>
+#endif
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 
@@ -72,7 +74,7 @@ int channel_open_session1(ssh_channel chan) {
   chan->state = SSH_CHANNEL_STATE_OPEN;
   chan->local_maxpacket = 32000;
   chan->local_window = 64000;
-  ssh_log(session, SSH_LOG_PACKET, "Opened a SSH1 channel session");
+  SSH_LOG(SSH_LOG_PACKET, "Opened a SSH1 channel session");
 
   return 0;
 }
@@ -124,7 +126,7 @@ int channel_request_pty_size1(ssh_channel channel, const char *terminal, int col
     return -1;
   }
 
-  ssh_log(session, SSH_LOG_FUNCTIONS, "Opening a ssh1 pty");
+  SSH_LOG(SSH_LOG_FUNCTIONS, "Opening a ssh1 pty");
   channel->request_state = SSH_CHANNEL_REQ_STATE_PENDING;
   if (packet_send(session) == SSH_ERROR) {
     return -1;
@@ -142,13 +144,13 @@ int channel_request_pty_size1(ssh_channel channel, const char *terminal, int col
       return SSH_ERROR;
     case SSH_CHANNEL_REQ_STATE_ACCEPTED:
       channel->request_state=SSH_CHANNEL_REQ_STATE_NONE;
-      ssh_log(session, SSH_LOG_RARE, "PTY: Success");
+      SSH_LOG(SSH_LOG_RARE, "PTY: Success");
       return SSH_OK;
     case SSH_CHANNEL_REQ_STATE_DENIED:
       channel->request_state=SSH_CHANNEL_REQ_STATE_NONE;
       ssh_set_error(session, SSH_REQUEST_DENIED,
           "Server denied PTY allocation");
-      ssh_log(session, SSH_LOG_RARE, "PTY: denied\n");
+      SSH_LOG(SSH_LOG_RARE, "PTY: denied\n");
       return SSH_ERROR;
   }
   // Not reached
@@ -179,7 +181,7 @@ int channel_change_pty_size1(ssh_channel channel, int cols, int rows) {
     return SSH_ERROR;
   }
 
-  ssh_log(session, SSH_LOG_PROTOCOL, "Change pty size send");
+  SSH_LOG(SSH_LOG_PROTOCOL, "Change pty size send");
   while(channel->request_state==SSH_CHANNEL_REQ_STATE_PENDING){
     ssh_handle_packets(session, SSH_TIMEOUT_INFINITE);
   }
@@ -191,11 +193,11 @@ int channel_change_pty_size1(ssh_channel channel, int cols, int rows) {
       return SSH_ERROR;
     case SSH_CHANNEL_REQ_STATE_ACCEPTED:
       channel->request_state=SSH_CHANNEL_REQ_STATE_NONE;
-      ssh_log(session, SSH_LOG_PROTOCOL, "pty size changed");
+      SSH_LOG(SSH_LOG_PROTOCOL, "pty size changed");
       return SSH_OK;
     case SSH_CHANNEL_REQ_STATE_DENIED:
       channel->request_state=SSH_CHANNEL_REQ_STATE_NONE;
-      ssh_log(session, SSH_LOG_RARE, "pty size change denied");
+      SSH_LOG(SSH_LOG_RARE, "pty size change denied");
       ssh_set_error(session, SSH_REQUEST_DENIED, "pty size change denied");
       return SSH_ERROR;
   }
@@ -220,7 +222,7 @@ int channel_request_shell1(ssh_channel channel) {
     return -1;
   }
 
-  ssh_log(session, SSH_LOG_RARE, "Launched a shell");
+  SSH_LOG(SSH_LOG_RARE, "Launched a shell");
 
   return 0;
 }
@@ -250,7 +252,7 @@ int channel_request_exec1(ssh_channel channel, const char *cmd) {
     return -1;
   }
 
-  ssh_log(session, SSH_LOG_RARE, "Executing %s ...", cmd);
+  SSH_LOG(SSH_LOG_RARE, "Executing %s ...", cmd);
 
   return 0;
 }
@@ -267,11 +269,11 @@ SSH_PACKET_CALLBACK(ssh_packet_data1){
 
     str = buffer_get_ssh_string(packet);
     if (str == NULL) {
-      ssh_log(session, SSH_LOG_FUNCTIONS, "Invalid data packet !\n");
+      SSH_LOG(SSH_LOG_FUNCTIONS, "Invalid data packet !\n");
       return SSH_PACKET_USED;
     }
 
-    ssh_log(session, SSH_LOG_PROTOCOL,
+    SSH_LOG(SSH_LOG_PROTOCOL,
         "Adding %" PRIdS " bytes data in %d",
         ssh_string_len(str), is_stderr);
 

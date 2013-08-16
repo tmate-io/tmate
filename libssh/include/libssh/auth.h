@@ -83,8 +83,13 @@ enum ssh_auth_state_e {
   /** Last state was a public key accepted for authentication */
   SSH_AUTH_STATE_PK_OK,
   /** We asked for a keyboard-interactive authentication */
-  SSH_AUTH_STATE_KBDINT_SENT
-
+  SSH_AUTH_STATE_KBDINT_SENT,
+  /** We have sent an userauth request with gssapi-with-mic */
+  SSH_AUTH_STATE_GSSAPI_REQUEST_SENT,
+  /** We are exchanging tokens until authentication */
+  SSH_AUTH_STATE_GSSAPI_TOKEN,
+  /** We have sent the MIC and expecting to be authenticated */
+  SSH_AUTH_STATE_GSSAPI_MIC_SENT,
 };
 
 /** @internal

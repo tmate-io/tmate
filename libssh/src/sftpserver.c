@@ -62,6 +62,10 @@ sftp_client_message sftp_get_client_message(sftp_session sftp) {
   msg->type = packet->type;
   msg->sftp = sftp;
 
+  /* take a copy of the whole packet */
+  msg->complete_message = ssh_buffer_new();
+  buffer_add_data(msg->complete_message, buffer_get_rest(payload), buffer_get_rest_len(payload));
+
   buffer_get_u32(payload, &msg->id);
 
   switch(msg->type) {
@@ -241,6 +245,34 @@ sftp_client_message sftp_get_client_message(sftp_session sftp) {
   return msg;
 }
 
+/* Send an sftp client message. Can be used in cas of proxying */
+int sftp_send_client_message(sftp_session sftp, sftp_client_message msg){
+	return sftp_packet_write(sftp, msg->type, msg->complete_message);
+}
+
+uint8_t sftp_client_message_get_type(sftp_client_message msg){
+	return msg->type;
+}
+
+const char *sftp_client_message_get_filename(sftp_client_message msg){
+	return msg->filename;
+}
+
+void sftp_client_message_set_filename(sftp_client_message msg, const char *newname){
+	free(msg->filename);
+	msg->filename = strdup(newname);
+}
+
+const char *sftp_client_message_get_data(sftp_client_message msg){
+	if (msg->str_data == NULL)
+		msg->str_data = ssh_string_to_char(msg->data);
+	return msg->str_data;
+}
+
+uint32_t sftp_client_message_get_flags(sftp_client_message msg){
+	return msg->flags;
+}
+
 void sftp_client_message_free(sftp_client_message msg) {
   if (msg == NULL) {
     return;
@@ -250,7 +282,8 @@ void sftp_client_message_free(sftp_client_message msg) {
   ssh_string_free(msg->data);
   ssh_string_free(msg->handle);
   sftp_attributes_free(msg->attr);
-
+  ssh_buffer_free(msg->complete_message);
+  SAFE_FREE(msg->str_data);
   ZERO_STRUCTP(msg);
   SAFE_FREE(msg);
 }

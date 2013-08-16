@@ -1,13 +1,75 @@
 ChangeLog
 ==========
 
-version 0.5.x (released 2012-xx-xx)
-  * Added new PKI infrastructure.
-  * Added simplified user auth functions.
-  * Added ECDSA pubkey support.
-  * Added ECDSA hostkey support.
-  * Added diffie-hellman-group14-sha1 support.
-  * Fixed a ton of bugs.
+version 0.6.0 (released 2013-XX-XX)
+  * Added new publicy key API.
+  * Added new userauth API.
+  * Added gssapi-mic userauth.
+  * Added new callback based server API.
+  * Added Elliptic Curve DSA (ECDSA) support (with OpenSSL).
+  * Added Elliptic Curve Diffie Hellman (ECDH) support.
+  * Added improved logging system.
+  * Added SSH-agent forwarding.
+  * Added key-reexchange.
+  * Improved documentation.
+  * Fixed timeout handling.
+
+version 0.5.5 (released 2013-07-26)
+  * BUG 103: Fix ProxyCommand parsing.
+  * Fix setting -D_FORTIFY_SOURCE=2.
+  * Fix pollset error return if emtpy.
+  * Fix NULL pointer checks in channel functions.
+  * Several bugfixes.
+
+version 0.5.4 (released 2013-01-22)
+  * CVE-2013-0176 - NULL dereference leads to denial of service
+  * Fixed several NULL pointer dereferences in SSHv1.
+  * Fixed a free crash bug in options parsing.
+
+version 0.5.3 (released 2012-11-20)
+  * CVE-2012-4559 Fixed multiple double free() flaws.
+  * CVE-2012-4560 Fixed multiple buffer overflow flaws.
+  * CVE-2012-4561 Fixed multiple invalid free() flaws.
+  * BUG #84 - Fix bug in sftp_mkdir not returning on error.
+  * BUG #85 - Fixed a possible channel infinite loop if the connection dropped.
+  * BUG #88 - Added missing channel request_state and set it to accepted.
+  * BUG #89 - Reset error state to no error on successful SSHv1 authentiction.
+  * Fixed a possible use after free in ssh_free().
+  * Fixed multiple possible NULL pointer dereferences.
+  * Fixed multiple memory leaks in error paths.
+  * Fixed timeout handling.
+  * Fixed regression in pre-connected socket setting.
+  * Handle all unknown global messages.
+
+version 0.5.2 (released 2011-09-17)
+  * Increased window size x10.
+  * Fixed SSHv1.
+  * Fixed bugged lists.
+  * Fixed use-after-free + inconsistent callbacks call in poll.
+  * Fixed scp documentation.
+  * Fixed possible infinite loop in channel_read().
+  * Fixed handling of short reads of sftp_async_read().
+  * Fixed handling request service timeout in blocking mode.
+  * Fixed ssh_auth_list() documentation.
+  * Fixed incorrect return values in ssh_channel_write().
+  * Fixed an infinite loop in the termination callback.
+  * Fixed handling of SSH_AGAIN in channel_open().
+  * Fixed "status -5 inflating zlib packet"
+
+version 0.5.1 (released 2011-08-09)
+  * Added checks for NULL pointers in string.c.
+  * Set the channel max packet size to 32768.
+  * Don't (de)compress empty buffers.
+  * Fixed ssh_scp_write so it works when doing recursive copy.
+  * Fixed another source of endless wait.
+  * Fixed an endless loop in case of a channel_open error.
+  * Fixed session timeout handling.
+  * Fixed ssh_channel_from_local() loop.
+  * Fixed permissions of scp example when we copy a file.
+  * Workaround ssh_get_user_home_dir on LDAP users.
+  * Added pkg-config support for libssh_threads.
+  * Fixed compilation without server and sftp modes.
+  * Fix static .lib overwriting on Windows.
 
 version 0.5.0 (released 2011-06-01)
   * Added ssh_ prefix to all functions.

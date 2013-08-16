@@ -92,13 +92,17 @@ struct ssh_message_struct {
 };
 
 SSH_PACKET_CALLBACK(ssh_packet_channel_open);
+SSH_PACKET_CALLBACK(ssh_packet_global_request);
+
+#ifdef WITH_SERVER
 SSH_PACKET_CALLBACK(ssh_packet_service_request);
 SSH_PACKET_CALLBACK(ssh_packet_userauth_request);
-SSH_PACKET_CALLBACK(ssh_packet_global_request);
+#endif /* WITH_SERVER */
 
 int ssh_message_handle_channel_request(ssh_session session, ssh_channel channel, ssh_buffer packet,
     const char *request, uint8_t want_reply);
 void ssh_message_queue(ssh_session session, ssh_message message);
 ssh_message ssh_message_pop_head(ssh_session session);
+int ssh_message_channel_request_open_reply_accept_channel(ssh_message msg, ssh_channel chan);
 
 #endif /* MESSAGES_H_ */

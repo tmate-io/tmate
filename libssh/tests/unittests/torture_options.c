@@ -176,6 +176,23 @@ static void torture_options_get_identity(void **state) {
     free(identity);
 }
 
+static void torture_options_proxycommand(void **state) {
+    ssh_session session = *state;
+    int rc;
+
+    /* Enable ProxyCommand */
+    rc = ssh_options_set(session, SSH_OPTIONS_PROXYCOMMAND, "ssh -q -A -X -W %h:%p JUMPHOST");
+    assert_int_equal(rc, 0);
+
+    assert_string_equal(session->opts.ProxyCommand, "ssh -q -A -X -W %h:%p JUMPHOST");
+
+    /* Disable ProxyCommand */
+    rc = ssh_options_set(session, SSH_OPTIONS_PROXYCOMMAND, "none");
+    assert_int_equal(rc, 0);
+
+    assert_null(session->opts.ProxyCommand);
+}
+
 int torture_run_tests(void) {
     int rc;
     const UnitTest tests[] = {
@@ -188,6 +205,7 @@ int torture_run_tests(void) {
         unit_test_setup_teardown(torture_options_get_user, setup, teardown),
         unit_test_setup_teardown(torture_options_set_identity, setup, teardown),
         unit_test_setup_teardown(torture_options_get_identity, setup, teardown),
+        unit_test_setup_teardown(torture_options_proxycommand, setup, teardown),
     };
 
     ssh_init();

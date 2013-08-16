@@ -19,24 +19,29 @@ the interesting functions as you go.
 
 The libssh library provides:
 
- - Full C library functions for manipulating a client-side SSH connection
- - SSH2 and SSH1 protocol compliant
- - Fully configurable sessions
- - Server support
- - SSH agent authentication support
- - Support for AES-128, AES-192, AES-256, Blowfish, 3DES in CBC mode, and AES in CTR mode
- - Supports OpenSSL and GCrypt
- - Use multiple SSH connections in a same process, at same time
- - Use multiple channels in the same connection
- - Thread safety when using different sessions at same time
- - POSIX-like SFTP (Secure File Transfer) implementation with openssh extension support
- - SCP implementation
- - Large file system support (files bigger than 4GB)
- - RSA and DSS server public key supported
- - Compression support (with zlib)
- - Public key (RSA and DSS), password and keyboard-interactive authentication
- - Full poll()/WSAPoll() support and a poll-emulation for Win32.
- - Runs and tested under x86_64, x86, ARM, Sparc32, PPC under Linux, BSD, MacOSX, Solaris and Windows
+ - <strong>Key Exchange Methods</strong>: <i>ecdh-sha2-nistp256</i>, diffie-hellman-group1-sha1, diffie-hellman-group14-sha1
+ - <strong>Hostkey Types</strong>: <i>ecdsa-sha2-nistp256</i>, ssh-dss, ssh-rsa
+ - <strong>Ciphers</strong>: <i>aes256-ctr, aes192-ctr, aes128-ctr</i>, aes256-cbc (rijndael-cbc@lysator.liu.se), aes192-cbc, aes128-cbc, 3des-cbc, des-cbc-ssh1, blowfish-cbc, none
+ - <strong>Compression Schemes</strong>: zlib, <i>zlib@openssh.com</i>, none
+ - <strong>MAC hashes</strong>: hmac-sha1, none
+ - <strong>Authentication</strong>: none, password, public-key, hostbased, keyboard-interactive, <i>gssapi-with-mic</i>
+ - <strong>Channels</strong>: shell, exec (incl. SCP wrapper), direct-tcpip, subsystem, <i>auth-agent-req@openssh.com</i>
+ - <strong>Global Requests</strong>: tcpip-forward, forwarded-tcpip
+ - <strong>Channel Requests</strong>: x11, pty, <i>exit-status, signal, exit-signal, keepalive@openssh.com, auth-agent-req@openssh.com</i>
+ - <strong>Subsystems</strong>: sftp(version 3), publickey(version 2), <i>OpenSSH Extensions</i>
+ - <strong>SFTP</strong>: <i>statvfs@openssh.com, fstatvfs@openssh.com</i>
+ - <strong>Thread-safe</strong>: Just don't share sessions
+ - <strong>Non-blocking</strong>: it can be used both blocking and non-blocking
+ - <strong>Your sockets</strong>: the app hands over the socket, or uses libssh sockets
+ - <b>OpenSSL</b> or <b>gcrypt</b>: builds with either
+
+@section main-additional-features Additional Features
+
+ - Client <b>and</b> server support
+ - SSHv2 and SSHv1 protocol support
+ - Supports <a href="http://test.libssh.org/" target="_blank">Linux, UNIX, BSD, Solaris, OS/2 and Windows</a>
+ - Automated test cases with nightly <a href="http://test.libssh.org/" target="_blank">tests</a>
+ - Event model based on poll(2), or a poll(2)-emulation.
 
 @section main-copyright Copyright Policy
 

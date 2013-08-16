@@ -108,23 +108,21 @@ int ssh_userauth_privatekey_file(ssh_session session,
   int rc = SSH_AUTH_ERROR;
   size_t klen = strlen(filename) + 4 + 1;
 
-  enter_function();
-
   pubkeyfile = malloc(klen);
   if (pubkeyfile == NULL) {
     ssh_set_error_oom(session);
-    leave_function();
+
     return SSH_AUTH_ERROR;
   }
   snprintf(pubkeyfile, klen, "%s.pub", filename);
 
   pubkey = publickey_from_file(session, pubkeyfile, &type);
   if (pubkey == NULL) {
-    ssh_log(session, SSH_LOG_RARE, "Public key file %s not found. Trying to generate it.", pubkeyfile);
+    SSH_LOG(SSH_LOG_RARE, "Public key file %s not found. Trying to generate it.", pubkeyfile);
     /* auto-detect the key type with type=0 */
     privkey = privatekey_from_file(session, filename, 0, passphrase);
   } else {
-    ssh_log(session, SSH_LOG_RARE, "Public key file %s loaded.", pubkeyfile);
+    SSH_LOG(SSH_LOG_RARE, "Public key file %s loaded.", pubkeyfile);
     privkey = privatekey_from_file(session, filename, type, passphrase);
   }
   if (privkey == NULL) {
@@ -138,7 +136,6 @@ error:
   SAFE_FREE(pubkeyfile);
   ssh_string_free(pubkey);
 
-  leave_function();
   return rc;
 }
 
@@ -610,8 +607,8 @@ int ssh_publickey_to_file(ssh_session session,
     SAFE_FREE(pubkey_64);
     SAFE_FREE(user);
 
-    ssh_log(session, SSH_LOG_RARE, "Trying to write public key file: %s", file);
-    ssh_log(session, SSH_LOG_PACKET, "public key file content: %s", buffer);
+    SSH_LOG(SSH_LOG_RARE, "Trying to write public key file: %s", file);
+    SSH_LOG(SSH_LOG_PACKET, "public key file content: %s", buffer);
 
     fp = fopen(file, "w+");
     if (fp == NULL) {
@@ -652,9 +649,9 @@ int ssh_try_publickey_from_file(ssh_session session,
         }
     }
 
-    ssh_log(session, SSH_LOG_PACKET, "Trying to open privatekey %s", keyfile);
+    SSH_LOG(SSH_LOG_PACKET, "Trying to open privatekey %s", keyfile);
     if (!ssh_file_readaccess_ok(keyfile)) {
-        ssh_log(session, SSH_LOG_PACKET, "Failed to open privatekey %s", keyfile);
+        SSH_LOG(SSH_LOG_PACKET, "Failed to open privatekey %s", keyfile);
         return -1;
     }
 
@@ -665,16 +662,16 @@ int ssh_try_publickey_from_file(ssh_session session,
     }
     snprintf(pubkey_file, len, "%s.pub", keyfile);
 
-    ssh_log(session, SSH_LOG_PACKET, "Trying to open publickey %s",
+    SSH_LOG(SSH_LOG_PACKET, "Trying to open publickey %s",
             pubkey_file);
     if (!ssh_file_readaccess_ok(pubkey_file)) {
-        ssh_log(session, SSH_LOG_PACKET, "Failed to open publickey %s",
+        SSH_LOG(SSH_LOG_PACKET, "Failed to open publickey %s",
                 pubkey_file);
         SAFE_FREE(pubkey_file);
         return 1;
     }
 
-    ssh_log(session, SSH_LOG_PACKET, "Success opening public and private key");
+    SSH_LOG(SSH_LOG_PACKET, "Success opening public and private key");
 
     /*
      * We are sure both the private and public key file is readable. We return
@@ -682,7 +679,7 @@ int ssh_try_publickey_from_file(ssh_session session,
      */
     pubkey_string = publickey_from_file(session, pubkey_file, &pubkey_type);
     if (pubkey_string == NULL) {
-        ssh_log(session, SSH_LOG_PACKET,
+        SSH_LOG(SSH_LOG_PACKET,
                 "Wasn't able to open public key file %s: %s",
                 pubkey_file,
                 ssh_get_error(session));

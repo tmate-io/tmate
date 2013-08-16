@@ -17,6 +17,17 @@
    fun:ssh_connect_host_nonblocking
 }
 
+{
+   glibc_dlopen_getdelim_selinux
+   Memcheck:Leak
+   fun:malloc
+   fun:getdelim
+   obj:/lib64/libselinux.so.1
+   fun:call_init
+   fun:_dl_init
+   obj:/lib64/ld-2.15.so
+}
+
 ### OPENSSL
 {
    openssl_crypto_value8

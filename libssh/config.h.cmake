@@ -23,6 +23,9 @@
 /* Define to 1 if you have the <termios.h> header file. */
 #cmakedefine HAVE_TERMIOS_H 1
 
+/* Define to 1 if you have the <unistd.h> header file. */
+#cmakedefine HAVE_UNISTD_H 1
+
 /* Define to 1 if you have the <openssl/aes.h> header file. */
 #cmakedefine HAVE_OPENSSL_AES_H 1
 
@@ -106,6 +109,9 @@
 /* Define to 1 if you have the `__strtoull' function. */
 #cmakedefine HAVE___STRTOULL 1
 
+/* Define to 1 if you have the `_strtoui64' function. */
+#cmakedefine HAVE__STRTOUI64 1
+
 /*************************** LIBRARIES ***************************/
 
 /* Define to 1 if you have the `crypto' library (-lcrypto). */
@@ -119,6 +125,14 @@
 
 
 /**************************** OPTIONS ****************************/
+
+#cmakedefine HAVE_GCC_THREAD_LOCAL_STORAGE 1
+#cmakedefine HAVE_MSC_THREAD_LOCAL_STORAGE 1
+
+#cmakedefine HAVE_GCC_VOLATILE_MEMORY_PROTECTION 1
+
+/* Define to 1 if you want to enable GSSAPI */
+#cmakedefine WITH_GSSAPI 1
 
 /* Define to 1 if you want to enable ZLIB */
 #cmakedefine WITH_ZLIB 1

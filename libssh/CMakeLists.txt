@@ -67,6 +67,10 @@ endif(WITH_GCRYPT)
 set(CMAKE_THREAD_PREFER_PTHREADS ON)
 find_package(Threads)
 
+if (WITH_GSSAPI)
+    find_package(GSSAPI)
+endif (WITH_GSSAPI)
+
 # config.h checks
 include(ConfigureChecks.cmake)
 configure_file(config.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config.h)
@@ -122,6 +126,7 @@ message(STATUS "libgcrypt support: ${WITH_GCRYPT}")
 message(STATUS "SSH-1 support: ${WITH_SSH1}")
 message(STATUS "SFTP support: ${WITH_SFTP}")
 message(STATUS "Server support : ${WITH_SERVER}")
+message(STATUS "GSSAPI support : ${WITH_GSSAPI}")
 message(STATUS "Pcap debugging support : ${WITH_PCAP}")
 message(STATUS "With static library: ${WITH_STATIC_LIB}")
 message(STATUS "Unit testing: ${WITH_TESTING}")

@@ -83,7 +83,17 @@ ssh_scp ssh_scp_new(ssh_session session, int mode, const char *location){
   return scp;
 }
 
-int ssh_scp_init(ssh_scp scp){
+/**
+ * @brief Initialize the scp channel.
+ *
+ * @param[in]  scp      The scp context to initialize.
+ *
+ * @return SSH_OK on success or an SSH error code.
+ *
+ * @see ssh_scp_new()
+ */
+int ssh_scp_init(ssh_scp scp)
+{
   int r;
   char execbuffer[1024];
   uint8_t code;
@@ -93,7 +103,7 @@ int ssh_scp_init(ssh_scp scp){
     ssh_set_error(scp->session,SSH_FATAL,"ssh_scp_init called under invalid state");
     return SSH_ERROR;
   }
-  ssh_log(scp->session,SSH_LOG_PROTOCOL,"Initializing scp session %s %son location '%s'",
+  SSH_LOG(SSH_LOG_PROTOCOL,"Initializing scp session %s %son location '%s'",
 		  scp->mode==SSH_SCP_WRITE?"write":"read",
 				  scp->recursive?"recursive ":"",
 						  scp->location);
@@ -139,7 +149,17 @@ int ssh_scp_init(ssh_scp scp){
   return SSH_OK;
 }
 
-int ssh_scp_close(ssh_scp scp){
+/**
+ * @brief Close the scp channel.
+ *
+ * @param[in]  scp      The scp context to close.
+ *
+ * @return SSH_OK on success or an SSH error code.
+ *
+ * @see ssh_scp_init()
+ */
+int ssh_scp_close(ssh_scp scp)
+{
   char buffer[128];
   int err;
   if(scp==NULL)
@@ -169,7 +189,15 @@ int ssh_scp_close(ssh_scp scp){
   return SSH_OK;
 }
 
-void ssh_scp_free(ssh_scp scp){
+/**
+ * @brief Free a scp context.
+ *
+ * @param[in]  scp      The context to free.
+ *
+ * @see ssh_scp_new()
+ */
+void ssh_scp_free(ssh_scp scp)
+{
   if(scp==NULL)
       return;
   if(scp->state != SSH_SCP_NEW)
@@ -300,7 +328,7 @@ int ssh_scp_push_file64(ssh_scp scp, const char *filename, uint64_t size, int mo
   }
   file=ssh_basename(filename);
   perms=ssh_scp_string_mode(mode);
-  ssh_log(scp->session,SSH_LOG_PROTOCOL,"SCP pushing file %s, size %" PRIu64 " with permissions '%s'",file,size,perms);
+  SSH_LOG(SSH_LOG_PROTOCOL,"SCP pushing file %s, size %" PRIu64 " with permissions '%s'",file,size,perms);
   snprintf(buffer, sizeof(buffer), "C%s %" PRIu64 " %s\n", perms, size, file);
   SAFE_FREE(file);
   SAFE_FREE(perms);
@@ -379,7 +407,7 @@ int ssh_scp_response(ssh_scp scp, char **response){
 	/* Warning */
 	if(code == 1){
 		ssh_set_error(scp->session,SSH_REQUEST_DENIED, "SCP: Warning: status code 1 received: %s", msg);
-		ssh_log(scp->session,SSH_LOG_RARE,"SCP: Warning: status code 1 received: %s", msg);
+		SSH_LOG(SSH_LOG_RARE,"SCP: Warning: status code 1 received: %s", msg);
 		if(response)
 			*response=strdup(msg);
 		return 1;
@@ -540,7 +568,7 @@ int ssh_scp_pull_request(ssh_scp scp){
   p=strchr(buffer,'\n');
   if(p!=NULL)
 	  *p='\0';
-  ssh_log(scp->session,SSH_LOG_PROTOCOL,"Received SCP request: '%s'",buffer);
+  SSH_LOG(SSH_LOG_PROTOCOL,"Received SCP request: '%s'",buffer);
   switch(buffer[0]){
     case 'C':
       /* File */
@@ -751,7 +779,7 @@ int ssh_scp_request_get_permissions(ssh_scp scp){
 size_t ssh_scp_request_get_size(ssh_scp scp){
   if(scp==NULL)
       return 0;
-  return scp->filelen;
+  return (size_t)scp->filelen;
 }
 
 /** @brief Get the size of the file being pushed from the other party.

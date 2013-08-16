@@ -92,6 +92,8 @@ static void torture_channel_read_error(void **state) {
             break;
     }
     assert_true(rc == SSH_ERROR);
+
+    ssh_channel_free(channel);
 }
 
 int torture_run_tests(void) {

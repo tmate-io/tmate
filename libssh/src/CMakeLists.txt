@@ -64,6 +64,18 @@ if (WITH_ZLIB)
   )
 endif (WITH_ZLIB)
 
+if (WITH_GSSAPI AND GSSAPI_FOUND)
+  set(LIBSSH_PRIVATE_INCLUDE_DIRS
+    ${LIBSSH_PRIVATE_INCLUDE_DIRS}
+    ${GSSAPI_INCLUDE_DIR}
+  )
+
+  set(LIBSSH_LINK_LIBRARIES
+    ${LIBSSH_LINK_LIBRARIES}
+    ${GSSAPI_LIBRARIES}
+  )
+endif (WITH_GSSAPI AND GSSAPI_FOUND)
+
 set(LIBSSH_LINK_LIBRARIES
   ${LIBSSH_LINK_LIBRARIES}
   CACHE INTERNAL "libssh link libraries"
@@ -172,6 +184,13 @@ if (WITH_ZLIB)
     gzip.c
   )
 endif(WITH_ZLIB)
+
+if (WITH_GSSAPI AND GSSAPI_FOUND)
+  set(libssh_SRCS
+    ${libssh_SRCS}
+    gssapi.c
+  )
+endif (WITH_GSSAPI AND GSSAPI_FOUND)
 
 include_directories(
   ${LIBSSH_PUBLIC_INCLUDE_DIRS}

@@ -21,6 +21,23 @@
 #=============================================================================
 #
 
+set(_CMOCKA_ROOT_HINTS
+)
+
+set(_CMOCKA_ROOT_PATHS
+    "$ENV{PROGRAMFILES}/cmocka"
+)
+
+find_path(CMOCKA_ROOT_DIR
+    NAMES
+        include/cmocka.h
+    HINTS
+        ${_CMOCKA_ROOT_HINTS}
+    PATHS
+        ${_CMOCKA_ROOT_PATHS}
+)
+mark_as_advanced(CMOCKA_ROOT_DIR)
+
 find_path(CMOCKA_INCLUDE_DIR
     NAMES
         cmocka.h
@@ -32,7 +49,7 @@ find_library(CMOCKA_LIBRARY
     NAMES
         cmocka
     PATHS
-        ${CMOCKA_ROOT_DIR}/include
+        ${CMOCKA_ROOT_DIR}/lib
 )
 
 if (CMOCKA_LIBRARY)

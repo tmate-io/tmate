@@ -71,6 +71,7 @@ struct ssh_agent_struct {
   struct ssh_socket_struct *sock;
   ssh_buffer ident;
   unsigned int count;
+  ssh_channel channel;
 };
 
 #ifndef _WIN32

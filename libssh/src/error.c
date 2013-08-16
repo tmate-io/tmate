@@ -61,11 +61,11 @@ void _ssh_set_error(void *error,
     va_end(va);
 
     err->error.error_code = code;
-    ssh_log_common(err,
-                   SSH_LOG_WARN,
-                   function,
-                   "Error: %s",
-                   err->error.error_buffer);
+    if (ssh_get_log_level() >= SSH_LOG_WARN) {
+        ssh_log_function(SSH_LOG_WARN,
+                         function,
+                         err->error.error_buffer);
+    }
 }
 
 /**

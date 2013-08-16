@@ -63,27 +63,27 @@ if(DOXYGEN_FOUND AND DOXYFILE_IN_FOUND)
     set(DOXYFILE_PDFLATEX FALSE)
     set(DOXYFILE_DOT FALSE)
 
-    find_package(LATEX)
-    if(LATEX_COMPILER AND MAKEINDEX_COMPILER)
-        set(DOXYFILE_LATEX TRUE)
-        usedoxygen_set_default(DOXYFILE_LATEX_DIR "latex")
-
-        set_property(DIRECTORY APPEND PROPERTY
-                ADDITIONAL_MAKE_CLEAN_FILES
-                "${DOXYFILE_OUTPUT_DIR}/${DOXYFILE_LATEX_DIR}")
-
-        if(PDFLATEX_COMPILER)
-            set(DOXYFILE_PDFLATEX TRUE)
-        endif()
-        if(DOXYGEN_DOT_EXECUTABLE)
-            set(DOXYFILE_DOT TRUE)
-        endif()
-
-        add_custom_command(TARGET doxygen
-            POST_BUILD
-            COMMAND ${CMAKE_MAKE_PROGRAM}
-            WORKING_DIRECTORY "${DOXYFILE_OUTPUT_DIR}/${DOXYFILE_LATEX_DIR}")
-    endif()
+    #find_package(LATEX)
+    #if(LATEX_COMPILER AND MAKEINDEX_COMPILER)
+    #    set(DOXYFILE_LATEX TRUE)
+    #    usedoxygen_set_default(DOXYFILE_LATEX_DIR "latex")
+    #
+    #    set_property(DIRECTORY APPEND PROPERTY
+    #            ADDITIONAL_MAKE_CLEAN_FILES
+    #            "${DOXYFILE_OUTPUT_DIR}/${DOXYFILE_LATEX_DIR}")
+    #
+    #    if(PDFLATEX_COMPILER)
+    #        set(DOXYFILE_PDFLATEX TRUE)
+    #    endif()
+    #    if(DOXYGEN_DOT_EXECUTABLE)
+    #        set(DOXYFILE_DOT TRUE)
+    #    endif()
+    #
+    #    add_custom_command(TARGET doxygen
+    #        POST_BUILD
+    #        COMMAND ${CMAKE_MAKE_PROGRAM}
+    #        WORKING_DIRECTORY "${DOXYFILE_OUTPUT_DIR}/${DOXYFILE_LATEX_DIR}")
+    #endif()
 
     configure_file(${DOXYFILE_IN} ${CMAKE_CURRENT_BINARY_DIR}/doxy.config ESCAPE_QUOTES IMMEDIATE @ONLY)
     if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/doxy.trac.in)

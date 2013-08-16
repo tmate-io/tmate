@@ -1220,8 +1220,7 @@ int ssh_pki_signature_verify_blob(ssh_session session,
         return SSH_ERROR;
     }
 
-    ssh_log(session,
-            SSH_LOG_FUNCTIONS,
+    SSH_LOG(SSH_LOG_FUNCTIONS,
             "Going to verify a %s type signature",
             key->type_c);
 
@@ -1260,7 +1259,7 @@ int ssh_pki_signature_verify_blob(ssh_session session,
 }
 
 /*
- * This function signs the session id (known as H) as a string then
+ * This function signs the session id as a string then
  * the content of sigbuf */
 ssh_string ssh_pki_do_sign(ssh_session session,
                            ssh_buffer sigbuf,
@@ -1284,7 +1283,7 @@ ssh_string ssh_pki_do_sign(ssh_session session,
         return NULL;
     }
     ssh_string_fill(session_id, crypto->session_id, crypto->digest_len);
-
+    /* TODO: change when supporting ECDSA keys */
     ctx = sha1_init();
     if (ctx == NULL) {
         ssh_string_free(session_id);
@@ -1381,18 +1380,18 @@ ssh_string ssh_srv_pki_do_sign_sessionid(ssh_session session,
     if (session == NULL || privkey == NULL || !ssh_key_is_private(privkey)) {
         return NULL;
     }
-    crypto = session->current_crypto ? session->current_crypto :
-                                       session->next_crypto;
+    crypto = session->next_crypto ? session->next_crypto :
+                                       session->current_crypto;
 
     ctx = sha1_init();
     if (ctx == NULL) {
         return NULL;
     }
-    if (crypto->session_id == NULL){
-        ssh_set_error(session,SSH_FATAL,"Missing session_id");
+    if (crypto->secret_hash == NULL){
+        ssh_set_error(session,SSH_FATAL,"Missing secret_hash");
         return NULL;
     }
-    sha1_update(ctx, crypto->session_id, crypto->digest_len);
+    sha1_update(ctx, crypto->secret_hash, crypto->digest_len);
     sha1_final(hash, ctx);
 
 #ifdef DEBUG_CRYPTO

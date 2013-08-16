@@ -635,6 +635,7 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                 }
 
                 session->common.log_verbosity = *x & 0xffff;
+                ssh_set_log_level(*x & 0xffff);
             }
             break;
         case SSH_OPTIONS_LOG_VERBOSITY_STR:
@@ -780,11 +781,15 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                 return -1;
             } else {
                 SAFE_FREE(session->opts.ProxyCommand);
-                q = strdup(v);
-                if (q == NULL) {
-                    return -1;
+                /* Setting the command to 'none' disables this option. */
+                rc = strcasecmp(v, "none");
+                if (rc != 0) {
+                    q = strdup(v);
+                    if (q == NULL) {
+                        return -1;
+                    }
+                    session->opts.ProxyCommand = q;
                 }
-                session->opts.ProxyCommand = q;
             }
             break;
         default:
@@ -931,7 +936,8 @@ int ssh_options_getopt(ssh_session session, int *argcptr, char **argv) {
   char *cipher = NULL;
   char *identity = NULL;
   char *port = NULL;
-  char **save = NULL, **tmp;
+  char **save = NULL;
+  char **tmp = NULL;
   int i = 0;
   int argc = *argcptr;
   int debuglevel = 0;
@@ -1013,6 +1019,13 @@ int ssh_options_getopt(ssh_session session, int *argcptr, char **argv) {
     } /* switch */
   } /* while */
   opterr = saveopterr;
+  tmp = realloc(save, (current + (argc - optind)) * sizeof(char*));
+  if (tmp == NULL) {
+    SAFE_FREE(save);
+    ssh_set_error_oom(session);
+    return -1;
+  }
+  save = tmp;
   while (optind < argc) {
       tmp = realloc(save, (current + 1) * sizeof(char*));
       if (tmp == NULL) {
@@ -1031,7 +1044,7 @@ int ssh_options_getopt(ssh_session session, int *argcptr, char **argv) {
     cont = 0;
   }
 
-  ssh_options_set(session, SSH_OPTIONS_LOG_VERBOSITY, &debuglevel);
+  ssh_set_log_level(debuglevel);
 
   optind = saveoptind;
 
@@ -1349,7 +1362,7 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
         return -1;
       } else {
         int *x = (int *) value;
-        sshbind->common.log_verbosity = *x & 0xffff;
+        ssh_set_log_level(*x & 0xffff);
       }
       break;
     case SSH_BIND_OPTIONS_LOG_VERBOSITY_STR:

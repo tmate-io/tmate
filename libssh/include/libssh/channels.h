@@ -96,8 +96,6 @@ int channel_default_bufferize(ssh_channel channel, void *data, int len,
 int ssh_channel_flush(ssh_channel channel);
 uint32_t ssh_channel_new_id(ssh_session session);
 ssh_channel ssh_channel_from_local(ssh_session session, uint32_t id);
-int channel_write_common(ssh_channel channel, const void *data,
-    uint32_t len, int is_stderr);
 void ssh_channel_do_free(ssh_channel channel);
 #ifdef WITH_SSH1
 SSH_PACKET_CALLBACK(ssh_packet_data1);

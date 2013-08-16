@@ -166,10 +166,8 @@ void crypto_free(struct ssh_crypto_struct *crypto){
 static int crypt_set_algorithms2(ssh_session session){
   const char *wanted;
   int i = 0;
-  int rc = SSH_ERROR;
   struct ssh_cipher_struct *ssh_ciphertab=ssh_get_ciphertab();
 
-  enter_function();
   /* we must scan the kex entries to find crypto algorithms and set their appropriate structure */
   /* out */
   wanted = session->next_crypto->kex_methods[SSH_CRYPT_C_S];
@@ -181,14 +179,14 @@ static int crypt_set_algorithms2(ssh_session session){
     ssh_set_error(session, SSH_FATAL,
         "crypt_set_algorithms2: no crypto algorithm function found for %s",
         wanted);
-    goto error;
+      return SSH_ERROR;
   }
-  ssh_log(session, SSH_LOG_PACKET, "Set output algorithm to %s", wanted);
+  SSH_LOG(SSH_LOG_PACKET, "Set output algorithm to %s", wanted);
 
   session->next_crypto->out_cipher = cipher_new(i);
   if (session->next_crypto->out_cipher == NULL) {
-    ssh_set_error_oom(session);
-    goto error;
+      ssh_set_error_oom(session);
+      return SSH_ERROR;
   }
   i = 0;
 
@@ -199,17 +197,17 @@ static int crypt_set_algorithms2(ssh_session session){
   }
 
   if (ssh_ciphertab[i].name == NULL) {
-    ssh_set_error(session, SSH_FATAL,
-        "Crypt_set_algorithms: no crypto algorithm function found for %s",
-        wanted);
-    goto error;
+      ssh_set_error(session, SSH_FATAL,
+          "Crypt_set_algorithms: no crypto algorithm function found for %s",
+          wanted);
+      return SSH_ERROR;
   }
-  ssh_log(session, SSH_LOG_PACKET, "Set input algorithm to %s", wanted);
+  SSH_LOG(SSH_LOG_PACKET, "Set input algorithm to %s", wanted);
 
   session->next_crypto->in_cipher = cipher_new(i);
   if (session->next_crypto->in_cipher == NULL) {
-    ssh_set_error_oom(session);
-    goto error;
+      ssh_set_error_oom(session);
+      return SSH_ERROR;
   }
 
   /* compression */
@@ -225,10 +223,8 @@ static int crypt_set_algorithms2(ssh_session session){
   if (strcmp(session->next_crypto->kex_methods[SSH_COMP_S_C], "zlib@openssh.com") == 0) {
     session->next_crypto->delayed_compress_in = 1;
   }
-  rc = SSH_OK;
-error:
-  leave_function();
-  return rc;
+
+  return SSH_OK;
 }
 
 static int crypt_set_algorithms1(ssh_session session, enum ssh_des_e des_type) {
@@ -270,15 +266,16 @@ int crypt_set_algorithms(ssh_session session, enum ssh_des_e des_type) {
 int crypt_set_algorithms_server(ssh_session session){
     char *method = NULL;
     int i = 0;
-    int rc = SSH_ERROR;
     struct ssh_cipher_struct *ssh_ciphertab=ssh_get_ciphertab();
 
     if (session == NULL) {
         return SSH_ERROR;
     }
 
-    /* we must scan the kex entries to find crypto algorithms and set their appropriate structure */
-    enter_function();
+    /*
+     * We must scan the kex entries to find crypto algorithms and set their
+     * appropriate structure
+     */
     /* out */
     method = session->next_crypto->kex_methods[SSH_CRYPT_S_C];
     while(ssh_ciphertab[i].name && strcmp(method,ssh_ciphertab[i].name))
@@ -286,14 +283,14 @@ int crypt_set_algorithms_server(ssh_session session){
     if(!ssh_ciphertab[i].name){
         ssh_set_error(session,SSH_FATAL,"crypt_set_algorithms_server : "
                 "no crypto algorithm function found for %s",method);
-        goto error;
+        return SSH_ERROR;
     }
-    ssh_log(session,SSH_LOG_PACKET,"Set output algorithm %s",method);
+    SSH_LOG(SSH_LOG_PACKET,"Set output algorithm %s",method);
 
     session->next_crypto->out_cipher = cipher_new(i);
     if (session->next_crypto->out_cipher == NULL) {
-      ssh_set_error_oom(session);
-      goto error;
+        ssh_set_error_oom(session);
+        return SSH_ERROR;
     }
     i=0;
     /* in */
@@ -303,43 +300,41 @@ int crypt_set_algorithms_server(ssh_session session){
     if(!ssh_ciphertab[i].name){
         ssh_set_error(session,SSH_FATAL,"Crypt_set_algorithms_server :"
                 "no crypto algorithm function found for %s",method);
-        goto error;
+        return SSH_ERROR;
     }
-    ssh_log(session,SSH_LOG_PACKET,"Set input algorithm %s",method);
+    SSH_LOG(SSH_LOG_PACKET,"Set input algorithm %s",method);
 
     session->next_crypto->in_cipher = cipher_new(i);
     if (session->next_crypto->in_cipher == NULL) {
-      ssh_set_error_oom(session);
-      goto error;
+        ssh_set_error_oom(session);
+        return SSH_ERROR;
     }
 
     /* compression */
     method = session->next_crypto->kex_methods[SSH_COMP_C_S];
     if(strcmp(method,"zlib") == 0){
-        ssh_log(session,SSH_LOG_PACKET,"enabling C->S compression");
+        SSH_LOG(SSH_LOG_PACKET,"enabling C->S compression");
         session->next_crypto->do_compress_in=1;
     }
     if(strcmp(method,"zlib@openssh.com") == 0){
-        ssh_log(session,SSH_LOG_PACKET,"enabling C->S compression");
+        SSH_LOG(SSH_LOG_PACKET,"enabling C->S compression");
         session->next_crypto->delayed_compress_in=1;
     }
 
     method = session->next_crypto->kex_methods[SSH_COMP_S_C];
     if(strcmp(method,"zlib") == 0){
-        ssh_log(session,SSH_LOG_PACKET,"enabling S->C compression\n");
+        SSH_LOG(SSH_LOG_PACKET, "enabling S->C compression\n");
         session->next_crypto->do_compress_out=1;
     }
     if(strcmp(method,"zlib@openssh.com") == 0){
-        ssh_log(session,SSH_LOG_PACKET,"enabling S->C delayed compression\n");
+        SSH_LOG(SSH_LOG_PACKET,"enabling S->C delayed compression\n");
         session->next_crypto->delayed_compress_out=1;
     }
 
     method = session->next_crypto->kex_methods[SSH_HOSTKEYS];
     session->srv.hostkey = ssh_key_type_from_name(method);
-    rc = SSH_OK;
-    error:
-    leave_function();
-    return rc;
+
+    return SSH_OK;
 }
 
 #endif /* WITH_SERVER */

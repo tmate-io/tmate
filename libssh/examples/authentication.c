@@ -118,6 +118,15 @@ int authenticate_console(ssh_session session){
 
   method = ssh_auth_list(session);
   while (rc != SSH_AUTH_SUCCESS) {
+	if (method & SSH_AUTH_METHOD_GSSAPI_MIC){
+		rc = ssh_userauth_gssapi(session);
+		if(rc == SSH_AUTH_ERROR) {
+			error(session);
+			return rc;
+		} else if (rc == SSH_AUTH_SUCCESS) {
+			break;
+		}
+	}
     // Try to authenticate with public key first
     if (method & SSH_AUTH_METHOD_PUBLICKEY) {
       rc = ssh_userauth_autopubkey(session, NULL);

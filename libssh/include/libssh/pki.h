@@ -108,7 +108,7 @@ int ssh_pki_export_pubkey_rsa1(const ssh_key key,
 
 /* SSH Signing Functions */
 ssh_string ssh_pki_do_sign(ssh_session session, ssh_buffer sigbuf,
-    ssh_key privatekey);
+    const ssh_key privatekey);
 ssh_string ssh_pki_do_sign_agent(ssh_session session,
                                  struct ssh_buffer_struct *buf,
                                  const ssh_key pubkey);
@@ -116,7 +116,7 @@ ssh_string ssh_srv_pki_do_sign_sessionid(ssh_session session,
                                          const ssh_key privkey);
 
 /* Temporary functions, to be removed after migration to ssh_key */
-ssh_public_key ssh_pki_convert_key_to_publickey(ssh_key key);
-ssh_private_key ssh_pki_convert_key_to_privatekey(ssh_key key);
+ssh_public_key ssh_pki_convert_key_to_publickey(const ssh_key key);
+ssh_private_key ssh_pki_convert_key_to_privatekey(const ssh_key key);
 
 #endif /* PKI_H_ */

@@ -59,7 +59,8 @@ enum ssh_pending_call_e {
 	SSH_PENDING_CALL_AUTH_PUBKEY,
 	SSH_PENDING_CALL_AUTH_AGENT,
 	SSH_PENDING_CALL_AUTH_KBDINT_INIT,
-	SSH_PENDING_CALL_AUTH_KBDINT_SEND
+	SSH_PENDING_CALL_AUTH_KBDINT_SEND,
+	SSH_PENDING_CALL_AUTH_GSSAPI_MIC
 };
 
 /* libssh calls may block an undefined amount of time */
@@ -69,8 +70,13 @@ enum ssh_pending_call_e {
 #define SSH_SESSION_FLAG_AUTHENTICATED 2
 
 /* codes to use with ssh_handle_packets*() */
+/* Infinite timeout */
 #define SSH_TIMEOUT_INFINITE -1
+/* Use the timeout defined by user if any. Mostly used with new connections */
 #define SSH_TIMEOUT_USER -2
+/* Use the default timeout, depending on ssh_is_blocking() */
+#define SSH_TIMEOUT_DEFAULT -3
+/* Don't block at all */
 #define SSH_TIMEOUT_NONBLOCKING 0
 
 /* members that are common to ssh_session and ssh_bind */
@@ -78,7 +84,6 @@ struct ssh_common_struct {
     struct error_struct error;
     ssh_callbacks callbacks; /* Callbacks to user functions */
     int log_verbosity; /* verbosity of the log functions */
-    int log_indent; /* indentation level in enter_function logs */
 };
 
 struct ssh_session_struct {
@@ -138,6 +143,7 @@ struct ssh_session_struct {
 
 /* keyb interactive data */
     struct ssh_kbdint_struct *kbdint;
+    struct ssh_gssapi_struct *gssapi;
     int version; /* 1 or 2 */
     /* server host keys */
     struct {
@@ -153,7 +159,7 @@ struct ssh_session_struct {
     struct ssh_list *ssh_message_list; /* list of delayed SSH messages */
     int (*ssh_message_callback)( struct ssh_session_struct *session, ssh_message msg, void *userdata);
     void *ssh_message_callback_data;
-
+    ssh_server_callbacks server_callbacks;
     void (*ssh_connection_callback)( struct ssh_session_struct *session);
     struct ssh_packet_callbacks_struct default_packet_callbacks;
     struct ssh_list *packet_callbacks;

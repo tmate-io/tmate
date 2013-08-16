@@ -106,18 +106,15 @@ static void tokens_free(char **tokens) {
  *                      free that value. NULL if no match was found or the file
  *                      was not found.
  */
-static char **ssh_get_knownhost_line(ssh_session session, FILE **file,
-    const char *filename, const char **found_type) {
+static char **ssh_get_knownhost_line(FILE **file, const char *filename,
+                                     const char **found_type) {
   char buffer[4096] = {0};
   char *ptr;
   char **tokens;
 
-  enter_function();
-
   if(*file == NULL){
     *file = fopen(filename,"r");
     if (*file == NULL) {
-      leave_function();
       return NULL;
     }
   }
@@ -141,7 +138,7 @@ static char **ssh_get_knownhost_line(ssh_session session, FILE **file,
     if (tokens == NULL) {
       fclose(*file);
       *file = NULL;
-      leave_function();
+
       return NULL;
     }
 
@@ -168,7 +165,7 @@ static char **ssh_get_knownhost_line(ssh_session session, FILE **file,
         continue;
       }
     }
-    leave_function();
+
     return tokens;
   }
 
@@ -176,7 +173,6 @@ static char **ssh_get_knownhost_line(ssh_session session, FILE **file,
   *file = NULL;
 
   /* we did not find anything, end of file*/
-  leave_function();
   return NULL;
 }
 
@@ -293,8 +289,8 @@ static int check_public_key(ssh_session session, char **tokens) {
  *
  * @returns             1 if it matches, 0 otherwise.
  */
-static int match_hashed_host(ssh_session session, const char *host,
-    const char *sourcehash) {
+static int match_hashed_host(const char *host, const char *sourcehash)
+{
   /* Openssh hash structure :
    * |1|base64 encoded salt|base64 encoded hash
    * hash is produced that way :
@@ -309,16 +305,12 @@ static int match_hashed_host(ssh_session session, const char *host,
   int match;
   unsigned int size;
 
-  enter_function();
-
   if (strncmp(sourcehash, "|1|", 3) != 0) {
-  	leave_function();
     return 0;
   }
 
   source = strdup(sourcehash + 3);
   if (source == NULL) {
-    leave_function();
     return 0;
   }
 
@@ -326,7 +318,7 @@ static int match_hashed_host(ssh_session session, const char *host,
   if (b64hash == NULL) {
     /* Invalid hash */
     SAFE_FREE(source);
-    leave_function();
+
     return 0;
   }
 
@@ -336,7 +328,7 @@ static int match_hashed_host(ssh_session session, const char *host,
   salt = base64_to_bin(source);
   if (salt == NULL) {
     SAFE_FREE(source);
-    leave_function();
+
     return 0;
   }
 
@@ -344,7 +336,7 @@ static int match_hashed_host(ssh_session session, const char *host,
   SAFE_FREE(source);
   if (hash == NULL) {
     ssh_buffer_free(salt);
-    leave_function();
+
     return 0;
   }
 
@@ -352,7 +344,7 @@ static int match_hashed_host(ssh_session session, const char *host,
   if (mac == NULL) {
     ssh_buffer_free(salt);
     ssh_buffer_free(hash);
-    leave_function();
+
     return 0;
   }
   size = sizeof(buffer);
@@ -369,10 +361,9 @@ static int match_hashed_host(ssh_session session, const char *host,
   ssh_buffer_free(salt);
   ssh_buffer_free(hash);
 
-  ssh_log(session, SSH_LOG_PACKET,
+  SSH_LOG(SSH_LOG_PACKET,
       "Matching a hashed host: %s match=%d", host, match);
 
-  leave_function();
   return match;
 }
 
@@ -421,13 +412,11 @@ int ssh_is_server_known(ssh_session session) {
   int match;
   int ret = SSH_SERVER_NOT_KNOWN;
 
-  enter_function();
-
   if (session->opts.knownhosts == NULL) {
     if (ssh_options_apply(session) < 0) {
       ssh_set_error(session, SSH_REQUEST_DENIED,
           "Can't find a known_hosts file");
-      leave_function();
+
       return SSH_SERVER_FILE_NOT_FOUND;
     }
   }
@@ -435,14 +424,14 @@ int ssh_is_server_known(ssh_session session) {
   if (session->opts.host == NULL) {
     ssh_set_error(session, SSH_FATAL,
         "Can't verify host in known hosts if the hostname isn't known");
-    leave_function();
+
     return SSH_SERVER_ERROR;
   }
 
   if (session->current_crypto == NULL){
   	ssh_set_error(session, SSH_FATAL,
   			"ssh_is_host_known called without cryptographic context");
-  	leave_function();
+
   	return SSH_SERVER_ERROR;
   }
   host = ssh_lowercase(session->opts.host);
@@ -451,13 +440,12 @@ int ssh_is_server_known(ssh_session session) {
     ssh_set_error_oom(session);
     SAFE_FREE(host);
     SAFE_FREE(hostport);
-    leave_function();
+
     return SSH_SERVER_ERROR;
   }
 
   do {
-    tokens = ssh_get_knownhost_line(session,
-                                    &file,
+    tokens = ssh_get_knownhost_line(&file,
                                     session->opts.knownhosts,
                                     &type);
 
@@ -465,7 +453,7 @@ int ssh_is_server_known(ssh_session session) {
     if (tokens == NULL) {
       break;
     }
-    match = match_hashed_host(session, host, tokens[0]);
+    match = match_hashed_host(host, tokens[0]);
     if (match == 0){
     	match = match_hostname(hostport, tokens[0], strlen(tokens[0]));
     }
@@ -473,13 +461,12 @@ int ssh_is_server_known(ssh_session session) {
       match = match_hostname(host, tokens[0], strlen(tokens[0]));
     }
     if (match == 0) {
-      match = match_hashed_host(session, hostport, tokens[0]);
+      match = match_hashed_host(hostport, tokens[0]);
     }
     if (match) {
       /* We got a match. Now check the key type */
       if (strcmp(session->current_crypto->server_pubkey_type, type) != 0) {
-          ssh_log(session,
-                  SSH_LOG_PACKET,
+          SSH_LOG(SSH_LOG_PACKET,
                   "ssh_is_server_known: server type [%s] doesn't match the "
                   "type [%s] in known_hosts file",
                   session->current_crypto->server_pubkey_type,
@@ -523,7 +510,6 @@ int ssh_is_server_known(ssh_session session) {
   }
 
   /* Return the current state at end of file */
-  leave_function();
   return ret;
 }
 

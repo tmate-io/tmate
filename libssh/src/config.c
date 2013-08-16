@@ -324,7 +324,7 @@ static int ssh_config_parse_line(ssh_session session, const char *line,
       }
       break;
     case SOC_UNSUPPORTED:
-      ssh_log(session, SSH_LOG_RARE, "Unsupported option: %s, line: %d\n",
+      SSH_LOG(SSH_LOG_RARE, "Unsupported option: %s, line: %d\n",
               keyword, count);
       break;
     default:
@@ -350,7 +350,7 @@ int ssh_config_parse_file(ssh_session session, const char *filename) {
     return 0;
   }
 
-  ssh_log(session, SSH_LOG_RARE, "Reading configuration data from %s", filename);
+  SSH_LOG(SSH_LOG_RARE, "Reading configuration data from %s", filename);
 
   parsing = 1;
   while (fgets(line, sizeof(line), f)) {

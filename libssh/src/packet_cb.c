@@ -53,7 +53,7 @@ SSH_PACKET_CALLBACK(ssh_packet_disconnect_callback){
     error = ssh_string_to_char(error_s);
     ssh_string_free(error_s);
   }
-  ssh_log(session, SSH_LOG_PACKET, "Received SSH_MSG_DISCONNECT %d:%s",code,
+  SSH_LOG(SSH_LOG_PACKET, "Received SSH_MSG_DISCONNECT %d:%s",code,
       error != NULL ? error : "no error");
   ssh_set_error(session, SSH_FATAL,
       "Received SSH_MSG_DISCONNECT: %d:%s",code,
@@ -73,10 +73,11 @@ SSH_PACKET_CALLBACK(ssh_packet_disconnect_callback){
  * @brief Handle a SSH_IGNORE and SSH_DEBUG packet.
  */
 SSH_PACKET_CALLBACK(ssh_packet_ignore_callback){
+    (void)session; /* unused */
 	(void)user;
 	(void)type;
 	(void)packet;
-	ssh_log(session,SSH_LOG_PROTOCOL,"Received %s packet",type==SSH2_MSG_IGNORE ? "SSH_MSG_IGNORE" : "SSH_MSG_DEBUG");
+	SSH_LOG(SSH_LOG_PROTOCOL,"Received %s packet",type==SSH2_MSG_IGNORE ? "SSH_MSG_IGNORE" : "SSH_MSG_DEBUG");
 	/* TODO: handle a graceful disconnect */
 	return SSH_PACKET_USED;
 }
@@ -85,7 +86,7 @@ SSH_PACKET_CALLBACK(ssh_packet_dh_reply){
   int rc;
   (void)type;
   (void)user;
-  ssh_log(session,SSH_LOG_PROTOCOL,"Received SSH_KEXDH_REPLY");
+  SSH_LOG(SSH_LOG_PROTOCOL,"Received SSH_KEXDH_REPLY");
   if(session->session_state!= SSH_SESSION_STATE_DH &&
 		session->dh_handshake_state != DH_STATE_INIT_SENT){
 	ssh_set_error(session,SSH_FATAL,"ssh_packet_dh_reply called in wrong state : %d:%d",
@@ -121,7 +122,7 @@ SSH_PACKET_CALLBACK(ssh_packet_newkeys){
   (void)packet;
   (void)user;
   (void)type;
-  ssh_log(session, SSH_LOG_PROTOCOL, "Received SSH_MSG_NEWKEYS");
+  SSH_LOG(SSH_LOG_PROTOCOL, "Received SSH_MSG_NEWKEYS");
   if(session->session_state!= SSH_SESSION_STATE_DH &&
 		session->dh_handshake_state != DH_STATE_NEWKEYS_SENT){
 	ssh_set_error(session,SSH_FATAL,"ssh_packet_newkeys called in wrong state : %d:%d",
@@ -191,7 +192,7 @@ SSH_PACKET_CALLBACK(ssh_packet_newkeys){
     if (rc == SSH_ERROR) {
       goto error;
     }
-    ssh_log(session,SSH_LOG_PROTOCOL,"Signature verified and valid");
+    SSH_LOG(SSH_LOG_PROTOCOL,"Signature verified and valid");
 
     /*
      * Once we got SSH2_MSG_NEWKEYS we can switch next_crypto and
@@ -235,10 +236,10 @@ SSH_PACKET_CALLBACK(ssh_packet_service_accept){
 	(void)packet;
 	(void)type;
 	(void)user;
-	enter_function();
+
 	session->auth_service_state=SSH_AUTH_SERVICE_ACCEPTED;
-	ssh_log(session, SSH_LOG_PACKET,
+	SSH_LOG(SSH_LOG_PACKET,
 	      "Received SSH_MSG_SERVICE_ACCEPT");
-	leave_function();
+
 	return SSH_PACKET_USED;
 }

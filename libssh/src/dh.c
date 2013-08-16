@@ -560,7 +560,7 @@ int dh_build_k(ssh_session session) {
 int ssh_client_dh_init(ssh_session session){
   ssh_string e = NULL;
   int rc;
-  enter_function();
+
   if (buffer_add_u8(session->out_buffer, SSH2_MSG_KEXDH_INIT) < 0) {
     goto error;
   }
@@ -592,7 +592,6 @@ int ssh_client_dh_init(ssh_session session){
     ssh_string_free(e);
   }
 
-  leave_function();
   return SSH_ERROR;
 }
 
@@ -639,7 +638,7 @@ int ssh_client_dh_reply(ssh_session session, ssh_buffer packet){
   }
 
   rc=packet_send(session);
-  ssh_log(session, SSH_LOG_PROTOCOL, "SSH_MSG_NEWKEYS sent");
+  SSH_LOG(SSH_LOG_PROTOCOL, "SSH_MSG_NEWKEYS sent");
   return rc;
 error:
   return SSH_ERROR;
@@ -663,8 +662,6 @@ int make_sessionid(ssh_session session) {
   ssh_buffer buf = NULL;
   uint32_t len;
   int rc = SSH_ERROR;
-
-  enter_function();
 
   buf = ssh_buffer_new();
   if (buf == NULL) {
@@ -762,7 +759,7 @@ int make_sessionid(ssh_session session) {
   } else if (session->next_crypto->kex_type == SSH_KEX_ECDH_SHA2_NISTP256){
     if(session->next_crypto->ecdh_client_pubkey == NULL ||
             session->next_crypto->ecdh_server_pubkey == NULL){
-        ssh_log(session,SSH_LOG_WARNING,"ECDH parameted missing");
+        SSH_LOG(SSH_LOG_WARNING, "ECDH parameted missing");
         goto error;
     }
     rc = buffer_add_ssh_string(buf,session->next_crypto->ecdh_client_pubkey);
@@ -828,7 +825,7 @@ int make_sessionid(ssh_session session) {
               session->next_crypto->digest_len);
   }
 #ifdef DEBUG_CRYPTO
-  printf("Session hash: ");
+  printf("Session hash: \n");
   ssh_print_hexa("secret hash", session->next_crypto->secret_hash, session->next_crypto->digest_len);
   ssh_print_hexa("session id", session->next_crypto->session_id, session->next_crypto->digest_len);
 #endif
@@ -844,8 +841,6 @@ error:
 
   ssh_string_free(str);
   ssh_string_free(num);
-
-  leave_function();
 
   return rc;
 }
@@ -920,8 +915,6 @@ int generate_session_keys(ssh_session session) {
   struct ssh_crypto_struct *crypto = session->next_crypto;
   int rc = -1;
 
-  enter_function();
-
   k_string = make_bignum_string(crypto->k);
   if (k_string == NULL) {
     ssh_set_error_oom(session);
@@ -983,7 +976,7 @@ int generate_session_keys(ssh_session session) {
       goto error;
     }
     ssh_mac_update(ctx, k_string, ssh_string_len(k_string) + 4);
-    ssh_mac_update(ctx, crypto->session_id,
+    ssh_mac_update(ctx, crypto->secret_hash,
         crypto->digest_len);
     ssh_mac_update(ctx, crypto->encryptkey, crypto->digest_len);
     ssh_mac_final(crypto->encryptkey + crypto->digest_len, ctx);
@@ -995,7 +988,7 @@ int generate_session_keys(ssh_session session) {
       goto error;
     ctx = ssh_mac_ctx_init(crypto->mac_type);
     ssh_mac_update(ctx, k_string, ssh_string_len(k_string) + 4);
-    ssh_mac_update(ctx, crypto->session_id,
+    ssh_mac_update(ctx, crypto->secret_hash,
         crypto->digest_len);
     ssh_mac_update(ctx, crypto->decryptkey, crypto->digest_len);
     ssh_mac_final(crypto->decryptkey + crypto->digest_len, ctx);
@@ -1030,7 +1023,6 @@ int generate_session_keys(ssh_session session) {
   rc = 0;
 error:
   ssh_string_free(k_string);
-  leave_function();
 
   return rc;
 }

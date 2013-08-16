@@ -30,7 +30,10 @@
 # include <sys/stat.h>
 # include <dirent.h>
 # include <errno.h>
-# include <unistd.h>
+#endif
+
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
 #endif
 
 #include "torture.h"

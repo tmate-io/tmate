@@ -31,6 +31,18 @@
 
 #include "config.h"
 
+#if !defined(HAVE_STRTOULL)
+# if defined(HAVE___STRTOULL)
+#  define strtoull __strtoull
+# elif defined(HAVE__STRTOUI64)
+#  define strtoull _strtoui64
+# elif defined(__hpux) && defined(__LP64__)
+#  define strtoull strtoul
+# else
+#  error "no strtoull function found"
+# endif
+#endif /* !defined(HAVE_STRTOULL) */
+
 #ifdef _WIN32
 
 /* Imitate define of inttypes.h */
@@ -46,16 +58,6 @@
 #  endif /* __WORDSIZE */
 # endif /* PRIu64 */
 
-#if !defined(HAVE_STRTOULL)
-# if defined(HAVE___STRTOULL)
-#  define strtoull __strtoull
-# elif defined(__hpux) && defined(__LP64__)
-#  define strtoull strtoul
-# else
-#  error "no strtoull function found"
-# endif
-#endif /* !defined(HAVE_STRTOULL) */
-
 # ifdef _MSC_VER
 #  include <stdio.h>
 
@@ -65,9 +67,6 @@
 
 #  define strcasecmp _stricmp
 #  define strncasecmp _strnicmp
-#  if !defined(HAVE_STRTOULL)
-#   define strtoull _strtoui64
-#  endif
 #  define isblank(ch) ((ch) == ' ' || (ch) == '\t' || (ch) == '\n' || (ch) == '\r')
 
 #  define usleep(X) Sleep(((X)+1000)/1000)
@@ -105,6 +104,7 @@
 
 # endif /* _MSC_VER */
 
+struct timeval;
 int gettimeofday(struct timeval *__p, void *__t);
 
 #else /* _WIN32 */
@@ -130,8 +130,24 @@ int gettimeofday(struct timeval *__p, void *__t);
 #endif
 #endif
 
-#define enter_function() (void)session
-#define leave_function() (void)session
+#if defined(HAVE_GCC_THREAD_LOCAL_STORAGE)
+# define LIBSSH_THREAD __thread
+#elif defined(HAVE_MSC_THREAD_LOCAL_STORAGE)
+# define LIBSSH_THREAD __declspec(thread)
+#else
+# define LIBSSH_THREAD
+#endif
+
+/*
+ * This makes sure that the compiler doesn't optimize out the code
+ *
+ * Use it in a macro where the provided variable is 'x'.
+ */
+#if defined(HAVE_GCC_VOLATILE_MEMORY_PROTECTION)
+# define LIBSSH_MEM_PROTECTION __asm__ volatile("" : : "r"(&(x)) : "memory")
+#else
+# define LIBSSH_MEM_PROTECTION
+#endif
 
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -144,15 +160,17 @@ struct ssh_kex_struct;
 int ssh_get_key_params(ssh_session session, ssh_key *privkey);
 
 /* LOGGING */
-#define SSH_LOG(session, priority, ...) \
-    ssh_log_common(&session->common, priority, __FUNCTION__, __VA_ARGS__)
+void ssh_log_function(int verbosity,
+                      const char *function,
+                      const char *buffer);
+#define SSH_LOG(priority, ...) \
+    _ssh_log(priority, __FUNCTION__, __VA_ARGS__)
+
+/* LEGACY */
 void ssh_log_common(struct ssh_common_struct *common,
                     int verbosity,
                     const char *function,
                     const char *format, ...) PRINTF_ATTRIBUTE(4, 5);
-void ssh_log_function(int verbosity,
-                      const char *function,
-                      const char *buffer);
 
 
 /* ERROR HANDLING */
@@ -179,9 +197,11 @@ void _ssh_set_error_oom(void *error, const char *function);
 void _ssh_set_error_invalid(void *error, const char *function);
 
 
-
-
-
+/* server.c */
+#ifdef WITH_SERVER
+int ssh_auth_reply_default(ssh_session session,int partial);
+int ssh_auth_reply_success(ssh_session session, int partial);
+#endif
 /* client.c */
 
 int ssh_send_banner(ssh_session session, int is_server);
@@ -203,8 +223,9 @@ int decompress_buffer(ssh_session session,ssh_buffer buf, size_t maxlen);
 /* match.c */
 int match_hostname(const char *host, const char *pattern, unsigned int len);
 
-
-
+#ifndef MIN
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
+#endif
 
 /** Free memory space */
 #define SAFE_FREE(x) do { if ((x) != NULL) {free(x); x=NULL;} } while(0)
@@ -218,11 +239,33 @@ int match_hostname(const char *host, const char *pattern, unsigned int len);
 /** Get the size of an array */
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof(a[0]))
 
+/*
+ * See http://llvm.org/bugs/show_bug.cgi?id=15495
+ */
+#if defined(HAVE_GCC_VOLATILE_MEMORY_PROTECTION)
 /** Overwrite a string with '\0' */
-#define BURN_STRING(x) do { if ((x) != NULL) memset((x), '\0', strlen((x))); __asm__ volatile ("" : : : "memory"); } while(0)
+# define BURN_STRING(x) do { \
+    if ((x) != NULL) \
+        memset((x), '\0', strlen((x))); __asm__ volatile("" : : "r"(&(x)) : "memory"); \
+  } while(0)
 
 /** Overwrite the buffer with '\0' */
-#define BURN_BUFFER(x, size) do { if ((x) != NULL) memset((x), '\0', (size))); __asm__ volatile ("") : : : "memory"; } while(0)
+# define BURN_BUFFER(x, size) do { \
+    if ((x) != NULL) \
+        memset((x), '\0', (size))); __asm__ volatile("" : : "r"(&(x)) : "memory"); \
+  } while(0)
+#else /* HAVE_GCC_VOLATILE_MEMORY_PROTECTION */
+/** Overwrite a string with '\0' */
+# define BURN_STRING(x) do { \
+    if ((x) != NULL) memset((x), '\0', strlen((x))); \
+  } while(0)
+
+/** Overwrite the buffer with '\0' */
+# define BURN_BUFFER(x, size) do { \
+    if ((x) != NULL) \
+        memset((x), '\0', (size))); __asm__ volatile("" : : "r"(&(x)) : "memory"); \
+  } while(0)
+#endif /* HAVE_GCC_VOLATILE_MEMORY_PROTECTION */
 
 /**
  * This is a hack to fix warnings. The idea is to use this everywhere that we

@@ -44,15 +44,14 @@ static int ssh_auth_status_termination(void *s){
 }
 
 static int wait_auth1_status(ssh_session session) {
-  enter_function();
   /* wait for a packet */
   if (ssh_handle_packets_termination(session,SSH_TIMEOUT_USER,
           ssh_auth_status_termination, session) != SSH_OK){
-      leave_function();
+
       return SSH_AUTH_ERROR;
   }
-  ssh_log(session,SSH_LOG_PROTOCOL,"Auth state : %d",session->auth_state);
-  leave_function();
+  SSH_LOG(SSH_LOG_PROTOCOL,"Auth state : %d",session->auth_state);
+
   switch(session->auth_state) {
     case SSH_AUTH_STATE_SUCCESS:
       return SSH_AUTH_SUCCESS;
@@ -153,8 +152,7 @@ int ssh_userauth1_offer_pubkey(ssh_session session, const char *username,
   (void) username;
   (void) type;
   (void) pubkey;
-  enter_function();
-  leave_function();
+
   return SSH_AUTH_DENIED;
 }
 
@@ -162,10 +160,9 @@ int ssh_userauth1_password(ssh_session session, const char *username,
     const char *password) {
   ssh_string pwd = NULL;
   int rc;
-  enter_function();
+
   rc = send_username(session, username);
   if (rc != SSH_AUTH_DENIED) {
-    leave_function();
     return rc;
   }
   if (session->pending_call_state == SSH_PENDING_CALL_AUTH_PASSWORD)
@@ -181,7 +178,6 @@ int ssh_userauth1_password(ssh_session session, const char *username,
     /* not risky to disclose the size of such a big password .. */
     pwd = ssh_string_from_char(password);
     if (pwd == NULL) {
-      leave_function();
       return SSH_AUTH_ERROR;
     }
   } else {
@@ -194,7 +190,6 @@ int ssh_userauth1_password(ssh_session session, const char *username,
      */
     pwd = ssh_string_new(sizeof(buf));
     if (pwd == NULL) {
-      leave_function();
       return SSH_AUTH_ERROR;
     }
     ssh_get_random(buf, sizeof(buf), 0);
@@ -205,13 +200,13 @@ int ssh_userauth1_password(ssh_session session, const char *username,
   if (buffer_add_u8(session->out_buffer, SSH_CMSG_AUTH_PASSWORD) < 0) {
     ssh_string_burn(pwd);
     ssh_string_free(pwd);
-    leave_function();
+
     return SSH_AUTH_ERROR;
   }
   if (buffer_add_ssh_string(session->out_buffer, pwd) < 0) {
     ssh_string_burn(pwd);
     ssh_string_free(pwd);
-    leave_function();
+
     return SSH_AUTH_ERROR;
   }
 
@@ -220,14 +215,13 @@ int ssh_userauth1_password(ssh_session session, const char *username,
   session->auth_state=SSH_AUTH_STATE_NONE;
   session->pending_call_state = SSH_PENDING_CALL_AUTH_PASSWORD;
   if (packet_send(session) == SSH_ERROR) {
-    leave_function();
     return SSH_AUTH_ERROR;
   }
 pending:
   rc = wait_auth1_status(session);
   if (rc != SSH_AUTH_AGAIN)
       session->pending_call_state = SSH_PENDING_CALL_NONE;
-  leave_function();
+
   return rc;
 }
 

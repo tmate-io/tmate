@@ -46,6 +46,7 @@
 #include "libssh/pcap.h"
 #include "libssh/kex.h"
 #include "libssh/auth.h"
+#include "libssh/gssapi.h"
 
 #define MACSIZE SHA_DIGEST_LEN
 
@@ -54,7 +55,11 @@ static ssh_packet_callback default_packet_handlers[]= {
   ssh_packet_ignore_callback,              // SSH2_MSG_IGNORE	                    2
   ssh_packet_unimplemented,                // SSH2_MSG_UNIMPLEMENTED              3
   ssh_packet_ignore_callback,              // SSH2_MSG_DEBUG	                    4
+#if WITH_SERVER
   ssh_packet_service_request,              // SSH2_MSG_SERVICE_REQUEST	          5
+#else
+  NULL,
+#endif
   ssh_packet_service_accept,               // SSH2_MSG_SERVICE_ACCEPT             6
   NULL, NULL, NULL, NULL, NULL, NULL, NULL,
   NULL, NULL, NULL,	NULL, NULL, NULL,      //                                     7-19
@@ -76,18 +81,33 @@ static ssh_packet_callback default_packet_handlers[]= {
   NULL, NULL, NULL, NULL, NULL, NULL,	NULL,
   NULL, NULL, NULL, NULL, NULL, NULL, NULL,
   NULL,                                    //                                     35-49
+#if WITH_SERVER
   ssh_packet_userauth_request,             // SSH2_MSG_USERAUTH_REQUEST           50
+#else
+  NULL,
+#endif
   ssh_packet_userauth_failure,             // SSH2_MSG_USERAUTH_FAILURE           51
   ssh_packet_userauth_success,             // SSH2_MSG_USERAUTH_SUCCESS           52
   ssh_packet_userauth_banner,              // SSH2_MSG_USERAUTH_BANNER            53
   NULL,NULL,NULL,NULL,NULL,NULL,           //                                     54-59
   ssh_packet_userauth_pk_ok,               // SSH2_MSG_USERAUTH_PK_OK             60
                                            // SSH2_MSG_USERAUTH_PASSWD_CHANGEREQ  60
-                                           // SSH2_MSG_USERAUTH_INFO_REQUEST	    60
+                                           // SSH2_MSG_USERAUTH_INFO_REQUEST	  60
+                                           // SSH2_MSG_USERAUTH_GSSAPI_RESPONSE   60
   ssh_packet_userauth_info_response,       // SSH2_MSG_USERAUTH_INFO_RESPONSE     61
+                                           // SSH2_MSG_USERAUTH_GSSAPI_TOKEN      61
+  NULL,                                    //                                     62
+  NULL,                             // SSH2_MSG_USERAUTH_GSSAPI_EXCHANGE_COMPLETE 63
+  NULL,                                    // SSH2_MSG_USERAUTH_GSSAPI_ERROR      64
+  NULL,                                    // SSH2_MSG_USERAUTH_GSSAPI_ERRTOK     65
+#if defined(WITH_GSSAPI) && defined(WITH_SERVER)
+  ssh_packet_userauth_gssapi_mic,          // SSH2_MSG_USERAUTH_GSSAPI_MIC        66
+#else /* WITH_GSSAPI && WITH_SERVER */
+  NULL,
+#endif /* WITH_GSSAPI && WITH_SERVER */
+  NULL, NULL,
   NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-  NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-  NULL, NULL, NULL, NULL,                  //                                     62-79
+  NULL, NULL, NULL, NULL,                  //                                     67-79
 #ifdef WITH_SERVER
   ssh_packet_global_request,               // SSH2_MSG_GLOBAL_REQUEST             80
 #else /* WITH_SERVER */
@@ -139,14 +159,12 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
     goto error;
   }
 
-  enter_function();
   if (session->session_state == SSH_SESSION_STATE_ERROR)
 	  goto error;
   switch(session->packet_state) {
     case PACKET_STATE_INIT:
     	if(receivedlen < blocksize){
     		/* We didn't receive enough data to read at least one block size, give up */
-    		leave_function();
     		return 0;
     	}
       memset(&session->in_packet, 0, sizeof(PACKET));
@@ -195,7 +213,7 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
       if (to_be_read != 0) {
         if(receivedlen - processed < (unsigned int)to_be_read){
         	/* give up, not enough data in buffer */
-            ssh_log(session,SSH_LOG_PACKET,"packet: partial packet (read len) [len=%d]",len);
+            SSH_LOG(SSH_LOG_PACKET,"packet: partial packet (read len) [len=%d]",len);
         	return processed;
         }
 
@@ -262,7 +280,7 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
       /* We don't want to rewrite a new packet while still executing the packet callbacks */
       session->packet_state = PACKET_STATE_PROCESSING;
       ssh_packet_parse_type(session);
-      ssh_log(session,SSH_LOG_PACKET,
+      SSH_LOG(SSH_LOG_PACKET,
               "packet: read type %hhd [len=%d,padding=%hhd,comp=%d,payload=%d]",
               session->in_packet.type, len, padding, compsize, payloadsize);
       /* execute callbacks */
@@ -270,16 +288,16 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
       session->packet_state = PACKET_STATE_INIT;
       if(processed < receivedlen){
       	/* Handle a potential packet left in socket buffer */
-      	ssh_log(session,SSH_LOG_PACKET,"Processing %" PRIdS " bytes left in socket buffer",
+      	SSH_LOG(SSH_LOG_PACKET,"Processing %" PRIdS " bytes left in socket buffer",
       			receivedlen-processed);
         rc = ssh_packet_socket_callback(((unsigned char *)data) + processed,
       			receivedlen - processed,user);
       	processed += rc;
       }
-      leave_function();
+
       return processed;
     case PACKET_STATE_PROCESSING:
-    	ssh_log(session, SSH_LOG_RARE, "Nested packet processing. Delaying.");
+    	SSH_LOG(SSH_LOG_RARE, "Nested packet processing. Delaying.");
     	return 0;
   }
 
@@ -289,7 +307,7 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
 
 error:
   session->session_state= SSH_SESSION_STATE_ERROR;
-  leave_function();
+
   return processed;
 }
 
@@ -339,11 +357,12 @@ void ssh_packet_process(ssh_session session, uint8_t type){
 	struct ssh_iterator *i;
 	int r=SSH_PACKET_NOT_USED;
 	ssh_packet_callbacks cb;
-	enter_function();
-	ssh_log(session,SSH_LOG_PACKET, "Dispatching handler for packet type %d",type);
+
+	SSH_LOG(SSH_LOG_PACKET, "Dispatching handler for packet type %d",type);
 	if(session->packet_callbacks == NULL){
-		ssh_log(session,SSH_LOG_RARE,"Packet callback is not initialized !");
-		goto error;
+		SSH_LOG(SSH_LOG_RARE,"Packet callback is not initialized !");
+
+		return;
 	}
 	i=ssh_list_get_iterator(session->packet_callbacks);
 	while(i != NULL){
@@ -362,11 +381,9 @@ void ssh_packet_process(ssh_session session, uint8_t type){
 			break;
 	}
 	if(r==SSH_PACKET_NOT_USED){
-		ssh_log(session,SSH_LOG_RARE,"Couldn't do anything with packet type %d",type);
+		SSH_LOG(SSH_LOG_RARE,"Couldn't do anything with packet type %d",type);
 		ssh_packet_send_unimplemented(session, session->recv_seq-1);
 	}
-error:
-	leave_function();
 }
 
 /** @internal
@@ -377,7 +394,7 @@ error:
  */
 int ssh_packet_send_unimplemented(ssh_session session, uint32_t seqnum){
   int r;
-  enter_function();
+
   r = buffer_add_u8(session->out_buffer, SSH2_MSG_UNIMPLEMENTED);
   if (r < 0) {
     return SSH_ERROR;
@@ -387,7 +404,7 @@ int ssh_packet_send_unimplemented(ssh_session session, uint32_t seqnum){
     return SSH_ERROR;
   }
   r = packet_send(session);
-  leave_function();
+
   return r;
 }
 
@@ -396,11 +413,12 @@ int ssh_packet_send_unimplemented(ssh_session session, uint32_t seqnum){
  */
 SSH_PACKET_CALLBACK(ssh_packet_unimplemented){
   uint32_t seq;
+    (void)session; /* unused */
   (void)type;
   (void)user;
   buffer_get_u32(packet,&seq);
   seq=ntohl(seq);
-  ssh_log(session,SSH_LOG_RARE,
+  SSH_LOG(SSH_LOG_RARE,
       "Received SSH_MSG_UNIMPLEMENTED (sequence number %d)",seq);
   return SSH_PACKET_USED;
 }
@@ -409,23 +427,18 @@ SSH_PACKET_CALLBACK(ssh_packet_unimplemented){
  * @parse the "Type" header field of a packet and updates the session
  */
 int ssh_packet_parse_type(ssh_session session) {
-  enter_function();
-
   memset(&session->in_packet, 0, sizeof(PACKET));
   if(session->in_buffer == NULL) {
-    leave_function();
     return SSH_ERROR;
   }
 
   if(buffer_get_u8(session->in_buffer, &session->in_packet.type) == 0) {
     ssh_set_error(session, SSH_FATAL, "Packet too short to read type");
-    leave_function();
     return SSH_ERROR;
   }
 
   session->in_packet.valid = 1;
 
-  leave_function();
   return SSH_OK;
 }
 
@@ -436,12 +449,10 @@ int ssh_packet_parse_type(ssh_session session) {
 static int ssh_packet_write(ssh_session session) {
   int rc = SSH_ERROR;
 
-  enter_function();
-
   rc=ssh_socket_write(session->socket,
       buffer_get_rest(session->out_buffer),
       buffer_get_rest_len(session->out_buffer));
-  leave_function();
+
   return rc;
 }
 
@@ -454,8 +465,6 @@ static int packet_send2(ssh_session session) {
   int rc = SSH_ERROR;
   uint32_t finallen,payloadsize,compsize;
   uint8_t padding;
-
-  enter_function();
 
   payloadsize = currentlen;
 #ifdef WITH_ZLIB
@@ -509,14 +518,14 @@ static int packet_send2(ssh_session session) {
   rc = ssh_packet_write(session);
   session->send_seq++;
 
-  ssh_log(session,SSH_LOG_PACKET,
+  SSH_LOG(SSH_LOG_PACKET,
           "packet: wrote [len=%d,padding=%hhd,comp=%d,payload=%d]",
           ntohl(finallen), padding, compsize, payloadsize);
   if (buffer_reinit(session->out_buffer) < 0) {
     rc = SSH_ERROR;
   }
 error:
-  leave_function();
+
   return rc; /* SSH_OK, AGAIN or ERROR */
 }
 

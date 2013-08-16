@@ -219,7 +219,7 @@ char *ssh_get_user_home_dir(void) {
           return NULL;
       }
       memset(buf, 0, sizeof(buf));
-      snprintf(buf, sizeof(buf), "%s", getenv("HOME"));
+      snprintf(buf, sizeof(buf), "%s", szPath);
 
       return strdup(buf);
   }
@@ -839,7 +839,7 @@ int ssh_analyze_banner(ssh_session session, int server, int *ssh1, int *ssh2) {
     return -1;
   }
 
-  ssh_log(session, SSH_LOG_RARE, "Analyzing banner: %s", banner);
+  SSH_LOG(SSH_LOG_RARE, "Analyzing banner: %s", banner);
 
   switch(banner[4]) {
     case '1':
@@ -874,7 +874,7 @@ int ssh_analyze_banner(ssh_session session, int server, int *ssh1, int *ssh2) {
           major = strtol(openssh + 8, (char **) NULL, 10);
           minor = strtol(openssh + 10, (char **) NULL, 10);
           session->openssh = SSH_VERSION_INT(major, minor, 0);
-          ssh_log(session, SSH_LOG_RARE,
+          SSH_LOG(SSH_LOG_RARE,
                   "We are talking to an OpenSSH client version: %d.%d (%x)",
                   major, minor, session->openssh);
       }

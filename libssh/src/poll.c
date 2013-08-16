@@ -69,6 +69,7 @@ struct ssh_poll_handle_struct {
     size_t idx;
   } x;
   short events;
+  int lock;
   ssh_poll_callback cb;
   void *cb_data;
 };
@@ -114,9 +115,12 @@ static poll_fn ssh_poll_emu;
 #else /* _WIN32 */
 #include <sys/select.h>
 #include <sys/socket.h>
-#include <unistd.h>
 #include <sys/time.h>
 #endif /* _WIN32 */
+
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 
 
 /*
@@ -336,7 +340,7 @@ short ssh_poll_get_events(ssh_poll_handle p) {
  */
 void ssh_poll_set_events(ssh_poll_handle p, short events) {
   p->events = events;
-  if (p->ctx != NULL) {
+  if (p->ctx != NULL && !p->lock) {
     p->ctx->pollfds[p->x.idx].events = events;
   }
 }
@@ -595,7 +599,7 @@ int ssh_poll_ctx_dopoll(ssh_poll_ctx ctx, int timeout) {
     return SSH_AGAIN;
   used = ctx->polls_used;
   for (i = 0; i < used && rc > 0; ) {
-    if (!ctx->pollfds[i].revents) {
+    if (!ctx->pollfds[i].revents || ctx->pollptrs[i]->lock) {
       i++;
     } else {
       int ret;
@@ -603,7 +607,9 @@ int ssh_poll_ctx_dopoll(ssh_poll_ctx ctx, int timeout) {
       p = ctx->pollptrs[i];
       fd = ctx->pollfds[i].fd;
       revents = ctx->pollfds[i].revents;
-
+      /* avoid having any event caught during callback */
+      ctx->pollfds[i].events = 0;
+      p->lock = 1;
       if (p->cb && (ret = p->cb(p, fd, revents, p->cb_data)) < 0) {
         if (ret == -2) {
             return -1;
@@ -613,6 +619,8 @@ int ssh_poll_ctx_dopoll(ssh_poll_ctx ctx, int timeout) {
         i=0;
       } else {
         ctx->pollfds[i].revents = 0;
+        ctx->pollfds[i].events = p->events;
+        p->lock = 0;
         i++;
       }
 

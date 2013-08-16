@@ -169,7 +169,7 @@ int ssh_bind_listen(ssh_bind sshbind) {
                                        NULL,
                                        NULL,
                                        &sshbind->ecdsa);
-      if (rc == SSH_ERROR) {
+      if (rc == SSH_ERROR || rc == SSH_EOF) {
           ssh_set_error(sshbind, SSH_FATAL,
                   "Failed to import private ECDSA host key");
           return SSH_ERROR;
@@ -190,7 +190,7 @@ int ssh_bind_listen(ssh_bind sshbind) {
                                        NULL,
                                        NULL,
                                        &sshbind->dsa);
-      if (rc == SSH_ERROR) {
+      if (rc == SSH_ERROR || rc == SSH_EOF) {
           ssh_set_error(sshbind, SSH_FATAL,
                   "Failed to import private DSA host key");
           return SSH_ERROR;
@@ -211,7 +211,7 @@ int ssh_bind_listen(ssh_bind sshbind) {
                                        NULL,
                                        NULL,
                                        &sshbind->rsa);
-      if (rc == SSH_ERROR) {
+      if (rc == SSH_ERROR || rc == SSH_EOF) {
           ssh_set_error(sshbind, SSH_FATAL,
                   "Failed to import private RSA host key");
           return SSH_ERROR;
@@ -250,7 +250,7 @@ int ssh_bind_listen(ssh_bind sshbind) {
           return -1;
       }
   } else {
-      SSH_LOG(sshbind, SSH_LOG_INFO, "Using app-provided bind socket");
+      SSH_LOG(SSH_LOG_INFO, "Using app-provided bind socket");
   }
   return 0;
 }

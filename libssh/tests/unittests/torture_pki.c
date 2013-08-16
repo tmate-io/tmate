@@ -86,22 +86,22 @@ static char *read_file(const char *filename) {
     int fd;
     int size;
     int rc;
-    struct stat buf;
+    struct stat sb;
 
     assert_true(filename != NULL);
     assert_true(*filename != '\0');
 
-    rc = stat(filename, &buf);
-    assert_int_equal(rc, 0);
-
-    key = malloc(buf.st_size + 1);
-    assert_true(key != NULL);
-
     fd = open(filename, O_RDONLY);
     assert_true(fd >= 0);
 
-    size = read(fd, key, buf.st_size);
-    assert_true(size == buf.st_size);
+    rc = fstat(fd, &sb);
+    assert_int_equal(rc, 0);
+
+    key = malloc(sb.st_size + 1);
+    assert_true(key != NULL);
+
+    size = read(fd, key, sb.st_size);
+    assert_true(size == sb.st_size);
 
     close(fd);
 

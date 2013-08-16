@@ -13,10 +13,14 @@ clients must be made or how a client should react.
 
 #include "config.h"
 #include <stdio.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef HAVE_TERMIOS_H
 #include <termios.h>
+#endif
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 
 #include <sys/select.h>
 #include <sys/time.h>
@@ -105,8 +109,6 @@ static void select_loop(ssh_session session,ssh_channel channel){
 				}
 			}
 			if(channel && channel_is_closed(channel)){
-				ssh_log(session,SSH_LOG_RARE,"exit-status : %d\n",channel_get_exit_status(channel));
-
 				channel_free(channel);
 				channel=NULL;
 				channels[0]=NULL;
@@ -120,9 +122,6 @@ static void select_loop(ssh_session session,ssh_channel channel){
 						return;
 					}
 					if(lus==0){
-						ssh_log(session,SSH_LOG_RARE,"EOF received\n");
-						ssh_log(session,SSH_LOG_RARE,"exit-status : %d\n",channel_get_exit_status(channel));
-
 						channel_free(channel);
 						channel=channels[0]=NULL;
 					} else {
@@ -142,8 +141,6 @@ static void select_loop(ssh_session session,ssh_channel channel){
 						return;
 					}
 					if(lus==0){
-						ssh_log(session,SSH_LOG_RARE,"EOF received\n");
-						ssh_log(session,SSH_LOG_RARE,"exit-status : %d\n",channel_get_exit_status(channel));
 						channel_free(channel);
 						channel=channels[0]=NULL;
 					} else
@@ -202,7 +199,6 @@ static int client(ssh_session session){
   if(auth != SSH_AUTH_SUCCESS){
   	return -1;
   }
-  ssh_log(session, SSH_LOG_FUNCTIONS, "Authentication success");
  	forwarding(session);
   return 0;
 }

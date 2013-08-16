@@ -104,7 +104,7 @@ static int ssh_connect_socket_close(socket_t s){
 }
 
 
-static int getai(ssh_session session, const char *host, int port, struct addrinfo **ai) {
+static int getai(const char *host, int port, struct addrinfo **ai) {
   const char *service = NULL;
   struct addrinfo hints;
   char s_port[10];
@@ -127,7 +127,7 @@ static int getai(ssh_session session, const char *host, int port, struct addrinf
 
   if (ssh_is_ipaddr(host)) {
     /* this is an IP address */
-    ssh_log(session,SSH_LOG_PACKET,"host %s matches an IP address",host);
+    SSH_LOG(SSH_LOG_PACKET,"host %s matches an IP address",host);
     hints.ai_flags |= AI_NUMERICHOST;
   }
 
@@ -142,8 +142,6 @@ static int ssh_connect_ai_timeout(ssh_session session, const char *host,
   int ret;
   socklen_t len = sizeof(rc);
 
-  enter_function();
-
   /* I know we're losing some precision. But it's not like poll-like family
    * type of mechanisms are precise up to the microsecond.
    */
@@ -157,7 +155,7 @@ static int ssh_connect_ai_timeout(ssh_session session, const char *host,
       return -1;
   }
 
-  ssh_log(session, SSH_LOG_RARE, "Trying to connect to host: %s:%d with "
+  SSH_LOG(SSH_LOG_RARE, "Trying to connect to host: %s:%d with "
       "timeout %d ms", host, port, timeout_ms);
 
   /* The return value is checked later */
@@ -177,7 +175,7 @@ static int ssh_connect_ai_timeout(ssh_session session, const char *host,
     ssh_set_error(session, SSH_FATAL,
         "Timeout while connecting to %s:%d", host, port);
     ssh_connect_socket_close(s);
-    leave_function();
+
     return -1;
   }
 
@@ -185,7 +183,7 @@ static int ssh_connect_ai_timeout(ssh_session session, const char *host,
     ssh_set_error(session, SSH_FATAL,
         "poll error: %s", strerror(errno));
     ssh_connect_socket_close(s);
-    leave_function();
+
     return -1;
   }
   rc = -1;
@@ -196,12 +194,12 @@ static int ssh_connect_ai_timeout(ssh_session session, const char *host,
     ssh_set_error(session, SSH_FATAL,
         "Connect to %s:%d failed: %s", host, port, strerror(rc));
     ssh_connect_socket_close(s);
-    leave_function();
+
     return -1;
   }
 
   /* s is connected ? */
-  ssh_log(session, SSH_LOG_PACKET, "Socket connected with timeout\n");
+  SSH_LOG(SSH_LOG_PACKET, "Socket connected with timeout\n");
   ret = ssh_socket_set_blocking(s);
   if (ret < 0) {
       ssh_set_error(session, SSH_FATAL,
@@ -211,7 +209,6 @@ static int ssh_connect_ai_timeout(ssh_session session, const char *host,
       return -1;
   }
 
-  leave_function();
   return s;
 }
 
@@ -230,13 +227,11 @@ socket_t ssh_connect_host(ssh_session session, const char *host,
   struct addrinfo *ai;
   struct addrinfo *itr;
 
-  enter_function();
-
-  rc = getai(session,host, port, &ai);
+  rc = getai(host, port, &ai);
   if (rc != 0) {
     ssh_set_error(session, SSH_FATAL,
         "Failed to resolve hostname %s (%s)", host, gai_strerror(rc));
-    leave_function();
+
     return -1;
   }
 
@@ -253,9 +248,9 @@ socket_t ssh_connect_host(ssh_session session, const char *host,
       struct addrinfo *bind_ai;
       struct addrinfo *bind_itr;
 
-      ssh_log(session, SSH_LOG_PACKET, "Resolving %s\n", bind_addr);
+      SSH_LOG(SSH_LOG_PACKET, "Resolving %s\n", bind_addr);
 
-      rc = getai(session,bind_addr, 0, &bind_ai);
+      rc = getai(bind_addr, 0, &bind_ai);
       if (rc != 0) {
         ssh_set_error(session, SSH_FATAL,
             "Failed to resolve bind address %s (%s)",
@@ -263,7 +258,7 @@ socket_t ssh_connect_host(ssh_session session, const char *host,
             gai_strerror(rc));
         freeaddrinfo(ai);
         close(s);
-        leave_function();
+
         return -1;
       }
 
@@ -289,7 +284,7 @@ socket_t ssh_connect_host(ssh_session session, const char *host,
     if (timeout || usec) {
       socket_t ret = ssh_connect_ai_timeout(session, host, port, itr,
           timeout, usec, s);
-      leave_function();
+
       return ret;
     }
 
@@ -297,7 +292,6 @@ socket_t ssh_connect_host(ssh_session session, const char *host,
       ssh_set_error(session, SSH_FATAL, "Connect failed: %s", strerror(errno));
       ssh_connect_socket_close(s);
       s = -1;
-      leave_function();
       continue;
     } else {
       /* We are connected */
@@ -306,7 +300,6 @@ socket_t ssh_connect_host(ssh_session session, const char *host,
   }
 
   freeaddrinfo(ai);
-  leave_function();
 
   return s;
 }
@@ -327,13 +320,11 @@ socket_t ssh_connect_host_nonblocking(ssh_session session, const char *host,
   struct addrinfo *ai;
   struct addrinfo *itr;
 
-  enter_function();
-
-  rc = getai(session,host, port, &ai);
+  rc = getai(host, port, &ai);
   if (rc != 0) {
     ssh_set_error(session, SSH_FATAL,
         "Failed to resolve hostname %s (%s)", host, gai_strerror(rc));
-    leave_function();
+
     return -1;
   }
 
@@ -350,9 +341,9 @@ socket_t ssh_connect_host_nonblocking(ssh_session session, const char *host,
       struct addrinfo *bind_ai;
       struct addrinfo *bind_itr;
 
-      ssh_log(session, SSH_LOG_PACKET, "Resolving %s\n", bind_addr);
+      SSH_LOG(SSH_LOG_PACKET, "Resolving %s\n", bind_addr);
 
-      rc = getai(session,bind_addr, 0, &bind_ai);
+      rc = getai(bind_addr, 0, &bind_ai);
       if (rc != 0) {
         ssh_set_error(session, SSH_FATAL,
             "Failed to resolve bind address %s (%s)",
@@ -396,7 +387,6 @@ socket_t ssh_connect_host_nonblocking(ssh_session session, const char *host,
   }
 
   freeaddrinfo(ai);
-  leave_function();
 
   return s;
 }
@@ -446,6 +436,7 @@ static int ssh_select_cb (socket_t fd, int revents, void *userdata){
  */
 int ssh_select(ssh_channel *channels, ssh_channel *outchannels, socket_t maxfd,
     fd_set *readfds, struct timeval *timeout) {
+  socket_t fd;
   int i,j;
   int rc;
   int base_tm, tm;
@@ -457,10 +448,11 @@ int ssh_select(ssh_channel *channels, ssh_channel *outchannels, socket_t maxfd,
   for (i=0 ; channels[i] != NULL; ++i){
     ssh_event_add_session(event, channels[i]->session);
   }
-  for (i=0; i<maxfd ; ++i){
-    if(FD_ISSET(i, readfds)){
-      ssh_event_add_fd(event, i, POLLIN, ssh_select_cb, readfds);
-    }
+
+  for (fd = 0; fd < maxfd ; fd++) {
+      if (FD_ISSET(fd, readfds)) {
+          ssh_event_add_fd(event, fd, POLLIN, ssh_select_cb, readfds);
+      }
   }
   outchannels[0] = NULL;
   FD_ZERO(readfds);
@@ -481,9 +473,12 @@ int ssh_select(ssh_channel *channels, ssh_channel *outchannels, socket_t maxfd,
     if(j != 0)
       break;
     /* watch if a user socket was triggered */
-    for(i = 0;i<maxfd;++i)
-      if(FD_ISSET(i, readfds))
-        goto out;
+    for (fd = 0; fd < maxfd; fd++) {
+        if (FD_ISSET(fd, readfds)) {
+            goto out;
+        }
+    }
+
     /* If the timeout is elapsed, we should go out */
     if(!firstround && ssh_timeout_elapsed(&ts, base_tm))
       goto out;

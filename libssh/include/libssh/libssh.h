@@ -115,6 +115,7 @@ typedef struct ssh_scp_struct* ssh_scp;
 typedef struct ssh_session_struct* ssh_session;
 typedef struct ssh_string_struct* ssh_string;
 typedef struct ssh_event_struct* ssh_event;
+typedef void* ssh_gssapi_creds;
 
 /* Socket type */
 #ifdef _WIN32
@@ -164,6 +165,7 @@ enum ssh_auth_e {
 #define SSH_AUTH_METHOD_PUBLICKEY 0x0004
 #define SSH_AUTH_METHOD_HOSTBASED 0x0008
 #define SSH_AUTH_METHOD_INTERACTIVE 0x0010
+#define SSH_AUTH_METHOD_GSSAPI_MIC 0x0020
 
 /* messages */
 enum ssh_requests_e {
@@ -360,9 +362,11 @@ LIBSSH_API int ssh_channel_is_closed(ssh_channel channel);
 LIBSSH_API int ssh_channel_is_eof(ssh_channel channel);
 LIBSSH_API int ssh_channel_is_open(ssh_channel channel);
 LIBSSH_API ssh_channel ssh_channel_new(ssh_session session);
+LIBSSH_API int ssh_channel_open_auth_agent(ssh_channel channel);
 LIBSSH_API int ssh_channel_open_forward(ssh_channel channel, const char *remotehost,
     int remoteport, const char *sourcehost, int localport);
 LIBSSH_API int ssh_channel_open_session(ssh_channel channel);
+LIBSSH_API int ssh_channel_open_x11(ssh_channel channel, const char *orig_addr, int orig_port);
 LIBSSH_API int ssh_channel_poll(ssh_channel channel, int is_stderr);
 LIBSSH_API int ssh_channel_poll_timeout(ssh_channel channel, int timeout, int is_stderr);
 LIBSSH_API int ssh_channel_read(ssh_channel channel, void *dest, uint32_t count, int is_stderr);
@@ -414,10 +418,19 @@ LIBSSH_API int ssh_is_blocking(ssh_session session);
 LIBSSH_API int ssh_is_connected(ssh_session session);
 LIBSSH_API int ssh_is_server_known(ssh_session session);
 
+/* LOGGING */
+LIBSSH_API int ssh_set_log_level(int level);
+LIBSSH_API int ssh_get_log_level(void);
+LIBSSH_API void *ssh_get_log_userdata(void);
+LIBSSH_API int ssh_set_log_userdata(void *data);
+LIBSSH_API void _ssh_log(int verbosity,
+                         const char *function,
+                         const char *format, ...) PRINTF_ATTRIBUTE(3, 4);
+
 /* legacy */
-LIBSSH_API void ssh_log(ssh_session session,
-                        int prioriry,
-                        const char *format, ...) PRINTF_ATTRIBUTE(3, 4);
+SSH_DEPRECATED LIBSSH_API void ssh_log(ssh_session session,
+                                       int prioriry,
+                                       const char *format, ...) PRINTF_ATTRIBUTE(3, 4);
 
 LIBSSH_API ssh_channel ssh_message_channel_request_open_reply_accept(ssh_message msg);
 LIBSSH_API int ssh_message_channel_request_reply_success(ssh_message msg);
@@ -497,6 +510,7 @@ LIBSSH_API int ssh_pki_export_pubkey_file(const ssh_key key,
 LIBSSH_API void ssh_print_hexa(const char *descr, const unsigned char *what, size_t len);
 LIBSSH_API int ssh_send_ignore (ssh_session session, const char *data);
 LIBSSH_API int ssh_send_debug (ssh_session session, const char *message, int always_display);
+LIBSSH_API void ssh_gssapi_set_creds(ssh_session session, const ssh_gssapi_creds creds);
 LIBSSH_API int ssh_scp_accept_request(ssh_scp scp);
 LIBSSH_API int ssh_scp_close(ssh_scp scp);
 LIBSSH_API int ssh_scp_deny_request(ssh_scp scp, const char *reason);
@@ -518,6 +532,7 @@ LIBSSH_API int ssh_scp_write(ssh_scp scp, const void *buffer, size_t len);
 LIBSSH_API int ssh_select(ssh_channel *channels, ssh_channel *outchannels, socket_t maxfd,
     fd_set *readfds, struct timeval *timeout);
 LIBSSH_API int ssh_service_request(ssh_session session, const char *service);
+LIBSSH_API int ssh_set_agent_channel(ssh_session session, ssh_channel channel);
 LIBSSH_API void ssh_set_blocking(ssh_session session, int blocking);
 LIBSSH_API void ssh_set_fd_except(ssh_session session);
 LIBSSH_API void ssh_set_fd_toread(ssh_session session);
@@ -554,6 +569,7 @@ LIBSSH_API int ssh_userauth_kbdint_getnanswers(ssh_session session);
 LIBSSH_API const char *ssh_userauth_kbdint_getanswer(ssh_session session, unsigned int i);
 LIBSSH_API int ssh_userauth_kbdint_setanswer(ssh_session session, unsigned int i,
     const char *answer);
+LIBSSH_API int ssh_userauth_gssapi(ssh_session session);
 LIBSSH_API const char *ssh_version(int req_version);
 LIBSSH_API int ssh_write_knownhost(ssh_session session);
 

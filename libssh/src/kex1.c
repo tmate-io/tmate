@@ -247,7 +247,7 @@ static ssh_string encrypt_session_key(ssh_session session, ssh_public_key srvkey
   }
   ssh_string_fill(data1, buffer, 32);
   if (ABS(hlen - slen) < 128){
-    ssh_log(session, SSH_LOG_FUNCTIONS,
+    SSH_LOG(SSH_LOG_FUNCTIONS,
         "Difference between server modulus and host modulus is only %d. "
         "It's illegal and may not work",
         ABS(hlen - slen));
@@ -317,10 +317,10 @@ SSH_PACKET_CALLBACK(ssh_packet_publickey1){
   int ko;
   uint32_t support_3DES = 0;
   uint32_t support_DES = 0;
-  enter_function();
+
   (void)type;
   (void)user;
-  ssh_log(session, SSH_LOG_PROTOCOL, "Got a SSH_SMSG_PUBLIC_KEY");
+  SSH_LOG(SSH_LOG_PROTOCOL, "Got a SSH_SMSG_PUBLIC_KEY");
   if(session->session_state != SSH_SESSION_STATE_INITIAL_KEX){
     ssh_set_error(session,SSH_FATAL,"SSH_KEXINIT received in wrong state");
     goto error;
@@ -354,7 +354,7 @@ SSH_PACKET_CALLBACK(ssh_packet_publickey1){
 
   if ((ko != sizeof(uint32_t)) || !host_mod || !host_exp
       || !server_mod || !server_exp) {
-    ssh_log(session, SSH_LOG_RARE, "Invalid SSH_SMSG_PUBLIC_KEY packet");
+    SSH_LOG(SSH_LOG_RARE, "Invalid SSH_SMSG_PUBLIC_KEY packet");
     ssh_set_error(session, SSH_FATAL, "Invalid SSH_SMSG_PUBLIC_KEY packet");
     goto error;
   }
@@ -364,7 +364,7 @@ SSH_PACKET_CALLBACK(ssh_packet_publickey1){
   protocol_flags = ntohl(protocol_flags);
   supported_ciphers_mask = ntohl(supported_ciphers_mask);
   supported_authentications_mask = ntohl(supported_authentications_mask);
-  ssh_log(session, SSH_LOG_PROTOCOL,
+  SSH_LOG(SSH_LOG_PROTOCOL,
       "Server bits: %d; Host bits: %d; Protocol flags: %.8lx; "
       "Cipher mask: %.8lx; Auth mask: %.8lx",
       server_bits,
@@ -409,7 +409,7 @@ SSH_PACKET_CALLBACK(ssh_packet_publickey1){
     ssh_set_error(session, SSH_FATAL, "Remote server doesn't accept 3DES");
     goto error;
   }
-  ssh_log(session, SSH_LOG_PROTOCOL, "Sending SSH_CMSG_SESSION_KEY");
+  SSH_LOG(SSH_LOG_PROTOCOL, "Sending SSH_CMSG_SESSION_KEY");
 
    if (buffer_add_u8(session->out_buffer, SSH_CMSG_SESSION_KEY) < 0) {
      goto error;
@@ -427,7 +427,7 @@ SSH_PACKET_CALLBACK(ssh_packet_publickey1){
    }
 
    bits = ssh_string_len(enc_session) * 8 - 7;
-   ssh_log(session, SSH_LOG_PROTOCOL, "%d bits, %" PRIdS " bytes encrypted session",
+   SSH_LOG(SSH_LOG_PROTOCOL, "%d bits, %" PRIdS " bytes encrypted session",
        bits, ssh_string_len(enc_session));
    bits = htons(bits);
    /* the encrypted mpint */
@@ -470,30 +470,28 @@ end:
    publickey_free(srv);
    publickey_free(host);
 
-   leave_function();
    return SSH_PACKET_USED;
 }
 
 int ssh_get_kex1(ssh_session session) {
-  int ret=SSH_ERROR;
-  enter_function();
-  ssh_log(session, SSH_LOG_PROTOCOL, "Waiting for a SSH_SMSG_PUBLIC_KEY");
+  SSH_LOG(SSH_LOG_PROTOCOL, "Waiting for a SSH_SMSG_PUBLIC_KEY");
+
   /* Here the callback is called */
   while(session->session_state==SSH_SESSION_STATE_INITIAL_KEX){
     ssh_handle_packets(session, SSH_TIMEOUT_USER);
   }
-  if(session->session_state==SSH_SESSION_STATE_ERROR)
-    goto error;
-  ssh_log(session, SSH_LOG_PROTOCOL, "Waiting for a SSH_SMSG_SUCCESS");
+  if (session->session_state==SSH_SESSION_STATE_ERROR) {
+      return SSH_ERROR;
+  }
+  SSH_LOG(SSH_LOG_PROTOCOL, "Waiting for a SSH_SMSG_SUCCESS");
   /* Waiting for SSH_SMSG_SUCCESS */
   while(session->session_state==SSH_SESSION_STATE_KEXINIT_RECEIVED){
     ssh_handle_packets(session, SSH_TIMEOUT_USER);
   }
-  if(session->session_state==SSH_SESSION_STATE_ERROR)
-      goto error;
-  ssh_log(session, SSH_LOG_PROTOCOL, "received SSH_SMSG_SUCCESS\n");
-  ret=SSH_OK;
-error:
-  leave_function();
-  return ret;
+  if(session->session_state==SSH_SESSION_STATE_ERROR) {
+      return SSH_ERROR;
+  }
+  SSH_LOG(SSH_LOG_PROTOCOL, "received SSH_SMSG_SUCCESS\n");
+
+  return SSH_OK;
 }

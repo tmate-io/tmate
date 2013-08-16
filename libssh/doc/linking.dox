@@ -17,8 +17,14 @@ On UNIX systems linking against the static version of the library is the
 same as linking against the shared library. Both have the same name. Some
 build system require to use the full path to the static library.
 
-On Windows you need to define LIBSSH_STATIC in the compiler command
-line. This is required cause the dynamic library needs to specify the
-dllimport attribute.
+To be able to compile the application you're developing you need to either pass
+LIBSSH_STATIC as a define in the compiler command line or define it before you
+include libssh.h.  This is required cause the dynamic library needs to specify
+the dllimport attribute.
+
+@code
+#define LIBSSH_STATIC 1
+#include <libssh/libssh.h>
+@endcode
 
 */

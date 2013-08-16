@@ -55,7 +55,6 @@ typedef struct ssh_bind_struct* ssh_bind;
  * @brief Incoming connection callback. This callback is called when a ssh_bind
  *        has a new incoming connection.
  * @param sshbind Current sshbind session handler
- * @param message the actual message
  * @param userdata Userdata to be passed to the callback function.
  */
 typedef void (*ssh_bind_incoming_connection_callback) (ssh_bind sshbind,
@@ -238,6 +237,8 @@ LIBSSH_API int ssh_bind_accept(ssh_bind ssh_bind_o, ssh_session session);
 LIBSSH_API int ssh_bind_accept_fd(ssh_bind ssh_bind_o, ssh_session session,
         socket_t fd);
 
+LIBSSH_API ssh_gssapi_creds ssh_gssapi_get_creds(ssh_session session);
+
 /**
  * @brief Handles the key exchange and set up encryption
  *
@@ -253,6 +254,8 @@ LIBSSH_API int ssh_handle_key_exchange(ssh_session session);
  * @param  ssh_bind_o     The ssh server bind to free.
  */
 LIBSSH_API void ssh_bind_free(ssh_bind ssh_bind_o);
+
+LIBSSH_API void ssh_set_auth_methods(ssh_session session, int auth_methods);
 
 /**********************************************************
  * SERVER MESSAGING

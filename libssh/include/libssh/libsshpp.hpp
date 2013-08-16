@@ -316,7 +316,7 @@ public:
     va_start(va, format);
     vsnprintf(buffer, sizeof(buffer), format, va);
     va_end(va);
-    ssh_log(c_session,priority, "%s", buffer);
+    _ssh_log(priority, "libsshpp", "%s", buffer);
   }
 
   /** @brief copies options from a session to another

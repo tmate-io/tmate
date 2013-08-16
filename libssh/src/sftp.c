@@ -106,12 +106,11 @@ sftp_session sftp_new(ssh_session session){
   if (session == NULL) {
     return NULL;
   }
-  enter_function();
 
   sftp = malloc(sizeof(struct sftp_session_struct));
   if (sftp == NULL) {
     ssh_set_error_oom(session);
-    leave_function();
+
     return NULL;
   }
   ZERO_STRUCTP(sftp);
@@ -120,7 +119,7 @@ sftp_session sftp_new(ssh_session session){
   if (sftp->ext == NULL) {
     ssh_set_error_oom(session);
     SAFE_FREE(sftp);
-    leave_function();
+
     return NULL;
   }
 
@@ -128,24 +127,52 @@ sftp_session sftp_new(ssh_session session){
   sftp->channel = ssh_channel_new(session);
   if (sftp->channel == NULL) {
     SAFE_FREE(sftp);
-    leave_function();
+
     return NULL;
   }
 
   if (ssh_channel_open_session(sftp->channel)) {
     ssh_channel_free(sftp->channel);
     SAFE_FREE(sftp);
-    leave_function();
+
     return NULL;
   }
 
   if (ssh_channel_request_sftp(sftp->channel)) {
     sftp_free(sftp);
-    leave_function();
+
     return NULL;
   }
 
-  leave_function();
+  return sftp;
+}
+
+sftp_session sftp_new_channel(ssh_session session, ssh_channel channel){
+  sftp_session sftp;
+
+  if (session == NULL) {
+    return NULL;
+  }
+
+  sftp = malloc(sizeof(struct sftp_session_struct));
+  if (sftp == NULL) {
+    ssh_set_error_oom(session);
+
+    return NULL;
+  }
+  ZERO_STRUCTP(sftp);
+
+  sftp->ext = sftp_ext_new();
+  if (sftp->ext == NULL) {
+    ssh_set_error_oom(session);
+    SAFE_FREE(sftp);
+
+    return NULL;
+  }
+
+  sftp->session = session;
+  sftp->channel = channel;
+
   return sftp;
 }
 
@@ -186,11 +213,11 @@ int sftp_server_init(sftp_session sftp){
     return -1;
   }
 
-  ssh_log(session, SSH_LOG_PACKET, "Received SSH_FXP_INIT");
+  SSH_LOG(SSH_LOG_PACKET, "Received SSH_FXP_INIT");
 
   buffer_get_u32(packet->payload, &version);
   version = ntohl(version);
-  ssh_log(session, SSH_LOG_PACKET, "Client version: %d", version);
+  SSH_LOG(SSH_LOG_PACKET, "Client version: %d", version);
   sftp->client_version = version;
 
   sftp_packet_free(packet);
@@ -213,7 +240,7 @@ int sftp_server_init(sftp_session sftp){
   }
   ssh_buffer_free(reply);
 
-  ssh_log(session, SSH_LOG_RARE, "Server version sent");
+  SSH_LOG(SSH_LOG_RARE, "Server version sent");
 
   if (version > LIBSFTP_VERSION) {
     sftp->version = LIBSFTP_VERSION;
@@ -271,7 +298,7 @@ int sftp_packet_write(sftp_session sftp, uint8_t type, ssh_buffer payload){
   if (size < 0) {
     return -1;
   } else if((uint32_t) size != buffer_get_rest_len(payload)) {
-    ssh_log(sftp->session, SSH_LOG_PACKET,
+    SSH_LOG(SSH_LOG_PACKET,
         "Had to write %d bytes, wrote only %d",
         buffer_get_rest_len(payload),
         size);
@@ -419,7 +446,7 @@ static sftp_message sftp_get_message(sftp_packet packet) {
     return NULL;
   }
 
-  ssh_log(packet->sftp->session, SSH_LOG_PACKET,
+  SSH_LOG(SSH_LOG_PACKET,
       "Packet with id %d type %d",
       msg->id,
       msg->packet_type);
@@ -508,7 +535,7 @@ int sftp_init(sftp_session sftp) {
   /* TODO: are we sure there are 4 bytes ready? */
   buffer_get_u32(packet->payload, &version);
   version = ntohl(version);
-  ssh_log(sftp->session, SSH_LOG_RARE,
+  SSH_LOG(SSH_LOG_RARE,
       "SFTP server version %d",
       version);
 
@@ -533,7 +560,7 @@ int sftp_init(sftp_session sftp) {
       ssh_string_free(ext_data_s);
       return -1;
     }
-    ssh_log(sftp->session, SSH_LOG_RARE,
+    SSH_LOG(SSH_LOG_RARE,
         "SFTP server extension: %s, version: %s",
         ext_name, ext_data);
 
@@ -674,7 +701,7 @@ static int sftp_enqueue(sftp_session sftp, sftp_message msg) {
     return -1;
   }
 
-  ssh_log(sftp->session, SSH_LOG_PACKET,
+  SSH_LOG(SSH_LOG_PACKET,
       "Queued msg type %d id %d",
       msg->id, msg->packet_type);
 
@@ -715,7 +742,7 @@ static sftp_message sftp_dequeue(sftp_session sftp, uint32_t id){
       }
       msg = queue->message;
       request_queue_free(queue);
-      ssh_log(sftp->session, SSH_LOG_PACKET,
+      SSH_LOG(SSH_LOG_PACKET,
           "Dequeued msg id %d type %d",
           msg->id,
           msg->packet_type);
@@ -1191,7 +1218,7 @@ static sftp_attributes sftp_parse_attr_3(sftp_session sftp, ssh_buffer buf,
           break;
       }
 
-      ssh_log(sftp->session, SSH_LOG_RARE, "Name: %s", attr->name);
+      SSH_LOG(SSH_LOG_RARE, "Name: %s", attr->name);
 
       longname = buffer_get_ssh_string(buf);
       if (longname == NULL) {
@@ -1222,7 +1249,7 @@ static sftp_attributes sftp_parse_attr_3(sftp_session sftp, ssh_buffer buf,
     }
     flags = ntohl(flags);
     attr->flags = flags;
-    ssh_log(sftp->session, SSH_LOG_RARE,
+    SSH_LOG(SSH_LOG_RARE,
         "Flags: %.8lx\n", (long unsigned int) flags);
 
     if (flags & SSH_FILEXFER_ATTR_SIZE) {
@@ -1230,7 +1257,7 @@ static sftp_attributes sftp_parse_attr_3(sftp_session sftp, ssh_buffer buf,
         break;
       }
       attr->size = ntohll(attr->size);
-      ssh_log(sftp->session, SSH_LOG_RARE,
+      SSH_LOG(SSH_LOG_RARE,
           "Size: %llu\n",
           (long long unsigned int) attr->size);
     }
@@ -1419,7 +1446,7 @@ sftp_attributes sftp_readdir(sftp_session sftp, sftp_dir dir) {
     }
     ssh_buffer_free(payload);
 
-    ssh_log(sftp->session, SSH_LOG_PACKET,
+    SSH_LOG(SSH_LOG_PACKET,
         "Sent a ssh_fxp_readdir with id %d", id);
 
     while (msg == NULL) {
@@ -1476,7 +1503,7 @@ sftp_attributes sftp_readdir(sftp_session sftp, sftp_dir dir) {
     return NULL;
   }
 
-  ssh_log(sftp->session, SSH_LOG_RARE, "Count is %d", dir->count);
+  SSH_LOG(SSH_LOG_RARE, "Count is %d", dir->count);
 
   attr = sftp_parse_attr(sftp, dir->buffer, 1);
   if (attr == NULL) {
@@ -1652,7 +1679,7 @@ sftp_file sftp_open(sftp_session sftp, const char *file, int flags,
     sftp_flags |= SSH_FXF_TRUNC;
   if (flags & O_EXCL)
     sftp_flags |= SSH_FXF_EXCL;
-  ssh_log(sftp->session,SSH_LOG_PACKET,"Opening file %s with sftp flags %x",file,sftp_flags);
+  SSH_LOG(SSH_LOG_PACKET,"Opening file %s with sftp flags %x",file,sftp_flags);
   id = sftp_get_new_id(sftp);
   if (buffer_add_u32(buffer, id) < 0 ||
       buffer_add_ssh_string(buffer, filename) < 0) {
@@ -1971,7 +1998,7 @@ ssize_t sftp_write(sftp_file file, const void *buf, size_t count) {
   if (len < 0) {
     return -1;
   } else  if (len != packetlen) {
-    ssh_log(sftp->session, SSH_LOG_PACKET,
+    SSH_LOG(SSH_LOG_PACKET,
         "Could not write as much data as expected");
   }
 
