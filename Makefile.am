@@ -252,7 +252,7 @@ tmate_LDADD = \
 *.c: $(tmate_LDADD)
 
 libssh/build/src/libssh.a:
-	cd libssh/build && cmake .. -DWITH_SFTP=OFF -DWITH_SERVER=OFF -DWITH_PCAP=OFF -DWITH_STATIC_LIB=ON
+	cd libssh/build && cmake .. -DWITH_SFTP=OFF -DWITH_SERVER=OFF -DWITH_PCAP=OFF -DWITH_STATIC_LIB=ON -DWITH_GSSAPI=OFF
 	+make -C libssh/build ssh_static
 
 msgpack/src/.libs/libmsgpackc.a:
