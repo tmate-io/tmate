@@ -29,10 +29,11 @@ static void dns_cb(int errcode, struct evutil_addrinfo *addr, void *ptr)
 	struct tmate_ssh_client *client;
 	struct evutil_addrinfo *ai;
 	struct timeval tv;
+	const char *host = ptr;
 
 	if (errcode) {
 		tmate_status_message("%s lookup failure. Retrying in %d seconds (%s)",
-				     TMATE_HOST, TMATE_DNS_RETRY_TIMEOUT,
+				     host, TMATE_DNS_RETRY_TIMEOUT,
 				     evutil_gai_strerror(errcode));
 
 		tv.tv_sec = TMATE_DNS_RETRY_TIMEOUT;
@@ -44,7 +45,7 @@ static void dns_cb(int errcode, struct evutil_addrinfo *addr, void *ptr)
 		return;
 	}
 
-	tmate_status_message("Connecting to %s...", TMATE_HOST);
+	tmate_status_message("Connecting to %s...", host);
 
 	for (ai = addr; ai; ai = ai->ai_next) {
 		char buf[128];
@@ -79,6 +80,7 @@ static void dns_cb(int errcode, struct evutil_addrinfo *addr, void *ptr)
 static void lookup_and_connect(void)
 {
 	struct evutil_addrinfo hints;
+	const char *tmate_server_host;
 
 	if (!ev_dnsbase)
 		ev_dnsbase = evdns_base_new(ev_base, 1);
@@ -91,9 +93,11 @@ static void lookup_and_connect(void)
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
 
-	tmate_info("Looking up %s...", TMATE_HOST);
-	(void)evdns_getaddrinfo(ev_dnsbase, TMATE_HOST, NULL,
-				&hints, dns_cb, NULL);
+	tmate_server_host = options_get_string(&global_s_options,
+					       "tmate-server-host");
+	tmate_info("Looking up %s...", tmate_server_host);
+	(void)evdns_getaddrinfo(ev_dnsbase, tmate_server_host, NULL,
+				&hints, dns_cb, tmate_server_host);
 }
 
 void tmate_session_init(void)

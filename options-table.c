@@ -169,18 +169,6 @@ const struct options_table_entry session_options_table[] = {
 	  .default_num = 750
 	},
 
-	{ .name = "tmate-display-time",
-	  .type = OPTIONS_TABLE_NUMBER,
-	  .minimum = 1,
-	  .maximum = INT_MAX,
-	  .default_num = 30000
-	},
-
-	{ .name = "tmate-identity",
-	  .type = OPTIONS_TABLE_STRING,
-	  .default_str = ""
-	},
-
 	{ .name = "history-limit",
 	  .type = OPTIONS_TABLE_NUMBER,
 	  .minimum = 0,
@@ -462,6 +450,46 @@ const struct options_table_entry session_options_table[] = {
 	  .type = OPTIONS_TABLE_STRING,
 	  .default_str = " -_@"
 	},
+
+	{ .name = "tmate-display-time",
+	  .type = OPTIONS_TABLE_NUMBER,
+	  .minimum = 1,
+	  .maximum = INT_MAX,
+	  .default_num = 30000
+	},
+
+	{ .name = "tmate-identity",
+	  .type = OPTIONS_TABLE_STRING,
+	  .default_str = ""
+	},
+
+	{ .name = "tmate-server-host",
+	  .type = OPTIONS_TABLE_STRING,
+	  .default_str = "master.tmate.io"
+	},
+
+	{ .name = "tmate-server-port",
+	  .type = OPTIONS_TABLE_NUMBER,
+	  .minimum = 1,
+	  .maximum = 65535,
+	  .default_num = 22
+	},
+
+	{ .name = "tmate-server-dsa-fingerprint",
+	  .type = OPTIONS_TABLE_STRING,
+	  .default_str = "f5:26:31:c3:8a:78:6e:5c:77:74:0f:41:5b:5f:21:88"
+	},
+
+	{ .name = "tmate-server-rsa-fingerprint",
+	  .type = OPTIONS_TABLE_STRING,
+	  .default_str = "af:2d:81:c1:fe:49:70:2d:7f:09:a9:d7:4b:32:e3:be"
+	},
+
+	{ .name = "tmate-server-ecdsa-fingerprint",
+	  .type = OPTIONS_TABLE_STRING,
+	  .default_str = "c7:a1:51:36:d2:bb:35:4b:0a:1a:c0:43:97:74:ea:42"
+	},
+
 
 	{ .name = NULL }
 };

@@ -25,10 +25,6 @@ CFLAGS += -Wno-unused-parameter -Wno-unused-variable
 CFLAGS += -Ilibssh/include/ -Imsgpack/src
 CFLAGS += -rdynamic # for stack traces
 
-if IS_DEVENV
-CFLAGS += -DDEVENV
-endif
-
 # Set flags for gcc. gcc4 whines abouts silly stuff so it needs slightly
 # different flags.
 if IS_GCC

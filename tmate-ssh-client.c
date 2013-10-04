@@ -168,10 +168,11 @@ static void on_session_event(struct tmate_ssh_client *client)
 	unsigned char *hash;
 	ssize_t hash_len;
 	char *hash_str;
+	char *server_hash_str;
 	int match;
 
 	int verbosity = SSH_LOG_NOLOG + debug_level;
-	int port = TMATE_PORT;
+	int port = options_get_number(&global_s_options, "tmate-server-port");
 
 	ssh_session session = client->session;
 	ssh_channel channel = client->channel;
@@ -241,24 +242,26 @@ static void on_session_event(struct tmate_ssh_client *client)
 		if (ssh_get_publickey(session, &pubkey) < 0)
 			tmate_fatal("ssh_get_publickey");
 
-#ifdef DEVENV
-		match = 1;
-#else
 		key_type = ssh_key_type(pubkey);
+
 		switch (key_type) {
 		case SSH_KEYTYPE_DSS:
-			match = !strcmp(hash_str, TMATE_HOST_DSA_KEY);
+			server_hash_str = options_get_string(&global_s_options,
+						"tmate-server-dsa-fingerprint");
 			break;
 		case SSH_KEYTYPE_RSA:
-			match = !strcmp(hash_str, TMATE_HOST_RSA_KEY);
+			server_hash_str = options_get_string(&global_s_options,
+						"tmate-server-rsa-fingerprint");
 			break;
 		case SSH_KEYTYPE_ECDSA:
-			match = !strcmp(hash_str, TMATE_HOST_ECDSA_KEY);
+			server_hash_str = options_get_string(&global_s_options,
+						"tmate-server-ecdsa-fingerprint");
 			break;
 		default:
-			match = 0;
+			server_hash_str = "";
 		}
-#endif
+
+		match = !strcmp(hash_str, server_hash_str);
 
 		ssh_key_free(pubkey);
 		ssh_clean_pubkey_hash(&hash);
