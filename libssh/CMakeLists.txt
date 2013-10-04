@@ -109,7 +109,9 @@ install(
 # in tree build settings
 configure_file(libssh-build-tree-settings.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/libssh-build-tree-settings.cmake @ONLY)
 
-add_subdirectory(examples)
+if (WITH_EXAMPLES)
+    add_subdirectory(examples)
+endif (WITH_EXAMPLES)
 
 if (WITH_TESTING)
   find_package(CMocka REQUIRED)

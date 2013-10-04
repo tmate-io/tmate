@@ -35,6 +35,7 @@
 #include "libssh/session.h"
 #include "libssh/socket.h"
 #include "libssh/ssh2.h"
+#include "libssh/curve25519.h"
 
 /**
  * @internal
@@ -101,6 +102,11 @@ SSH_PACKET_CALLBACK(ssh_packet_dh_reply){
 #ifdef HAVE_ECDH
     case SSH_KEX_ECDH_SHA2_NISTP256:
       rc = ssh_client_ecdh_reply(session, packet);
+      break;
+#endif
+#ifdef HAVE_CURVE25519
+    case SSH_KEX_CURVE25519_SHA256_LIBSSH_ORG:
+      rc = ssh_client_curve25519_reply(session, packet);
       break;
 #endif
     default:

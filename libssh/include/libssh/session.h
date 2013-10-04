@@ -97,9 +97,6 @@ struct ssh_session_struct {
     int openssh;
     uint32_t send_seq;
     uint32_t recv_seq;
-/* status flags */
-    int closed;
-    int closed_by_except;
 
     int connected;
     /* !=0 when the user got a session handle */

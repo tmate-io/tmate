@@ -58,6 +58,7 @@
 #include "libssh/dh.h"
 #include "libssh/messages.h"
 #include "libssh/options.h"
+#include "libssh/curve25519.h"
 
 #define set_status(session, status) do {\
         if (session->common.callbacks && session->common.callbacks->connect_status_function) \
@@ -182,6 +183,11 @@ SSH_PACKET_CALLBACK(ssh_packet_kexdh_init){
       case SSH_KEX_ECDH_SHA2_NISTP256:
         rc = ssh_server_ecdh_init(session, packet);
         break;
+  #endif
+  #ifdef HAVE_CURVE25519
+      case SSH_KEX_CURVE25519_SHA256_LIBSSH_ORG:
+    	rc = ssh_server_curve25519_init(session, packet);
+    	break;
   #endif
       default:
         ssh_set_error(session,SSH_FATAL,"Wrong kex type in ssh_packet_kexdh_init");

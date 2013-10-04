@@ -788,12 +788,17 @@ struct ssh_threads_callbacks_struct {
 };
 
 /**
- * @brief sets the thread callbacks necessary if your program is using
- * libssh in a multithreaded fashion. This function must be called first,
- * outside of any threading context (in your main() for instance), before
- * ssh_init().
- * @param cb pointer to a ssh_threads_callbacks_struct structure, which contains
- * the different callbacks to be set.
+ * @brief Set the thread callbacks structure.
+ *
+ * This is necessary if your program is using libssh in a multithreaded fashion.
+ * This function must be called first, outside of any threading context (in your
+ * main() function for instance), before you call ssh_init().
+ *
+ * @param[in] cb   A pointer to a ssh_threads_callbacks_struct structure, which
+ *                 contains the different callbacks to be set.
+ *
+ * @returns        Always returns SSH_OK.
+ *
  * @see ssh_threads_callbacks_struct
  * @see SSH_THREADS_PTHREAD
  */
@@ -809,9 +814,13 @@ LIBSSH_API int ssh_threads_set_callbacks(struct ssh_threads_callbacks_struct
 LIBSSH_API struct ssh_threads_callbacks_struct *ssh_threads_get_pthread(void);
 
 /**
- * @brief returns a pointer on the noop threads callbacks, to be used with
- * ssh_threads_set_callbacks. These callbacks do nothing and are being used by
- * default.
+ * @brief Get the noop threads callbacks structure
+ *
+ * This can be used with ssh_threads_set_callbacks. These callbacks do nothing
+ * and are being used by default.
+ *
+ * @return Always returns a valid pointer to the noop callbacks structure.
+ *
  * @see ssh_threads_set_callbacks
  */
 LIBSSH_API struct ssh_threads_callbacks_struct *ssh_threads_get_noop(void);

@@ -771,6 +771,18 @@ int make_sessionid(ssh_session session) {
         goto error;
     }
 #endif
+#ifdef HAVE_CURVE25519
+  } else if(session->next_crypto->kex_type == SSH_KEX_CURVE25519_SHA256_LIBSSH_ORG){
+	  rc = buffer_add_u32(buf, htonl(CURVE25519_PUBKEY_SIZE));
+	  rc += buffer_add_data(buf, session->next_crypto->curve25519_client_pubkey,
+			  CURVE25519_PUBKEY_SIZE);
+	  rc += buffer_add_u32(buf, htonl(CURVE25519_PUBKEY_SIZE));
+	  rc += buffer_add_data(buf, session->next_crypto->curve25519_server_pubkey,
+			  CURVE25519_PUBKEY_SIZE);
+	  if (rc != SSH_OK) {
+		  goto error;
+      }
+#endif
   }
   num = make_bignum_string(session->next_crypto->k);
   if (num == NULL) {
@@ -800,6 +812,7 @@ int make_sessionid(ssh_session session) {
                 session->next_crypto->secret_hash);
       break;
     case SSH_KEX_ECDH_SHA2_NISTP256:
+    case SSH_KEX_CURVE25519_SHA256_LIBSSH_ORG:
       session->next_crypto->digest_len = SHA256_DIGEST_LENGTH;
       session->next_crypto->mac_type = SSH_MAC_SHA256;
       session->next_crypto->secret_hash = malloc(session->next_crypto->digest_len);

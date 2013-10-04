@@ -312,7 +312,11 @@ static int channel_open(ssh_channel channel, const char *type_c, int window,
       type_c, channel->local_channel);
 pending:
   /* wait until channel is opened by server */
-  err = ssh_handle_packets_termination(session, SSH_TIMEOUT_USER, ssh_channel_open_termination, channel);
+  err = ssh_handle_packets_termination(session,
+                                       SSH_TIMEOUT_DEFAULT,
+                                       ssh_channel_open_termination,
+                                       channel);
+
   if (session->session_state == SSH_SESSION_STATE_ERROR)
     err = SSH_ERROR;
 end:
@@ -1607,7 +1611,11 @@ static int channel_request(ssh_channel channel, const char *request,
     return SSH_OK;
   }
 pending:
-  rc = ssh_handle_packets_termination(session,SSH_TIMEOUT_USER, ssh_channel_request_termination, channel);
+  rc = ssh_handle_packets_termination(session,
+                                      SSH_TIMEOUT_DEFAULT,
+                                      ssh_channel_request_termination,
+                                      channel);
+
   if(session->session_state == SSH_SESSION_STATE_ERROR || rc == SSH_ERROR) {
       channel->request_state = SSH_CHANNEL_REQ_STATE_ERROR;
   }
@@ -1983,8 +1991,11 @@ static ssh_channel ssh_channel_accept(ssh_session session, int channeltype,
   struct ssh_iterator *iterator;
   int t;
 
-  for (t = timeout_ms; t >= 0; t -= 50)
-  {
+  /*
+   * We sleep for 50 ms in ssh_handle_packets() and later sleep for
+   * 50 ms. So we need to decrement by 100 ms.
+   */
+  for (t = timeout_ms; t >= 0; t -= 100) {
     ssh_handle_packets(session, 50);
 
     if (session->ssh_message_list) {
@@ -2145,8 +2156,11 @@ static int global_request(ssh_session session, const char *request,
     return SSH_OK;
   }
 pending:
-  rc = ssh_handle_packets_termination(session, SSH_TIMEOUT_USER,
-      ssh_global_request_termination, session);
+  rc = ssh_handle_packets_termination(session,
+                                      SSH_TIMEOUT_DEFAULT,
+                                      ssh_global_request_termination,
+                                      session);
+
   if(rc==SSH_ERROR || session->session_state == SSH_SESSION_STATE_ERROR){
     session->global_req_state = SSH_CHANNEL_REQ_STATE_ERROR;
   }
@@ -2640,8 +2654,8 @@ static int ssh_channel_read_termination(void *s){
  * @param[in]  is_stderr A boolean value to mark reading from the stderr flow.
  *
  * @return              The number of bytes read, 0 on end of file or SSH_ERROR
- *                      on error. Can return 0 if nothing is available in nonblocking
- *                      mode.
+ *                      on error. In nonblocking mode it Can return 0 if no data
+ *                      is available or SSH_AGAIN.
  *
  * @warning This function may return less than count bytes of data, and won't
  *          block until count bytes have been read.
@@ -2924,8 +2938,10 @@ int ssh_channel_get_exit_status(ssh_channel channel) {
   if(channel == NULL) {
       return SSH_ERROR;
   }
-  rc = ssh_handle_packets_termination(channel->session, SSH_TIMEOUT_USER,
-      ssh_channel_exit_status_termination, channel);
+  rc = ssh_handle_packets_termination(channel->session,
+                                      SSH_TIMEOUT_DEFAULT,
+                                      ssh_channel_exit_status_termination,
+                                      channel);
   if (rc == SSH_ERROR || channel->session->session_state ==
       SSH_SESSION_STATE_ERROR)
     return SSH_ERROR;

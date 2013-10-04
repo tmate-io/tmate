@@ -127,6 +127,17 @@ static int ssh_execute_server_request(ssh_session session, ssh_message msg)
                }
 
                return SSH_OK;
+            } else if (msg->auth_request.method == SSH_AUTH_METHOD_NONE &&
+                       ssh_callbacks_exists(session->server_callbacks, auth_none_function)) {
+                rc = session->server_callbacks->auth_none_function(session,
+                    msg->auth_request.username, session->server_callbacks->userdata);
+                if (rc == SSH_AUTH_SUCCESS || rc == SSH_AUTH_PARTIAL){
+                    ssh_message_auth_reply_success(msg, rc == SSH_AUTH_PARTIAL);
+                } else {
+                    ssh_message_reply_default(msg);
+                }
+
+                return SSH_OK;
             }
             break;
         case SSH_REQUEST_CHANNEL_OPEN:

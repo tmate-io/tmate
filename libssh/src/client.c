@@ -197,6 +197,11 @@ static int dh_handshake(ssh_session session) {
           rc = ssh_client_ecdh_init(session);
           break;
 #endif
+#ifdef HAVE_CURVE25519
+        case SSH_KEX_CURVE25519_SHA256_LIBSSH_ORG:
+          rc = ssh_client_curve25519_init(session);
+          break;
+#endif
         default:
           rc = SSH_ERROR;
       }
@@ -579,6 +584,14 @@ char *ssh_get_issue_banner(ssh_session session) {
  * @param[in]  session  The SSH session to use.
  *
  * @return The version number if available, 0 otherwise.
+ *
+ * @code
+ * int openssh = ssh_get_openssh_version();
+ *
+ * if (openssh == SSH_INT_VERSION(6, 1, 0)) {
+ *     printf("Version match!\m");
+ * }
+ * @endcode
  */
 int ssh_get_openssh_version(ssh_session session) {
   if (session == NULL) {

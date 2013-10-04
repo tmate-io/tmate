@@ -115,6 +115,17 @@ ssh_session ssh_new(void) {
       goto err;
     }
 
+#ifdef HAVE_ECC
+    id = strdup("%d/id_ecdsa");
+    if (id == NULL) {
+      goto err;
+    }
+    rc = ssh_list_append(session->opts.identity, id);
+    if (rc == SSH_ERROR) {
+      goto err;
+    }
+#endif
+
     id = strdup("%d/id_rsa");
     if (id == NULL) {
       goto err;
@@ -268,7 +279,10 @@ void ssh_free(ssh_session session) {
 
 /**
  * @brief get the server banner
+ *
  * @param[in] session   The SSH session
+ *
+ * @return Returns the server banner string or NULL.
  */
 const char* ssh_get_serverbanner(ssh_session session) {
 	if(!session) {
@@ -300,8 +314,6 @@ void ssh_silent_disconnect(ssh_session session) {
  * @param[in]  session  The ssh session to change.
  *
  * @param[in]  blocking Zero for nonblocking mode.
- *
- * \bug nonblocking code is in development and won't work as expected
  */
 void ssh_set_blocking(ssh_session session, int blocking) {
 	if (session == NULL) {
@@ -577,7 +589,7 @@ int ssh_get_status(ssh_session session) {
 
   socketstate = ssh_socket_get_status(session->socket);
 
-  if (session->closed) {
+  if (session->session_state == SSH_SESSION_STATE_DISCONNECTED) {
     r |= SSH_CLOSED;
   }
   if (socketstate & SSH_READ_PENDING) {
@@ -586,7 +598,8 @@ int ssh_get_status(ssh_session session) {
   if (socketstate & SSH_WRITE_PENDING) {
       r |= SSH_WRITE_PENDING;
   }
-  if ((session->closed && (socketstate & SSH_CLOSED_ERROR)) ||
+  if ((session->session_state == SSH_SESSION_STATE_DISCONNECTED &&
+       (socketstate & SSH_CLOSED_ERROR)) ||
       session->session_state == SSH_SESSION_STATE_ERROR) {
     r |= SSH_CLOSED_ERROR;
   }
@@ -610,12 +623,9 @@ const char *ssh_get_disconnect_message(ssh_session session) {
     return NULL;
   }
 
-  if (!session->closed) {
+  if (session->session_state != SSH_SESSION_STATE_DISCONNECTED) {
     ssh_set_error(session, SSH_REQUEST_DENIED,
         "Connection not closed yet");
-  } else if(session->closed_by_except) {
-    ssh_set_error(session, SSH_REQUEST_DENIED,
-        "Connection closed by socket error");
   } else if(!session->discon_msg) {
     ssh_set_error(session, SSH_FATAL,
         "Connection correctly closed but no disconnect message");

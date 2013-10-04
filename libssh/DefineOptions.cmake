@@ -12,6 +12,7 @@ option(WITH_INTERNAL_DOC "Compile doxygen internal documentation" OFF)
 option(WITH_TESTING "Build with unit tests" OFF)
 option(WITH_CLIENT_TESTING "Build with client tests; requires a running sshd" OFF)
 option(WITH_BENCHMARKS "Build benchmarks tools" OFF)
+option(WITH_EXAMPLES "Build examples" ON)
 
 if (WITH_ZLIB)
     set(WITH_LIBZ ON)

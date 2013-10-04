@@ -349,8 +349,8 @@ void ssh_signature_free(ssh_signature sig)
  *
  * @param[in]  auth_data Private data passed to the auth function.
  *
- * @param[out] pkey     A pointer where the key can be stored. You need
- *                      to free the memory.
+ * @param[out] pkey     A pointer where the allocated key can be stored. You
+ *                      need to free the memory.
  *
  * @return  SSH_ERROR in case of error, SSH_OK otherwise.
  *
@@ -397,8 +397,8 @@ int ssh_pki_import_privkey_base64(const char *b64_key,
  *
  * @param[in]  auth_data Private data passed to the auth function.
  *
- * @param[out] pkey     A pointer to store the ssh_key. You need to free the
- *                      key.
+ * @param[out] pkey     A pointer to store the allocated ssh_key. You need to
+ *                      free the key.
  *
  * @returns SSH_OK on success, SSH_EOF if the file doesn't exist or permission
  *          denied, SSH_ERROR otherwise.
@@ -684,8 +684,8 @@ fail:
  *
  * @param[in]  type     The type of the key to format.
  *
- * @param[out] pkey     A pointer where the key can be stored. You need
- *                      to free the memory.
+ * @param[out] pkey     A pointer where the allocated key can be stored. You
+ *                      need to free the memory.
  *
  * @return              SSH_OK on success, SSH_ERROR on error.
  *
@@ -728,8 +728,8 @@ int ssh_pki_import_pubkey_base64(const char *b64_key,
  * @param[in]  key_blob The key blob to import as specified in RFC 4253 section
  *                      6.6 "Public Key Algorithms".
  *
- * @param[out] pkey     A pointer where the key can be stored. You need
- *                      to free the memory.
+ * @param[out] pkey     A pointer where the allocated key can be stored. You
+ *                      need to free the memory.
  *
  * @return              SSH_OK on success, SSH_ERROR on error.
  *
@@ -789,8 +789,8 @@ fail:
  *
  * @param[in]  filename The path to the public key.
  *
- * @param[out] pkey     A pointer to store the public key. You need to free the
- *                      memory.
+ * @param[out] pkey     A pointer to store the allocated public key. You need to
+ *                      free the memory.
  *
  * @returns SSH_OK on success, SSH_EOF if the file doesn't exist or permission
  *          denied, SSH_ERROR otherwise.
@@ -875,17 +875,20 @@ int ssh_pki_import_pubkey_file(const char *filename, ssh_key *pkey)
 
 /**
  * @brief Generates a keypair.
+ *
  * @param[in] type      Type of key to create
+ *
  * @param[in] parameter Parameter to the creation of key:
  *                      rsa : length of the key in bits (e.g. 1024, 2048, 4096)
  *                      dsa : length of the key in bits (e.g. 1024, 2048, 3072)
  *                      ecdsa : bits of the key (e.g. 256, 384, 512)
- * @param[out] pkey     A pointer to store the private key. You need to free the
- *                      memory.
+ * @param[out] pkey     A pointer to store the allocated private key. You need
+ *                      to free the memory.
+ *
  * @return              SSH_OK on success, SSH_ERROR on error.
+ *
  * @warning             Generating a key pair may take some time.
  */
-
 int ssh_pki_generate(enum ssh_keytypes_e type, int parameter,
         ssh_key *pkey){
     int rc;
@@ -1000,7 +1003,8 @@ int ssh_pki_export_pubkey_blob(const ssh_key key,
  *
  * @param[in] key       The key to hash
  *
- * @param[out] b64_key  A pointer to store the base64 hased key.
+ * @param[out] b64_key  A pointer to store the allocated base64 hashed key. You
+ *                      need to free the buffer.
  *
  * @return              SSH_OK on success, SSH_ERROR on error.
  *
