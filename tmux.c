@@ -40,7 +40,7 @@ struct environ	 global_environ;
 
 struct event_base *ev_base;
 
-char		*cfg_file;
+char		*cfg_file, *tmate_cfg_file;
 char		*shell_cmd;
 int		 debug_level;
 time_t		 start_time;
@@ -367,18 +367,25 @@ main(int argc, char **argv)
 	}
 
 	/* Locate the configuration file. */
+	home = getenv("HOME");
+	if (home == NULL || *home == '\0') {
+		pw = getpwuid(getuid());
+		if (pw != NULL)
+			home = pw->pw_dir;
+	}
+
 	if (cfg_file == NULL) {
-		home = getenv("HOME");
-		if (home == NULL || *home == '\0') {
-			pw = getpwuid(getuid());
-			if (pw != NULL)
-				home = pw->pw_dir;
-		}
 		xasprintf(&cfg_file, "%s/%s", home, DEFAULT_CFG);
 		if (access(cfg_file, R_OK) != 0 && errno == ENOENT) {
 			free(cfg_file);
 			cfg_file = NULL;
 		}
+	}
+
+	xasprintf(&tmate_cfg_file, "%s/%s", home, DEFAULT_TMATE_CFG);
+	if (access(tmate_cfg_file, R_OK) != 0 && errno == ENOENT) {
+		free(tmate_cfg_file);
+		tmate_cfg_file = NULL;
 	}
 
 	/*

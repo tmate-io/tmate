@@ -186,6 +186,12 @@ server_start(int lockfd, char *lockfile)
 			ARRAY_ADD(&cfg_causes, cause);
 		}
 	}
+	if (tmate_cfg_file != NULL) {
+		if (load_cfg(tmate_cfg_file, cfg_cmd_q, &cause) == -1) {
+			xasprintf(&cause, "%s: %s", tmate_cfg_file, cause);
+			ARRAY_ADD(&cfg_causes, cause);
+		}
+	}
 
 	tmate_session_init();
 	cmdq_continue(cfg_cmd_q);

@@ -43,6 +43,7 @@ extern char   **environ;
 
 /* Default configuration files. */
 #define DEFAULT_CFG ".tmux.conf"
+#define DEFAULT_TMATE_CFG ".tmate.conf"
 #define SYSTEM_CFG "/etc/tmux.conf"
 
 /* Default prompt history length. */
@@ -1513,7 +1514,7 @@ extern struct options global_s_options;
 extern struct options global_w_options;
 extern struct environ global_environ;
 extern struct event_base *ev_base;
-extern char	*cfg_file;
+extern char	*cfg_file, *tmate_cfg_file;
 extern char	*shell_cmd;
 extern int	 debug_level;
 extern time_t	 start_time;
