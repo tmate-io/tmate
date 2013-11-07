@@ -25,6 +25,8 @@
 #ifndef _PKI_CRYPTO_H
 #define _PKI_CRYPTO_H
 
+#include "libssh/priv.h"
+
 #include <openssl/pem.h>
 #include <openssl/dsa.h>
 #include <openssl/err.h>
@@ -37,8 +39,6 @@
 #include <openssl/ecdsa.h>
 #endif
 
-
-#include "libssh/priv.h"
 #include "libssh/libssh.h"
 #include "libssh/buffer.h"
 #include "libssh/session.h"
@@ -1018,36 +1018,52 @@ ssh_string pki_signature_to_blob(const ssh_signature sig)
             break;
         case SSH_KEYTYPE_ECDSA:
 #ifdef HAVE_OPENSSL_ECC
+        {
+            ssh_buffer b;
+            int rc;
+
+            b = ssh_buffer_new();
+            if (b == NULL) {
+                return NULL;
+            }
+
             r = make_bignum_string(sig->ecdsa_sig->r);
             if (r == NULL) {
+                ssh_buffer_free(b);
                 return NULL;
             }
+            rc = buffer_add_ssh_string(b, r);
+            ssh_string_free(r);
+            if (rc < 0) {
+                ssh_buffer_free(b);
+                return NULL;
+            }
+
             s = make_bignum_string(sig->ecdsa_sig->s);
             if (s == NULL) {
-                ssh_string_free(r);
+                ssh_buffer_free(b);
                 return NULL;
             }
-
-            memcpy(buffer,
-                   ((char *)ssh_string_data(r)) + ssh_string_len(r) - 20,
-                   20);
-            memcpy(buffer + 20,
-                   ((char *)ssh_string_data(s)) + ssh_string_len(s) - 20,
-                   20);
-
-            ssh_string_free(r);
+            rc = buffer_add_ssh_string(b, s);
             ssh_string_free(s);
-
-            sig_blob = ssh_string_new(40);
-            if (sig_blob == NULL) {
+            if (rc < 0) {
+                ssh_buffer_free(b);
                 return NULL;
             }
 
-            ssh_string_fill(sig_blob, buffer, 40);
+            sig_blob = ssh_string_new(buffer_get_rest_len(b));
+            if (sig_blob == NULL) {
+                ssh_buffer_free(b);
+                return NULL;
+            }
+
+            ssh_string_fill(sig_blob, buffer_get_rest(b), buffer_get_rest_len(b));
+            ssh_buffer_free(b);
             break;
+        }
 #endif
         case SSH_KEYTYPE_UNKNOWN:
-            ssh_pki_log("Unknown signature key type: %d", sig->type);
+            ssh_pki_log("Unknown signature key type: %s", sig->type_c);
             return NULL;
     }
 
@@ -1070,6 +1086,7 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
     }
 
     sig->type = type;
+    sig->type_c = ssh_key_type_to_char(type);
 
     len = ssh_string_len(sig_blob);
 
@@ -1309,6 +1326,7 @@ ssh_signature pki_do_sign(const ssh_key privkey,
     }
 
     sig->type = privkey->type;
+    sig->type_c = privkey->type_c;
 
     switch(privkey->type) {
         case SSH_KEYTYPE_DSS:
@@ -1368,6 +1386,7 @@ ssh_signature pki_do_sign_sessionid(const ssh_key key,
         return NULL;
     }
     sig->type = key->type;
+    sig->type_c = key->type_c;
 
     switch(key->type) {
         case SSH_KEYTYPE_DSS:

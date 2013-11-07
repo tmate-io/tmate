@@ -71,6 +71,13 @@ if (WITH_GSSAPI)
     find_package(GSSAPI)
 endif (WITH_GSSAPI)
 
+if (WITH_NACL)
+    find_package(NaCl)
+    if (NOT NACL_FOUND)
+        set(WITH_NACL OFF)
+    endif (NOT NACL_FOUND)
+endif (WITH_NACL)
+
 # config.h checks
 include(ConfigureChecks.cmake)
 configure_file(config.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config.h)
@@ -125,6 +132,7 @@ message(STATUS "********** ${PROJECT_NAME} build options : **********")
 
 message(STATUS "zlib support: ${WITH_ZLIB}")
 message(STATUS "libgcrypt support: ${WITH_GCRYPT}")
+message(STATUS "libnacl support: ${WITH_NACL}")
 message(STATUS "SSH-1 support: ${WITH_SSH1}")
 message(STATUS "SFTP support: ${WITH_SFTP}")
 message(STATUS "Server support : ${WITH_SERVER}")

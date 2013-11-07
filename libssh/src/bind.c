@@ -454,8 +454,7 @@ int ssh_bind_accept(ssh_bind sshbind, ssh_session session) {
 #else
       close(fd);
 #endif
-      if (session->socket)
-          ssh_socket_close(session->socket);
+      ssh_socket_free(session->socket);
   }
   return rc;
 }

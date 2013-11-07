@@ -158,7 +158,7 @@ void crypto_free(struct ssh_crypto_struct *crypto){
       SAFE_FREE(crypto->kex_methods[i]);
   }
 
-  memset(crypto,0,sizeof(*crypto));
+  BURN_BUFFER(crypto, sizeof(struct ssh_crypto_struct));
 
   SAFE_FREE(crypto);
 }
@@ -317,8 +317,13 @@ int crypt_set_algorithms_server(ssh_session session){
         session->next_crypto->do_compress_in=1;
     }
     if(strcmp(method,"zlib@openssh.com") == 0){
-        SSH_LOG(SSH_LOG_PACKET,"enabling C->S compression");
-        session->next_crypto->delayed_compress_in=1;
+        SSH_LOG(SSH_LOG_PACKET,"enabling C->S delayed compression");
+
+        if (session->flags & SSH_SESSION_FLAG_AUTHENTICATED) {
+            session->next_crypto->do_compress_in = 1;
+        } else {
+            session->next_crypto->delayed_compress_in = 1;
+        }
     }
 
     method = session->next_crypto->kex_methods[SSH_COMP_S_C];
@@ -328,7 +333,12 @@ int crypt_set_algorithms_server(ssh_session session){
     }
     if(strcmp(method,"zlib@openssh.com") == 0){
         SSH_LOG(SSH_LOG_PACKET,"enabling S->C delayed compression\n");
-        session->next_crypto->delayed_compress_out=1;
+
+        if (session->flags & SSH_SESSION_FLAG_AUTHENTICATED) {
+            session->next_crypto->do_compress_out = 1;
+        } else {
+            session->next_crypto->delayed_compress_out = 1;
+        }
     }
 
     method = session->next_crypto->kex_methods[SSH_HOSTKEYS];

@@ -19,7 +19,7 @@ the interesting functions as you go.
 
 The libssh library provides:
 
- - <strong>Key Exchange Methods</strong>: <i>ecdh-sha2-nistp256</i>, diffie-hellman-group1-sha1, diffie-hellman-group14-sha1
+ - <strong>Key Exchange Methods</strong>: <i>curve25519-sha256@libssh.org, ecdh-sha2-nistp256</i>, diffie-hellman-group1-sha1, diffie-hellman-group14-sha1
  - <strong>Hostkey Types</strong>: <i>ecdsa-sha2-nistp256</i>, ssh-dss, ssh-rsa
  - <strong>Ciphers</strong>: <i>aes256-ctr, aes192-ctr, aes128-ctr</i>, aes256-cbc (rijndael-cbc@lysator.liu.se), aes192-cbc, aes128-cbc, 3des-cbc, des-cbc-ssh1, blowfish-cbc, none
  - <strong>Compression Schemes</strong>: zlib, <i>zlib@openssh.com</i>, none
@@ -184,6 +184,8 @@ It was later modified and expanded by the following RFCs.
     Authentication and Key Exchange for the Secure Shell (SSH) Protocol
  - <a href="http://tools.ietf.org/html/rfc4716" target="_blank">RFC 4716</a>,
     The Secure Shell (SSH) Public Key File Format
+ - <a href="http://tools.ietf.org/html/rfc5647" target="_blank">RFC 5647</a>,
+    AES Galois Counter Mode for the Secure Shell Transport Layer Protocol
  - <a href="http://tools.ietf.org/html/rfc5656" target="_blank">RFC 5656</a>,
     Elliptic Curve Algorithm Integration in the Secure Shell Transport Layer
 
@@ -202,6 +204,12 @@ do the same in libssh.
    SSH File Transfer Protocol
 
 @subsection main-rfc-extensions Secure Shell Extensions
+
+The libssh project has an extension to support Curve25519 which is also supported by
+the OpenSSH project.
+
+ - <a href="" target="_blank">curve25519-sha256@libssh.org</a>,
+   Curve25519-SHA256 for ECDH KEX
 
 The OpenSSH project has defined some extensions to the protocol. We support some of
 them like the statvfs calls in SFTP or the ssh-agent.

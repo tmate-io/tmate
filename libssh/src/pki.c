@@ -1118,7 +1118,7 @@ int ssh_pki_export_signature_blob(const ssh_signature sig,
         return SSH_ERROR;
     }
 
-    str = ssh_string_from_char(ssh_key_type_to_char(sig->type));
+    str = ssh_string_from_char(sig->type_c);
     if (str == NULL) {
         ssh_buffer_free(buf);
         return SSH_ERROR;
@@ -1271,11 +1271,9 @@ ssh_string ssh_pki_do_sign(ssh_session session,
     struct ssh_crypto_struct *crypto =
         session->current_crypto ? session->current_crypto :
                                   session->next_crypto;
-    unsigned char hash[SHA_DIGEST_LEN] = {0};
     ssh_signature sig;
     ssh_string sig_blob;
     ssh_string session_id;
-    SHACTX ctx;
     int rc;
 
     if (privkey == NULL || !ssh_key_is_private(privkey)) {
@@ -1287,24 +1285,46 @@ ssh_string ssh_pki_do_sign(ssh_session session,
         return NULL;
     }
     ssh_string_fill(session_id, crypto->session_id, crypto->digest_len);
-    /* TODO: change when supporting ECDSA keys */
-    ctx = sha1_init();
-    if (ctx == NULL) {
-        ssh_string_free(session_id);
-        return NULL;
-    }
 
-    sha1_update(ctx, session_id, ssh_string_len(session_id) + 4);
-    ssh_string_free(session_id);
+    if (privkey->type == SSH_KEYTYPE_ECDSA) {
+#ifdef HAVE_ECC
+        unsigned char ehash[EVP_DIGEST_LEN] = {0};
+        uint32_t elen;
+        EVPCTX ctx;
 
-    sha1_update(ctx, buffer_get_rest(sigbuf), buffer_get_rest_len(sigbuf));
-    sha1_final(hash, ctx);
+        ctx = evp_init(privkey->ecdsa_nid);
+        if (ctx == NULL) {
+            ssh_string_free(session_id);
+            return NULL;
+        }
+
+        evp_update(ctx, session_id, ssh_string_len(session_id) + 4);
+        evp_update(ctx, buffer_get_rest(sigbuf), buffer_get_rest_len(sigbuf));
+        evp_final(ctx, ehash, &elen);
+
+        sig = pki_do_sign(privkey, ehash, elen);
+#endif
+    } else {
+        unsigned char hash[SHA_DIGEST_LEN] = {0};
+        SHACTX ctx;
+
+        ctx = sha1_init();
+        if (ctx == NULL) {
+            ssh_string_free(session_id);
+            return NULL;
+        }
+
+        sha1_update(ctx, session_id, ssh_string_len(session_id) + 4);
+        sha1_update(ctx, buffer_get_rest(sigbuf), buffer_get_rest_len(sigbuf));
+        sha1_final(hash, ctx);
 
 #ifdef DEBUG_CRYPTO
-    ssh_print_hexa("Hash being signed", hash, SHA_DIGEST_LEN);
+        ssh_print_hexa("Hash being signed", hash, SHA_DIGEST_LEN);
 #endif
 
-    sig = pki_do_sign(privkey, hash, SHA_DIGEST_LEN);
+        sig = pki_do_sign(privkey, hash, SHA_DIGEST_LEN);
+    }
+    ssh_string_free(session_id);
     if (sig == NULL) {
         return NULL;
     }

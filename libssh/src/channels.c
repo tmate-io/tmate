@@ -2089,7 +2089,7 @@ SSH_PACKET_CALLBACK(ssh_request_denied){
 static int ssh_global_request_termination(void *s){
   ssh_session session = (ssh_session) s;
   if (session->global_req_state != SSH_CHANNEL_REQ_STATE_PENDING ||
-      session->session_state != SSH_SESSION_STATE_ERROR)
+      session->session_state == SSH_SESSION_STATE_ERROR)
     return 1;
   else
     return 0;
@@ -2117,43 +2117,66 @@ static int ssh_global_request_termination(void *s){
 static int global_request(ssh_session session, const char *request,
     ssh_buffer buffer, int reply) {
   ssh_string req = NULL;
-  int rc = SSH_ERROR;
+  int rc;
 
-  if(session->global_req_state != SSH_CHANNEL_REQ_STATE_NONE)
+  switch (session->global_req_state) {
+  case SSH_CHANNEL_REQ_STATE_NONE:
+    break;
+  default:
     goto pending;
+  }
+
+  rc = buffer_add_u8(session->out_buffer, SSH2_MSG_GLOBAL_REQUEST);
+  if (rc < 0) {
+      goto error;
+  }
+
   req = ssh_string_from_char(request);
   if (req == NULL) {
-    ssh_set_error_oom(session);
-    goto error;
+      ssh_set_error_oom(session);
+      rc = SSH_ERROR;
+      goto error;
   }
 
-  if (buffer_add_u8(session->out_buffer, SSH2_MSG_GLOBAL_REQUEST) < 0 ||
-      buffer_add_ssh_string(session->out_buffer, req) < 0 ||
-      buffer_add_u8(session->out_buffer, reply == 0 ? 0 : 1) < 0) {
-    ssh_set_error_oom(session);
-    goto error;
-  }
+  rc = buffer_add_ssh_string(session->out_buffer, req);
   ssh_string_free(req);
-  req=NULL;
+  if (rc < 0) {
+      ssh_set_error_oom(session);
+      rc = SSH_ERROR;
+      goto error;
+  }
+
+  rc = buffer_add_u8(session->out_buffer, reply == 0 ? 0 : 1);
+  if (rc < 0) {
+      ssh_set_error_oom(session);
+      rc = SSH_ERROR;
+      goto error;
+  }
 
   if (buffer != NULL) {
-    if (buffer_add_data(session->out_buffer, buffer_get_rest(buffer),
-        buffer_get_rest_len(buffer)) < 0) {
-      ssh_set_error_oom(session);
-      goto error;
-    }
+      rc = buffer_add_data(session->out_buffer,
+                           buffer_get_rest(buffer),
+                           buffer_get_rest_len(buffer));
+      if (rc < 0) {
+          ssh_set_error_oom(session);
+          rc = SSH_ERROR;
+          goto error;
+      }
   }
+
   session->global_req_state = SSH_CHANNEL_REQ_STATE_PENDING;
-  if (packet_send(session) == SSH_ERROR) {
-    return rc;
+  rc = packet_send(session);
+  if (rc == SSH_ERROR) {
+      return rc;
   }
 
   SSH_LOG(SSH_LOG_PACKET,
       "Sent a SSH_MSG_GLOBAL_REQUEST %s", request);
-  if (reply == 0) {
-    session->global_req_state=SSH_CHANNEL_REQ_STATE_NONE;
 
-    return SSH_OK;
+  if (reply == 0) {
+      session->global_req_state = SSH_CHANNEL_REQ_STATE_NONE;
+
+      return SSH_OK;
   }
 pending:
   rc = ssh_handle_packets_termination(session,
@@ -2178,16 +2201,16 @@ pending:
       break;
     case SSH_CHANNEL_REQ_STATE_ERROR:
     case SSH_CHANNEL_REQ_STATE_NONE:
-      rc=SSH_ERROR;
+      rc = SSH_ERROR;
       break;
     case SSH_CHANNEL_REQ_STATE_PENDING:
-      rc=SSH_AGAIN;
-      break;
+      return SSH_AGAIN;
   }
+  session->global_req_state = SSH_CHANNEL_REQ_STATE_NONE;
 
   return rc;
 error:
-  ssh_string_free(req);
+  buffer_reinit(session->out_buffer);
 
   return rc;
 }
@@ -3325,17 +3348,18 @@ error:
 }
 
 /**
- * @brief Send the exit status to the remote process (as described in RFC 4254, section 6.10).
+ * @brief Send the exit status to the remote process
  *
- * Sends the exit status to the remote process.
+ * Sends the exit status to the remote process (as described in RFC 4254,
+ * section 6.10).
  * Only SSH-v2 is supported (I'm not sure about SSH-v1).
  *
  * @param[in]  channel  The channel to send exit status.
  *
- * @param[in]  sig      The exit status to send
+ * @param[in]  exit_status  The exit status to send
  *
- * @return              SSH_OK on success, SSH_ERROR if an error occurred
- *                      (including attempts to send exit status via SSH-v1 session).
+ * @return     SSH_OK on success, SSH_ERROR if an error occurred.
+ *             (including attempts to send exit status via SSH-v1 session).
  */
 int ssh_channel_request_send_exit_status(ssh_channel channel, int exit_status) {
   ssh_buffer buffer = NULL;

@@ -53,6 +53,9 @@ void sha1(unsigned char *digest,int len,unsigned char *hash);
 void sha256(unsigned char *digest, int len, unsigned char *hash);
 
 void evp(int nid, unsigned char *digest, int len, unsigned char *hash, unsigned int *hlen);
+EVPCTX evp_init(int nid);
+void evp_update(EVPCTX ctx, const void *data, unsigned long len);
+void evp_final(EVPCTX ctx, unsigned char *md, unsigned int *mdlen);
 
 ssh_mac_ctx ssh_mac_ctx_init(enum ssh_mac_e type);
 void ssh_mac_update(ssh_mac_ctx ctx, const void *data, unsigned long len);

@@ -11,9 +11,9 @@ include_directories(
   ${CMAKE_BINARY_DIR}
 )
 
-if (BSD OR SOLARIS)
+if (BSD OR SOLARIS OR OSX)
     find_package(Argp)
-endif (BSD OR SOLARIS)
+endif (BSD OR SOLARIS OR OSX)
 
 if (UNIX AND NOT WIN32)
     add_executable(libssh_scp libssh_scp.c ${examples_SRCS})
@@ -28,7 +28,7 @@ if (UNIX AND NOT WIN32)
     if (WITH_SERVER)
         if (HAVE_LIBUTIL)
             add_executable(samplesshd-tty samplesshd-tty.c)
-            target_link_libraries(samplesshd-tty ${LIBSSH_SHARED_LIBRARY} util)
+            target_link_libraries(samplesshd-tty ${LIBSSH_SHARED_LIBRARY} ${ARGP_LIBRARIES} util)
         endif (HAVE_LIBUTIL)
     endif (WITH_SERVER)
 

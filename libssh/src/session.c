@@ -273,7 +273,7 @@ void ssh_free(ssh_session session) {
   }
 
   /* burn connection, it could hang sensitive datas */
-  ZERO_STRUCTP(session);
+  BURN_BUFFER(session, sizeof(struct ssh_session_struct));
   SAFE_FREE(session);
 }
 

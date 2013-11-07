@@ -166,7 +166,7 @@ typedef struct ssh_callbacks_struct *ssh_callbacks;
  * @param user User that wants to authenticate
  * @param password Password used for authentication
  * @param userdata Userdata to be passed to the callback function.
- * @returns SSH_AUTH_OK Authentication is accepted.
+ * @returns SSH_AUTH_SUCCESS Authentication is accepted.
  * @returns SSH_AUTH_PARTIAL Partial authentication, more authentication means are needed.
  * @returns SSH_AUTH_DENIED Authentication failed.
  */
@@ -179,7 +179,7 @@ typedef int (*ssh_auth_password_callback) (ssh_session session, const char *user
  * @param session Current session handler
  * @param user User that wants to authenticate
  * @param userdata Userdata to be passed to the callback function.
- * @returns SSH_AUTH_OK Authentication is accepted.
+ * @returns SSH_AUTH_SUCCESS Authentication is accepted.
  * @returns SSH_AUTH_PARTIAL Partial authentication, more authentication means are needed.
  * @returns SSH_AUTH_DENIED Authentication failed.
  */
@@ -191,7 +191,7 @@ typedef int (*ssh_auth_none_callback) (ssh_session session, const char *user, vo
  * @param user Username of the user (can be spoofed)
  * @param principal Authenticated principal of the user, including realm.
  * @param userdata Userdata to be passed to the callback function.
- * @returns SSH_AUTH_OK Authentication is accepted.
+ * @returns SSH_AUTH_SUCCESS Authentication is accepted.
  * @returns SSH_AUTH_PARTIAL Partial authentication, more authentication means are needed.
  * @returns SSH_AUTH_DENIED Authentication failed.
  * @warning Implementations should verify that parameter user matches in some way the principal.
@@ -209,7 +209,7 @@ typedef int (*ssh_auth_gssapi_mic_callback) (ssh_session session, const char *us
  * 							SSH_PUBLICKEY_STATE_VALID if the signature is valid. Others values should be
  * 							replied with a SSH_AUTH_DENIED.
  * @param userdata Userdata to be passed to the callback function.
- * @returns SSH_AUTH_OK Authentication is accepted.
+ * @returns SSH_AUTH_SUCCESS Authentication is accepted.
  * @returns SSH_AUTH_PARTIAL Partial authentication, more authentication means are needed.
  * @returns SSH_AUTH_DENIED Authentication failed.
  */

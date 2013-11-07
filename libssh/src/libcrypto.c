@@ -123,6 +123,30 @@ void evp(int nid, unsigned char *digest, int len, unsigned char *hash, unsigned 
     EVP_DigestUpdate(&md, digest, len);
     EVP_DigestFinal(&md, hash, hlen);
 }
+
+EVPCTX evp_init(int nid)
+{
+    const EVP_MD *evp_md = nid_to_evpmd(nid);
+
+    EVPCTX ctx = malloc(sizeof(EVP_MD_CTX));
+    if (ctx == NULL) {
+        return NULL;
+    }
+
+    EVP_DigestInit(ctx, evp_md);
+
+    return ctx;
+}
+
+void evp_update(EVPCTX ctx, const void *data, unsigned long len)
+{
+    EVP_DigestUpdate(ctx, data, len);
+}
+
+void evp_final(EVPCTX ctx, unsigned char *md, unsigned int *mdlen)
+{
+    EVP_DigestFinal(ctx, md, mdlen);
+}
 #endif
 
 SHA256CTX sha256_init(void){

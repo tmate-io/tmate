@@ -695,11 +695,11 @@ int ssh_socket_buffered_write_bytes(ssh_socket s){
 int ssh_socket_get_status(ssh_socket s) {
   int r = 0;
 
-  if (s->read_wontblock) {
-    r |= SSH_READ_PENDING;
+  if (buffer_get_len(s->in_buffer) > 0) {
+      r |= SSH_READ_PENDING;
   }
 
-  if (s->write_wontblock) {
+  if (buffer_get_len(s->out_buffer) > 0) {
       r |= SSH_WRITE_PENDING;
   }
 

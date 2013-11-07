@@ -436,6 +436,7 @@ static int ssh_select_cb (socket_t fd, int revents, void *userdata){
  */
 int ssh_select(ssh_channel *channels, ssh_channel *outchannels, socket_t maxfd,
     fd_set *readfds, struct timeval *timeout) {
+  fd_set origfds;
   socket_t fd;
   int i,j;
   int rc;
@@ -449,9 +450,11 @@ int ssh_select(ssh_channel *channels, ssh_channel *outchannels, socket_t maxfd,
     ssh_event_add_session(event, channels[i]->session);
   }
 
+  FD_ZERO(&origfds);
   for (fd = 0; fd < maxfd ; fd++) {
       if (FD_ISSET(fd, readfds)) {
           ssh_event_add_fd(event, fd, POLLIN, ssh_select_cb, readfds);
+          FD_SET(fd, &origfds);
       }
   }
   outchannels[0] = NULL;
@@ -485,13 +488,17 @@ int ssh_select(ssh_channel *channels, ssh_channel *outchannels, socket_t maxfd,
     /* since there's nothing, let's fire the polling */
     rc = ssh_event_dopoll(event,tm);
     if (rc == SSH_ERROR){
-      ssh_event_free(event);
-      return SSH_ERROR;
+      goto out;
     }
     tm = ssh_timeout_update(&ts, base_tm);
     firstround=0;
   } while (1);
 out:
+  for (fd = 0; fd < maxfd; fd++) {
+    if (FD_ISSET(fd, &origfds)) {
+      ssh_event_remove_fd(event, fd);
+    }
+  }
   ssh_event_free(event);
   return SSH_OK;
 }

@@ -210,52 +210,63 @@ results to come.
 
 Synchronous read is done with sftp_read().
 
-The following example prints the contents of remote file "/etc/profile". For
-each 1024 bytes of information read, it waits until the end of the read operation:
+Files are normally transferred in chunks. A good chunk size is 16 KB. The following
+example transfers the remote file "/etc/profile" in 16 KB chunks. For each chunk we
+request, sftp_read blocks till the data has been received:
 
 @code
+// Good chunk size
+#define MAX_XFER_BUF_SIZE 16384
+
 int sftp_read_sync(ssh_session session, sftp_session sftp)
 {
   int access_type;
   sftp_file file;
-  char buffer[1024];
-  int nbytes, rc;
+  char buffer[MAX_XFER_BUF_SIZE];
+  int nbytes, nwritten, rc;
+  int fd;
 
   access_type = O_RDONLY;
   file = sftp_open(sftp, "/etc/profile",
                    access_type, 0);
-  if (file == NULL)
-  {
-    fprintf(stderr, "Can't open file for reading: %s\n",
-            ssh_get_error(session));
-    return SSH_ERROR;
-  }
-
-  nbytes = sftp_read(file, buffer, sizeof(buffer));
-  while (nbytes > 0)
-  {
-    if (write(1, buffer, nbytes) != nbytes)
-    {
-      sftp_close(file);
+  if (file == NULL) {
+      fprintf(stderr, "Can't open file for reading: %s\n",
+              ssh_get_error(session));
       return SSH_ERROR;
-    }
-    nbytes = sftp_read(file, buffer, sizeof(buffer));
   }
 
-  if (nbytes < 0)
-  {
-    fprintf(stderr, "Error while reading file: %s\n",
-            ssh_get_error(session));
-    sftp_close(file);
-    return SSH_ERROR;
+  fd = open("/path/to/profile", O_CREAT);
+  if (fd < 0) {
+      fprintf(stderr, "Can't open file for writing: %s\n",
+              strerror(errno));
+      return SSH_ERROR;
+  }
+
+  for (;;) {
+      nbytes = sftp_read(file, buffer, sizeof(buffer));
+      if (nbytes == 0) {
+          break; // EOF
+      } else if (nbytes < 0) {
+          fprintf(stderr, "Error while reading file: %s\n",
+                  ssh_get_error(session));
+          sftp_close(file);
+          return SSH_ERROR;
+      }
+
+      nwritten = write(fd, buf, nbytes);
+      if (nwritten != nbytes) {
+          fprintf(stderr, "Error writing: %s\n",
+                  strerror(errno));
+          sftp_close(file);
+          return SSH_ERROR;
+      }
   }
 
   rc = sftp_close(file);
-  if (rc != SSH_OK)
-  {
-    fprintf(stderr, "Can't close the read file: %s\n",
-            ssh_get_error(session));
-    return rc;
+  if (rc != SSH_OK) {
+      fprintf(stderr, "Can't close the read file: %s\n",
+              ssh_get_error(session));
+      return rc;
   }
 
   return SSH_OK;
@@ -274,11 +285,14 @@ The example below reads a very big file in asynchronous, nonblocking, mode. Each
 time the data are not ready yet, a counter is incrementer.
 
 @code
+// Good chunk size
+#define MAX_XFER_BUF_SIZE 16384
+
 int sftp_read_async(ssh_session session, sftp_session sftp)
 {
   int access_type;
   sftp_file file;
-  char buffer[1024];
+  char buffer[MAX_XFER_BUF_SIZE];
   int async_request;
   int nbytes;
   long counter;
@@ -287,8 +301,7 @@ int sftp_read_async(ssh_session session, sftp_session sftp)
   access_type = O_RDONLY;
   file = sftp_open(sftp, "some_very_big_file",
                    access_type, 0);
-  if (file == NULL)
-  {
+  if (file == NULL) {
     fprintf(stderr, "Can't open file for reading: %s\n",
                      ssh_get_error(session));
     return SSH_ERROR;
@@ -298,27 +311,31 @@ int sftp_read_async(ssh_session session, sftp_session sftp)
   async_request = sftp_async_read_begin(file, sizeof(buffer));
   counter = 0L;
   usleep(10000);
-  if (async_request >= 0)
+  if (async_request >= 0) {
     nbytes = sftp_async_read(file, buffer, sizeof(buffer),
                              async_request);
-  else nbytes = -1;
-  while (nbytes > 0 || nbytes == SSH_AGAIN)
-  {
-    if (nbytes > 0)
-    {
-      write(1, buffer, nbytes);
-      async_request = sftp_async_read_begin(file, sizeof(buffer));
-    }
-    else counter++;
-    usleep(10000);
-    if (async_request >= 0)
-      nbytes = sftp_async_read(file, buffer, sizeof(buffer),
-                               async_request);
-    else nbytes = -1;
+  } else {
+      nbytes = -1;
   }
 
-  if (nbytes < 0)
-  {
+  while (nbytes > 0 || nbytes == SSH_AGAIN) {
+    if (nbytes > 0) {
+      write(1, buffer, nbytes);
+      async_request = sftp_async_read_begin(file, sizeof(buffer));
+    } else {
+        counter++;
+    }
+    usleep(10000);
+
+    if (async_request >= 0) {
+      nbytes = sftp_async_read(file, buffer, sizeof(buffer),
+                               async_request);
+    } else {
+        nbytes = -1;
+    }
+  }
+
+  if (nbytes < 0) {
     fprintf(stderr, "Error while reading file: %s\n",
             ssh_get_error(session));
     sftp_close(file);
@@ -328,8 +345,7 @@ int sftp_read_async(ssh_session session, sftp_session sftp)
   printf("The counter has reached value: %ld\n", counter);
 
   rc = sftp_close(file);
-  if (rc != SSH_OK)
-  {
+  if (rc != SSH_OK) {
     fprintf(stderr, "Can't close the read file: %s\n",
             ssh_get_error(session));
     return rc;

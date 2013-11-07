@@ -115,6 +115,7 @@ set(libssh_SRCS
   client.c
   config.c
   connect.c
+  curve25519.c
   dh.c
   ecdh.c
   error.c
@@ -204,12 +205,12 @@ if (WITH_GSSAPI AND GSSAPI_FOUND)
   )
 endif (WITH_GSSAPI AND GSSAPI_FOUND)
 
-if (WITH_NACL)
+if (NOT WITH_NACL)
   set(libssh_SRCS
     ${libssh_SRCS}
-    curve25519.c
+    curve25519_ref.c
   )
-endif (WITH_NACL)
+endif (NOT WITH_NACL)
 
 include_directories(
   ${LIBSSH_PUBLIC_INCLUDE_DIRS}

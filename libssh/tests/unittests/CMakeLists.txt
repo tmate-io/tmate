@@ -13,4 +13,6 @@ if (UNIX AND NOT WIN32)
     add_cmocka_test(torture_pki torture_pki.c ${TORTURE_LIBRARY})
     # requires pthread
     add_cmocka_test(torture_rand torture_rand.c ${TORTURE_LIBRARY})
+    # requires /dev/null
+    add_cmocka_test(torture_channel torture_channel.c ${TORTURE_LIBRARY})
 endif (UNIX AND NOT WIN32)

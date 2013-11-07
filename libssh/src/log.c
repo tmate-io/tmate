@@ -65,7 +65,7 @@ static int current_timestring(int hires, char *buf, size_t len)
 
     if (hires) {
         strftime(tbuf, sizeof(tbuf) - 1, "%Y/%m/%d %H:%M:%S", tm);
-        snprintf(buf, len, "%s.%06ld", tbuf, tv.tv_usec);
+        snprintf(buf, len, "%s.%06ld", tbuf, (long)tv.tv_usec);
     } else {
         strftime(tbuf, sizeof(tbuf) - 1, "%Y/%m/%d %H:%M:%S", tm);
         snprintf(buf, len, "%s", tbuf);

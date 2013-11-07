@@ -60,6 +60,7 @@ struct ssh_key_struct {
 
 struct ssh_signature_struct {
     enum ssh_keytypes_e type;
+    const char *type_c;
 #ifdef HAVE_LIBGCRYPT
     gcry_sexp_t dsa_sig;
     gcry_sexp_t rsa_sig;

@@ -67,7 +67,9 @@
 
 #  define strcasecmp _stricmp
 #  define strncasecmp _strnicmp
-#  define isblank(ch) ((ch) == ' ' || (ch) == '\t' || (ch) == '\n' || (ch) == '\r')
+#  if ! defined(HAVE_ISBLANK)
+#   define isblank(ch) ((ch) == ' ' || (ch) == '\t' || (ch) == '\n' || (ch) == '\r')
+#  endif
 
 #  define usleep(X) Sleep(((X)+1000)/1000)
 
@@ -151,6 +153,16 @@ int gettimeofday(struct timeval *__p, void *__t);
 
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
+#endif
+
+/*
+ * get rid of deprecacy warnings on OSX when using OpenSSL 
+ */
+#if defined(__APPLE__)
+    #ifdef MAC_OS_X_VERSION_MIN_REQUIRED
+        #undef MAC_OS_X_VERSION_MIN_REQUIRED
+    #endif
+    #define MAC_OS_X_VERSION_MIN_REQUIRED MAC_OS_X_VERSION_10_6
 #endif
 
 /* forward declarations */
@@ -252,7 +264,7 @@ int match_hostname(const char *host, const char *pattern, unsigned int len);
 /** Overwrite the buffer with '\0' */
 # define BURN_BUFFER(x, size) do { \
     if ((x) != NULL) \
-        memset((x), '\0', (size))); __asm__ volatile("" : : "r"(&(x)) : "memory"); \
+        memset((x), '\0', (size)); __asm__ volatile("" : : "r"(&(x)) : "memory"); \
   } while(0)
 #else /* HAVE_GCC_VOLATILE_MEMORY_PROTECTION */
 /** Overwrite a string with '\0' */
@@ -263,7 +275,7 @@ int match_hostname(const char *host, const char *pattern, unsigned int len);
 /** Overwrite the buffer with '\0' */
 # define BURN_BUFFER(x, size) do { \
     if ((x) != NULL) \
-        memset((x), '\0', (size))); __asm__ volatile("" : : "r"(&(x)) : "memory"); \
+        memset((x), '\0', (size)); __asm__ volatile("" : : "r"(&(x)) : "memory"); \
   } while(0)
 #endif /* HAVE_GCC_VOLATILE_MEMORY_PROTECTION */
 

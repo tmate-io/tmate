@@ -208,10 +208,14 @@ enum ssh_publickey_state_e {
 	SSH_PUBLICKEY_STATE_WRONG=2
 };
 
-/* status flags */
+/* Status flags */
+/** Socket is closed */
 #define SSH_CLOSED 0x01
+/** Reading to socket won't block */
 #define SSH_READ_PENDING 0x02
+/** Session was closed due to an error */
 #define SSH_CLOSED_ERROR 0x04
+/** Output buffer not empty */
 #define SSH_WRITE_PENDING 0x08
 
 enum ssh_server_known_e {
@@ -408,8 +412,20 @@ LIBSSH_API socket_t ssh_get_fd(ssh_session session);
 LIBSSH_API char *ssh_get_hexa(const unsigned char *what, size_t len);
 LIBSSH_API char *ssh_get_issue_banner(ssh_session session);
 LIBSSH_API int ssh_get_openssh_version(ssh_session session);
+
 LIBSSH_API int ssh_get_publickey(ssh_session session, ssh_key *key);
-LIBSSH_API int ssh_get_pubkey_hash(ssh_session session, unsigned char **hash);
+
+enum ssh_publickey_hash_type {
+    SSH_PUBLICKEY_HASH_SHA1,
+    SSH_PUBLICKEY_HASH_MD5
+};
+LIBSSH_API int ssh_get_publickey_hash(const ssh_key key,
+                                      enum ssh_publickey_hash_type type,
+                                      unsigned char **hash,
+                                      size_t *hlen);
+
+SSH_DEPRECATED LIBSSH_API int ssh_get_pubkey_hash(ssh_session session, unsigned char **hash);
+
 LIBSSH_API int ssh_get_random(void *where,int len,int strong);
 LIBSSH_API int ssh_get_version(ssh_session session);
 LIBSSH_API int ssh_get_status(ssh_session session);

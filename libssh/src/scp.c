@@ -814,7 +814,7 @@ int ssh_scp_integer_mode(const char *mode){
  */
 char *ssh_scp_string_mode(int mode){
 	char buffer[16];
-	snprintf(buffer,sizeof(buffer),"%.4o",mode);
+	snprintf(buffer,sizeof(buffer),"%.4d",mode);
 	return strdup(buffer);
 }
 

@@ -34,14 +34,26 @@ int verify_knownhost(ssh_session session){
   int state;
   char buf[10];
   unsigned char *hash = NULL;
-  int hlen;
+  size_t hlen;
+  ssh_key srv_pubkey;
+  int rc;
 
   state=ssh_is_server_known(session);
 
-  hlen = ssh_get_pubkey_hash(session, &hash);
-  if (hlen < 0) {
-    return -1;
+  rc = ssh_get_publickey(session, &srv_pubkey);
+  if (rc < 0) {
+      return -1;
   }
+
+  rc = ssh_get_publickey_hash(srv_pubkey,
+                              SSH_PUBLICKEY_HASH_SHA1,
+                              &hash,
+                              &hlen);
+  ssh_key_free(srv_pubkey);
+  if (rc < 0) {
+      return -1;
+  }
+
   switch(state){
     case SSH_SERVER_KNOWN_OK:
       break; /* ok */

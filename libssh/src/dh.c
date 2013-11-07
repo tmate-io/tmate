@@ -239,63 +239,6 @@ void ssh_print_bignum(const char *which, bignum num) {
   SAFE_FREE(hex);
 }
 
-/**
- * @brief Convert a buffer into a colon separated hex string.
- * The caller has to free the memory.
- *
- * @param  what         What should be converted to a hex string.
- *
- * @param  len          Length of the buffer to convert.
- *
- * @return              The hex string or NULL on error.
- *
- * @see ssh_string_free_char()
- */
-char *ssh_get_hexa(const unsigned char *what, size_t len) {
-  const char h[] = "0123456789abcdef";
-  char *hexa;
-  size_t i;
-  size_t hlen = len * 3;
-
-  if (len > (UINT_MAX - 1) / 3) {
-    return NULL;
-  }
-
-  hexa = malloc(hlen + 1);
-  if (hexa == NULL) {
-    return NULL;
-  }
-
-  for (i = 0; i < len; i++) {
-      hexa[i * 3] = h[(what[i] >> 4) & 0xF];
-      hexa[i * 3 + 1] = h[what[i] & 0xF];
-      hexa[i * 3 + 2] = ':';
-  }
-  hexa[hlen - 1] = '\0';
-
-  return hexa;
-}
-
-/**
- * @brief Print a buffer as colon separated hex string.
- *
- * @param  descr        Description printed in front of the hex string.
- *
- * @param  what         What should be converted to a hex string.
- *
- * @param  len          Length of the buffer to convert.
- */
-void ssh_print_hexa(const char *descr, const unsigned char *what, size_t len) {
-    char *hexa = ssh_get_hexa(what, len);
-
-    if (hexa == NULL) {
-      return;
-    }
-    printf("%s: %s\n", descr, hexa);
-
-    free(hexa);
-}
-
 int dh_generate_x(ssh_session session) {
   session->next_crypto->x = bignum_new();
   if (session->next_crypto->x == NULL) {
@@ -1047,25 +990,7 @@ error:
  */
 
 /**
- * @brief Allocates a buffer with the MD5 hash of the server public key.
- *
- * This function allows you to get a MD5 hash of the public key. You can then
- * print this hash in a human-readable form to the user so that he is able to
- * verify it. Use ssh_get_hexa() or ssh_print_hexa() to display it.
- *
- * @param[in] session   The SSH session to use.
- *
- * @param[in] hash      The buffer to allocate.
- *
- * @return The bytes allocated or < 0 on error.
- *
- * @warning It is very important that you verify at some moment that the hash
- *          matches a known server. If you don't do it, cryptography wont help
- *          you at making things secure
- *
- * @see ssh_is_server_known()
- * @see ssh_get_hexa()
- * @see ssh_print_hexa()
+ * @deprecated Use ssh_get_publickey_hash()
  */
 int ssh_get_pubkey_hash(ssh_session session, unsigned char **hash) {
   ssh_string pubkey;
@@ -1140,6 +1065,164 @@ int ssh_get_publickey(ssh_session session, ssh_key *key)
 
     return ssh_pki_import_pubkey_blob(session->current_crypto->server_pubkey,
                                       key);
+}
+
+/**
+ * @brief Allocates a buffer with the hash of the public key.
+ *
+ * This function allows you to get a hash of the public key. You can then
+ * print this hash in a human-readable form to the user so that he is able to
+ * verify it. Use ssh_get_hexa() or ssh_print_hexa() to display it.
+ *
+ * @param[in]  key      The public key to create the hash for.
+ *
+ * @param[in]  type     The type of the hash you want.
+ *
+ * @param[in]  hash     A pointer to store the allocated buffer. It can be
+ *                      freed using ssh_clean_pubkey_hash().
+ *
+ * @param[in]  hlen     The length of the hash.
+ *
+ * @return 0 on success, -1 if an error occured.
+ *
+ * @warning It is very important that you verify at some moment that the hash
+ *          matches a known server. If you don't do it, cryptography wont help
+ *          you at making things secure.
+ *          OpenSSH uses SHA1 to print public key digests.
+ *
+ * @see ssh_is_server_known()
+ * @see ssh_get_hexa()
+ * @see ssh_print_hexa()
+ * @see ssh_clean_pubkey_hash()
+ */
+int ssh_get_publickey_hash(const ssh_key key,
+                           enum ssh_publickey_hash_type type,
+                           unsigned char **hash,
+                           size_t *hlen)
+{
+    ssh_string blob;
+    unsigned char *h;
+    int rc;
+
+    rc = ssh_pki_export_pubkey_blob(key, &blob);
+    if (rc < 0) {
+        return rc;
+    }
+
+    switch (type) {
+    case SSH_PUBLICKEY_HASH_SHA1:
+        {
+            SHACTX ctx;
+
+            h = malloc(SHA_DIGEST_LEN);
+            if (h == NULL) {
+                rc = -1;
+                goto out;
+            }
+
+            ctx = sha1_init();
+            if (ctx == NULL) {
+                free(h);
+                rc = -1;
+                goto out;
+            }
+
+            sha1_update(ctx, ssh_string_data(blob), ssh_string_len(blob));
+            sha1_final(h, ctx);
+
+            *hlen = SHA_DIGEST_LEN;
+        }
+        break;
+    case SSH_PUBLICKEY_HASH_MD5:
+        {
+            MD5CTX ctx;
+
+            h = malloc(MD5_DIGEST_LEN);
+            if (h == NULL) {
+                rc = -1;
+                goto out;
+            }
+
+            ctx = md5_init();
+            if (ctx == NULL) {
+                free(h);
+                rc = -1;
+                goto out;
+            }
+
+            md5_update(ctx, ssh_string_data(blob), ssh_string_len(blob));
+            md5_final(h, ctx);
+
+            *hlen = MD5_DIGEST_LEN;
+        }
+        break;
+    default:
+        rc = -1;
+        goto out;
+    }
+
+    *hash = h;
+    rc = 0;
+out:
+    ssh_string_free(blob);
+    return rc;
+}
+
+/**
+ * @brief Convert a buffer into a colon separated hex string.
+ * The caller has to free the memory.
+ *
+ * @param  what         What should be converted to a hex string.
+ *
+ * @param  len          Length of the buffer to convert.
+ *
+ * @return              The hex string or NULL on error.
+ *
+ * @see ssh_string_free_char()
+ */
+char *ssh_get_hexa(const unsigned char *what, size_t len) {
+  const char h[] = "0123456789abcdef";
+  char *hexa;
+  size_t i;
+  size_t hlen = len * 3;
+
+  if (len > (UINT_MAX - 1) / 3) {
+    return NULL;
+  }
+
+  hexa = malloc(hlen + 1);
+  if (hexa == NULL) {
+    return NULL;
+  }
+
+  for (i = 0; i < len; i++) {
+      hexa[i * 3] = h[(what[i] >> 4) & 0xF];
+      hexa[i * 3 + 1] = h[what[i] & 0xF];
+      hexa[i * 3 + 2] = ':';
+  }
+  hexa[hlen - 1] = '\0';
+
+  return hexa;
+}
+
+/**
+ * @brief Print a buffer as colon separated hex string.
+ *
+ * @param  descr        Description printed in front of the hex string.
+ *
+ * @param  what         What should be converted to a hex string.
+ *
+ * @param  len          Length of the buffer to convert.
+ */
+void ssh_print_hexa(const char *descr, const unsigned char *what, size_t len) {
+    char *hexa = ssh_get_hexa(what, len);
+
+    if (hexa == NULL) {
+      return;
+    }
+    printf("%s: %s\n", descr, hexa);
+
+    free(hexa);
 }
 
 /** @} */

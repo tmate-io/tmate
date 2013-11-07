@@ -450,7 +450,11 @@ void ssh_poll_ctx_free(ssh_poll_ctx ctx) {
   if (ctx->polls_allocated > 0) {
     while (ctx->polls_used > 0){
       ssh_poll_handle p = ctx->pollptrs[0];
-      ssh_poll_ctx_remove(ctx, p);
+      /*
+       * The free function calls ssh_poll_ctx_remove() and decrements
+       * ctx->polls_used
+       */
+      ssh_poll_free(p);
     }
 
     SAFE_FREE(ctx->pollptrs);

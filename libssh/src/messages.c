@@ -120,10 +120,18 @@ static int ssh_execute_server_request(ssh_session session, ssh_message msg)
                        msg->auth_request.username, msg->auth_request.pubkey,
                        msg->auth_request.signature_state,
                        session->server_callbacks->userdata);
-               if (rc == SSH_AUTH_SUCCESS || rc == SSH_AUTH_PARTIAL){
+               if (msg->auth_request.signature_state != SSH_PUBLICKEY_STATE_NONE) {
+                 if (rc == SSH_AUTH_SUCCESS || rc == SSH_AUTH_PARTIAL) {
                    ssh_message_auth_reply_success(msg, rc == SSH_AUTH_PARTIAL);
-               } else {
+                 } else {
                    ssh_message_reply_default(msg);
+                 }
+               } else {
+                 if (rc == SSH_AUTH_SUCCESS) {
+                   ssh_message_auth_reply_pk_ok_simple(msg);
+                 } else {
+                   ssh_message_reply_default(msg);
+                 }
                }
 
                return SSH_OK;
@@ -301,10 +309,8 @@ static int ssh_execute_server_callbacks(ssh_session session, ssh_message msg){
 
     if (session->server_callbacks != NULL){
         rc = ssh_execute_server_request(session, msg);
-    }
-
-    /* This one is in fact a client callback... */
-    if (session->common.callbacks != NULL) {
+    } else if (session->common.callbacks != NULL) {
+        /* This one is in fact a client callback... */
         rc = ssh_execute_client_request(session, msg);
     }
 

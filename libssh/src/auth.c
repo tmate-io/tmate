@@ -355,7 +355,7 @@ int ssh_userauth_list(ssh_session session, const char *username)
  *                            later.
  *
  * @note Most server implementations do not permit changing the username during
- * authentication. The username should only be set with ssh_optoins_set() only
+ * authentication. The username should only be set with ssh_options_set() only
  * before you connect to the server.
  */
 int ssh_userauth_none(ssh_session session, const char *username) {
@@ -478,7 +478,7 @@ fail:
  *                            later.
  *
  * @note Most server implementations do not permit changing the username during
- * authentication. The username should only be set with ssh_optoins_set() only
+ * authentication. The username should only be set with ssh_options_set() only
  * before you connect to the server.
  */
 int ssh_userauth_try_publickey(ssh_session session,
@@ -640,7 +640,7 @@ fail:
  *                            later.
  *
  * @note Most server implementations do not permit changing the username during
- * authentication. The username should only be set with ssh_optoins_set() only
+ * authentication. The username should only be set with ssh_options_set() only
  * before you connect to the server.
  */
 int ssh_userauth_publickey(ssh_session session,
@@ -961,7 +961,7 @@ struct ssh_agent_state_struct {
  *                            later.
  *
  * @note Most server implementations do not permit changing the username during
- * authentication. The username should only be set with ssh_optoins_set() only
+ * authentication. The username should only be set with ssh_options_set() only
  * before you connect to the server.
  */
 int ssh_userauth_agent(ssh_session session,
@@ -1083,7 +1083,7 @@ struct ssh_auth_auto_state_struct {
  *                            later.
  *
  * @note Most server implementations do not permit changing the username during
- * authentication. The username should only be set with ssh_optoins_set() only
+ * authentication. The username should only be set with ssh_options_set() only
  * before you connect to the server.
  */
 int ssh_userauth_publickey_auto(ssh_session session,
@@ -1297,7 +1297,7 @@ int ssh_userauth_publickey_auto(ssh_session session,
  *                            later.
  *
  * @note Most server implementations do not permit changing the username during
- * authentication. The username should only be set with ssh_optoins_set() only
+ * authentication. The username should only be set with ssh_options_set() only
  * before you connect to the server.
  *
  * @see ssh_userauth_none()
