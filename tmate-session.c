@@ -100,8 +100,15 @@ static void lookup_and_connect(void)
 				&hints, dns_cb, tmate_server_host);
 }
 
+static void ssh_log_function(int priority, const char *function,
+			     const char *buffer, void *userdata)
+{
+	tmate_debug("[%d] [%s] %s", priority, function, buffer);
+}
+
 void tmate_session_init(void)
 {
+	ssh_set_log_callback(ssh_log_function);
 	tmate_catch_sigsegv();
 
 	tmate_encoder_init(&tmate_session.encoder);

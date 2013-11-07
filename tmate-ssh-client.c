@@ -16,13 +16,6 @@ static void printflike2 reconnect_session(struct tmate_ssh_client *client,
 					  const char *fmt, ...);
 static void on_session_event(struct tmate_ssh_client *client);
 
-static void log_function(ssh_session session, int priority,
-		  const char *message, void *userdata)
-{
-	struct tmate_ssh_client *client = userdata;
-	tmate_debug("[%s] [%d] %s", client->server_ip, priority, message);
-}
-
 static void register_session_fd_event(struct tmate_ssh_client *client)
 {
 	if (!event_initialized(&client->ev_ssh)) {
@@ -479,7 +472,6 @@ struct tmate_ssh_client *tmate_ssh_client_alloc(struct tmate_session *session,
 
 	memset(&client->ssh_callbacks, 0, sizeof(client->ssh_callbacks));
 	ssh_callbacks_init(&client->ssh_callbacks);
-	client->ssh_callbacks.log_function = log_function;
 	client->ssh_callbacks.userdata = client;
 	client->ssh_callbacks.auth_function = passphrase_callback;
 
