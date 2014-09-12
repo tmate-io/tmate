@@ -101,8 +101,17 @@ check_function_exists(snprintf HAVE_SNPRINTF)
 check_function_exists(poll HAVE_POLL)
 check_function_exists(select HAVE_SELECT)
 check_function_exists(getaddrinfo HAVE_GETADDRINFO)
-check_function_exists(ntohll HAVE_NTOHLL)
-check_function_exists(htonll HAVE_HTONLL)
+
+check_symbol_exists(ntohll sys/types.h HAVE_NTOHLL)
+check_symbol_exists(htonll sys/types.h HAVE_HTONLL)
+
+if (NOT HAVE_NTOHLL)
+    check_function_exists(ntohll HAVE_NTOHLL)
+endif (NOT HAVE_NTOHLL)
+if (NOT HAVE_HTONLL)
+    check_function_exists(ntohll HAVE_HTONLL)
+endif (NOT HAVE_HTONLL)
+
 
 if (WIN32)
     check_function_exists(_strtoui64 HAVE__STRTOUI64)
