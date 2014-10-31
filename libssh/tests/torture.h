@@ -3,7 +3,7 @@
  *
  * This file is part of the SSH Library
  *
- * Copyright (c) 2008-2009 by Andreas Schneider <mail@cynapses.org>
+ * Copyright (c) 2008-2009 by Andreas Schneider <asn@cryptomilk.org>
  *
  * The SSH Library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -67,6 +67,14 @@ ssh_session torture_ssh_session(const char *host,
 
 struct torture_sftp *torture_sftp_session(ssh_session session);
 void torture_sftp_close(struct torture_sftp *t);
+
+const char *torture_get_testkey(enum ssh_keytypes_e type,
+                                int ecdsa_bits,
+                                int with_passphrase);
+const char *torture_get_testkey_pub(enum ssh_keytypes_e type, int ecdsa_bits);
+const char *torture_get_testkey_passphrase(void);
+
+void torture_write_file(const char *filename, const char *data);
 
 /*
  * This function must be defined in every unit test file.

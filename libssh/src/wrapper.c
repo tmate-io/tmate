@@ -3,7 +3,7 @@
  *
  * This file is part of the SSH Library
  *
- * Copyright (c) 2003      by Aris Adamantiadis
+ * Copyright (c) 2003-2013   by Aris Adamantiadis
  *
  * The SSH Library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -47,6 +47,46 @@
 #include "libssh/crypto.h"
 #include "libssh/wrapper.h"
 #include "libssh/pki.h"
+
+static struct ssh_hmac_struct ssh_hmac_tab[] = {
+  { "hmac-sha1",     SSH_HMAC_SHA1 },
+  { "hmac-sha2-256", SSH_HMAC_SHA256 },
+  { "hmac-sha2-384", SSH_HMAC_SHA384 },
+  { "hmac-sha2-512", SSH_HMAC_SHA512 },
+  { "hmac-md5",      SSH_HMAC_MD5 },
+  { NULL,            0}
+};
+
+struct ssh_hmac_struct *ssh_get_hmactab(void) {
+  return ssh_hmac_tab;
+}
+
+size_t hmac_digest_len(enum ssh_hmac_e type) {
+  switch(type) {
+    case SSH_HMAC_SHA1:
+      return SHA_DIGEST_LEN;
+    case SSH_HMAC_SHA256:
+      return SHA256_DIGEST_LEN;
+    case SSH_HMAC_SHA384:
+      return SHA384_DIGEST_LEN;
+    case SSH_HMAC_SHA512:
+      return SHA512_DIGEST_LEN;
+    case SSH_HMAC_MD5:
+      return MD5_DIGEST_LEN;
+    default:
+      return 0;
+  }
+}
+
+const char *ssh_hmac_type_to_string(enum ssh_hmac_e hmac_type)
+{
+  int i = 0;
+  struct ssh_hmac_struct *ssh_hmactab = ssh_get_hmactab();
+  while (ssh_hmactab[i].name && (ssh_hmactab[i].hmac_type != hmac_type)) {
+    i++;
+  }
+  return ssh_hmactab[i].name;
+}
 
 /* it allocates a new cipher structure based on its offset into the global table */
 static struct ssh_cipher_struct *cipher_new(int offset) {
@@ -130,10 +170,13 @@ void crypto_free(struct ssh_crypto_struct *crypto){
       (deflateEnd(crypto->compress_out_ctx) != 0)) {
     inflateEnd(crypto->compress_out_ctx);
   }
+  SAFE_FREE(crypto->compress_out_ctx);
+
   if (crypto->compress_in_ctx &&
       (deflateEnd(crypto->compress_in_ctx) != 0)) {
     inflateEnd(crypto->compress_in_ctx);
   }
+  SAFE_FREE(crypto->compress_in_ctx);
 #endif /* WITH_ZLIB */
   if(crypto->encryptIV)
     SAFE_FREE(crypto->encryptIV);
@@ -167,6 +210,7 @@ static int crypt_set_algorithms2(ssh_session session){
   const char *wanted;
   int i = 0;
   struct ssh_cipher_struct *ssh_ciphertab=ssh_get_ciphertab();
+  struct ssh_hmac_struct *ssh_hmactab=ssh_get_hmactab();
 
   /* we must scan the kex entries to find crypto algorithms and set their appropriate structure */
   /* out */
@@ -190,6 +234,24 @@ static int crypt_set_algorithms2(ssh_session session){
   }
   i = 0;
 
+  /* we must scan the kex entries to find hmac algorithms and set their appropriate structure */
+  /* out */
+  wanted = session->next_crypto->kex_methods[SSH_MAC_C_S];
+  while (ssh_hmactab[i].name && strcmp(wanted, ssh_hmactab[i].name)) {
+    i++;
+  }
+
+  if (ssh_hmactab[i].name == NULL) {
+    ssh_set_error(session, SSH_FATAL,
+        "crypt_set_algorithms2: no hmac algorithm function found for %s",
+        wanted);
+      return SSH_ERROR;
+  }
+  SSH_LOG(SSH_LOG_PACKET, "Set HMAC output algorithm to %s", wanted);
+
+  session->next_crypto->out_hmac = ssh_hmactab[i].hmac_type;
+  i = 0;
+
   /* in */
   wanted = session->next_crypto->kex_methods[SSH_CRYPT_S_C];
   while (ssh_ciphertab[i].name && strcmp(wanted, ssh_ciphertab[i].name)) {
@@ -209,6 +271,24 @@ static int crypt_set_algorithms2(ssh_session session){
       ssh_set_error_oom(session);
       return SSH_ERROR;
   }
+  i = 0;
+
+  /* we must scan the kex entries to find hmac algorithms and set their appropriate structure */
+  wanted = session->next_crypto->kex_methods[SSH_MAC_S_C];
+  while (ssh_hmactab[i].name && strcmp(wanted, ssh_hmactab[i].name)) {
+    i++;
+  }
+
+  if (ssh_hmactab[i].name == NULL) {
+    ssh_set_error(session, SSH_FATAL,
+        "crypt_set_algorithms2: no hmac algorithm function found for %s",
+        wanted);
+      return SSH_ERROR;
+  }
+  SSH_LOG(SSH_LOG_PACKET, "Set HMAC output algorithm to %s", wanted);
+
+  session->next_crypto->in_hmac = ssh_hmactab[i].hmac_type;
+  i = 0;
 
   /* compression */
   if (strcmp(session->next_crypto->kex_methods[SSH_COMP_C_S], "zlib") == 0) {
@@ -267,6 +347,7 @@ int crypt_set_algorithms_server(ssh_session session){
     char *method = NULL;
     int i = 0;
     struct ssh_cipher_struct *ssh_ciphertab=ssh_get_ciphertab();
+    struct ssh_hmac_struct   *ssh_hmactab=ssh_get_hmactab();
 
     if (session == NULL) {
         return SSH_ERROR;
@@ -309,6 +390,40 @@ int crypt_set_algorithms_server(ssh_session session){
         ssh_set_error_oom(session);
         return SSH_ERROR;
     }
+    i=0;
+
+    /* HMAC algorithm selection */
+    method = session->next_crypto->kex_methods[SSH_MAC_S_C];
+    while (ssh_hmactab[i].name && strcmp(method, ssh_hmactab[i].name)) {
+      i++;
+    }
+
+    if (ssh_hmactab[i].name == NULL) {
+      ssh_set_error(session, SSH_FATAL,
+          "crypt_set_algorithms_server: no hmac algorithm function found for %s",
+          method);
+        return SSH_ERROR;
+    }
+    SSH_LOG(SSH_LOG_PACKET, "Set HMAC output algorithm to %s", method);
+
+    session->next_crypto->out_hmac = ssh_hmactab[i].hmac_type;
+    i=0;
+
+    method = session->next_crypto->kex_methods[SSH_MAC_C_S];
+    while (ssh_hmactab[i].name && strcmp(method, ssh_hmactab[i].name)) {
+      i++;
+    }
+
+    if (ssh_hmactab[i].name == NULL) {
+      ssh_set_error(session, SSH_FATAL,
+          "crypt_set_algorithms_server: no hmac algorithm function found for %s",
+          method);
+        return SSH_ERROR;
+    }
+    SSH_LOG(SSH_LOG_PACKET, "Set HMAC input algorithm to %s", method);
+
+    session->next_crypto->in_hmac = ssh_hmactab[i].hmac_type;
+    i=0;
 
     /* compression */
     method = session->next_crypto->kex_methods[SSH_COMP_C_S];

@@ -4,7 +4,7 @@
  * This file is part of the SSH Library
  *
  * Copyright (c) 2003      by Aris Adamantiadis
- * Copyright (c) 2009      by Andreas Schneider <mail@cynapses.org>
+ * Copyright (c) 2009      by Andreas Schneider <asn@cryptomilk.org>
  *
  * The SSH Library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -90,7 +90,7 @@ static ssh_buffer gzip_compress(ssh_session session,ssh_buffer source,int level)
       return NULL;
     }
     len = BLOCKSIZE - zout->avail_out;
-    if (buffer_add_data(dest, out_buf, len) < 0) {
+    if (ssh_buffer_add_data(dest, out_buf, len) < 0) {
       ssh_buffer_free(dest);
       return NULL;
     }
@@ -108,12 +108,12 @@ int compress_buffer(ssh_session session, ssh_buffer buf) {
     return -1;
   }
 
-  if (buffer_reinit(buf) < 0) {
+  if (ssh_buffer_reinit(buf) < 0) {
     ssh_buffer_free(dest);
     return -1;
   }
 
-  if (buffer_add_data(buf, buffer_get_rest(dest), buffer_get_rest_len(dest)) < 0) {
+  if (ssh_buffer_add_data(buf, buffer_get_rest(dest), buffer_get_rest_len(dest)) < 0) {
     ssh_buffer_free(dest);
     return -1;
   }
@@ -181,7 +181,7 @@ static ssh_buffer gzip_decompress(ssh_session session, ssh_buffer source, size_t
     }
 
     len = BLOCKSIZE - zin->avail_out;
-    if (buffer_add_data(dest,out_buf,len) < 0) {
+    if (ssh_buffer_add_data(dest,out_buf,len) < 0) {
       ssh_buffer_free(dest);
       return NULL;
     }
@@ -204,12 +204,12 @@ int decompress_buffer(ssh_session session,ssh_buffer buf, size_t maxlen){
     return -1;
   }
 
-  if (buffer_reinit(buf) < 0) {
+  if (ssh_buffer_reinit(buf) < 0) {
     ssh_buffer_free(dest);
     return -1;
   }
 
-  if (buffer_add_data(buf, buffer_get_rest(dest), buffer_get_rest_len(dest)) < 0) {
+  if (ssh_buffer_add_data(buf, buffer_get_rest(dest), buffer_get_rest_len(dest)) < 0) {
     ssh_buffer_free(dest);
     return -1;
   }

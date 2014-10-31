@@ -29,7 +29,7 @@ static void setup(void **state) {
 }
 
 static void teardown(void **state) {
-    struct torture_sftp *t = *state;
+    struct torture_sftp *t = (struct torture_sftp*) *state;
 
     assert_false(t == NULL);
 
@@ -38,7 +38,7 @@ static void teardown(void **state) {
 }
 
 static void torture_sftp_read_blocking(void **state) {
-    struct torture_sftp *t = *state;
+    struct torture_sftp *t = (struct torture_sftp*) *state;
     char libssh_tmp_file[] = "/tmp/libssh_sftp_test_XXXXXX";
     char buf[MAX_XFER_BUF_SIZE];
     ssize_t bytesread;

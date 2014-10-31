@@ -3,7 +3,7 @@
  *
  * This file is part of the SSH Library
  *
- * Copyright (c) 2003-2009 by Aris Adamantiadis
+ * Copyright (c) 2003-2013 by Aris Adamantiadis
  *
  * The SSH Library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -382,7 +382,15 @@ socket_t ssh_connect_host_nonblocking(ssh_session session, const char *host,
         continue;
     }
 
-    connect(s, itr->ai_addr, itr->ai_addrlen);
+    rc = connect(s, itr->ai_addr, itr->ai_addrlen);
+    if (rc == -1 && (errno != EINPROGRESS)) {
+      ssh_set_error(session, SSH_FATAL,
+          "Failed to connect: %s", strerror(errno));
+      ssh_connect_socket_close(s);
+      s = -1;
+      continue;
+    }
+
     break;
   }
 
@@ -421,7 +429,7 @@ static int ssh_select_cb (socket_t fd, int revents, void *userdata){
  * @param[in]  readfds  A fd_set of file descriptors to be select'ed for
  *                      reading.
  *
- * @param[in]  timeout  A timeout for the select.
+ * @param[in]  timeout  The timeout in milliseconds.
  *
  * @return              SSH_OK on success,
  *                      SSH_ERROR on error,

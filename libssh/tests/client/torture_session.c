@@ -68,9 +68,10 @@ static void torture_channel_read_error(void **state) {
     if (rc == SSH_ERROR) {
         assert_true(ssh_get_error_code(session) == SSH_REQUEST_DENIED);
     }
-    assert_true(ssh_auth_list(session) & SSH_AUTH_METHOD_PUBLICKEY);
+    rc = ssh_userauth_list(session, NULL);
+    assert_true(rc & SSH_AUTH_METHOD_PUBLICKEY);
 
-    rc = ssh_userauth_autopubkey(session, NULL);
+    rc = ssh_userauth_publickey_auto(session, NULL, NULL);
     assert_true(rc == SSH_AUTH_SUCCESS);
 
     channel = ssh_channel_new(session);

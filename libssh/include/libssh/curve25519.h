@@ -39,7 +39,10 @@ int crypto_scalarmult_base(unsigned char *q, const unsigned char *n);
 int crypto_scalarmult(unsigned char *q, const unsigned char *n, const unsigned char *p);
 #endif /* WITH_NACL */
 
-#define HAVE_CURVE25519
+#ifdef HAVE_ECC
+#define HAVE_CURVE25519 1
+#endif
+
 typedef unsigned char ssh_curve25519_pubkey[CURVE25519_PUBKEY_SIZE];
 typedef unsigned char ssh_curve25519_privkey[CURVE25519_PRIVKEY_SIZE];
 

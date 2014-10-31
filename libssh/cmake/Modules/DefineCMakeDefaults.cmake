@@ -25,3 +25,6 @@ if (NOT CMAKE_BUILD_TYPE)
       "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel."
   )
 endif (NOT CMAKE_BUILD_TYPE)
+
+# Create the compile command database for clang by default
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

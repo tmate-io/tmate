@@ -22,6 +22,7 @@
  */
 
 #include "config.h"
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -59,6 +60,9 @@ uint32_t packet_decrypt_len(ssh_session session, char *crypted){
 int packet_decrypt(ssh_session session, void *data,uint32_t len) {
   struct ssh_cipher_struct *crypto = session->current_crypto->in_cipher;
   char *out = NULL;
+
+  assert(len);
+
   if(len % session->current_crypto->in_cipher->blocksize != 0){
     ssh_set_error(session, SSH_FATAL, "Cryptographic functions must be set on at least one blocksize (received %d)",len);
     return SSH_ERROR;
@@ -73,11 +77,10 @@ int packet_decrypt(ssh_session session, void *data,uint32_t len) {
     SAFE_FREE(out);
     return -1;
   }
-  crypto->cbc_decrypt(crypto,data,out,len);
+  crypto->decrypt(crypto,data,out,len);
 
   memcpy(data,out,len);
-  memset(out,0,len);
-
+  BURN_BUFFER(out, len);
   SAFE_FREE(out);
   return 0;
 }
@@ -88,6 +91,9 @@ unsigned char *packet_encrypt(ssh_session session, void *data, uint32_t len) {
   char *out = NULL;
   unsigned int finallen;
   uint32_t seq;
+  enum ssh_hmac_e type;
+
+  assert(len);
 
   if (!session->current_crypto) {
     return NULL; /* nothing to do here */
@@ -101,6 +107,7 @@ unsigned char *packet_encrypt(ssh_session session, void *data, uint32_t len) {
     return NULL;
   }
 
+  type = session->current_crypto->out_hmac;
   seq = ntohl(session->send_seq);
   crypto = session->current_crypto->out_cipher;
 
@@ -111,7 +118,7 @@ unsigned char *packet_encrypt(ssh_session session, void *data, uint32_t len) {
   }
 
   if (session->version == 2) {
-    ctx = hmac_init(session->current_crypto->encryptMAC,20,SSH_HMAC_SHA1);
+    ctx = hmac_init(session->current_crypto->encryptMAC, hmac_digest_len(type), type);
     if (ctx == NULL) {
       SAFE_FREE(out);
       return NULL;
@@ -120,18 +127,18 @@ unsigned char *packet_encrypt(ssh_session session, void *data, uint32_t len) {
     hmac_update(ctx,data,len);
     hmac_final(ctx,session->current_crypto->hmacbuf,&finallen);
 #ifdef DEBUG_CRYPTO
-    ssh_print_hexa("mac: ",data,len);
-    if (finallen != 20) {
+    ssh_print_hexa("mac: ",data,hmac_digest_len(type));
+    if (finallen != hmac_digest_len(type)) {
       printf("Final len is %d\n",finallen);
     }
-    ssh_print_hexa("Packet hmac", session->current_crypto->hmacbuf, 20);
+    ssh_print_hexa("Packet hmac", session->current_crypto->hmacbuf, hmac_digest_len(type));
 #endif
   }
 
-  crypto->cbc_encrypt(crypto, data, out, len);
+  crypto->encrypt(crypto, data, out, len);
 
   memcpy(data, out, len);
-  memset(out, 0, len);
+  BURN_BUFFER(out, len);
   SAFE_FREE(out);
 
   if (session->version == 2) {
@@ -154,13 +161,13 @@ unsigned char *packet_encrypt(ssh_session session, void *data, uint32_t len) {
  *                      occurred.
  */
 int packet_hmac_verify(ssh_session session, ssh_buffer buffer,
-    unsigned char *mac) {
-  unsigned char hmacbuf[EVP_MAX_MD_SIZE] = {0};
+    unsigned char *mac, enum ssh_hmac_e type) {
+  unsigned char hmacbuf[DIGEST_MAX_LEN] = {0};
   HMACCTX ctx;
   unsigned int len;
   uint32_t seq;
 
-  ctx = hmac_init(session->current_crypto->decryptMAC, 20, SSH_HMAC_SHA1);
+  ctx = hmac_init(session->current_crypto->decryptMAC, hmac_digest_len(type), type);
   if (ctx == NULL) {
     return -1;
   }

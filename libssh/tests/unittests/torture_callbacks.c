@@ -57,11 +57,51 @@ static void torture_callbacks_exists(void **state) {
     assert_int_not_equal(ssh_callbacks_exists(cb, auth_function), 0);
 }
 
+struct test_mock_state {
+    int executed;
+};
+
+static void test_mock_ssh_logging_callback(int priority,
+                                           const char *function,
+                                           const char *buffer,
+                                           void *userdata)
+{
+    struct test_mock_state *t = (struct test_mock_state *)userdata;
+
+    check_expected(priority);
+    check_expected(function);
+    check_expected(buffer);
+
+    t->executed++;
+}
+
+static void torture_log_callback(void **state)
+{
+    struct test_mock_state t = {
+        .executed = 0,
+    };
+
+    (void)state; /* unused */
+
+    ssh_set_log_callback(test_mock_ssh_logging_callback);
+    ssh_set_log_userdata(&t);
+    ssh_set_log_level(1);
+
+    expect_value(test_mock_ssh_logging_callback, priority, 1);
+    expect_string(test_mock_ssh_logging_callback, function, "torture_log_callback");
+    expect_string(test_mock_ssh_logging_callback, buffer, "torture_log_callback: test");
+
+    SSH_LOG(SSH_LOG_WARN, "test");
+
+    assert_int_equal(t.executed, 1);
+}
+
 int torture_run_tests(void) {
     int rc;
     const UnitTest tests[] = {
         unit_test_setup_teardown(torture_callbacks_size, setup, teardown),
         unit_test_setup_teardown(torture_callbacks_exists, setup, teardown),
+        unit_test(torture_log_callback),
     };
 
     ssh_init();

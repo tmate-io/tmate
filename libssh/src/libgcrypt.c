@@ -45,6 +45,9 @@ static int alloc_key(struct ssh_cipher_struct *cipher) {
     return 0;
 }
 
+void ssh_reseed(void){
+	}
+
 SHACTX sha1_init(void) {
   SHACTX ctx = NULL;
   gcry_md_open(&ctx, GCRY_MD_SHA1, 0);
@@ -66,8 +69,67 @@ void sha1(unsigned char *digest, int len, unsigned char *hash) {
   gcry_md_hash_buffer(GCRY_MD_SHA1, hash, digest, len);
 }
 
+SHA256CTX sha256_init(void) {
+  SHA256CTX ctx = NULL;
+  gcry_md_open(&ctx, GCRY_MD_SHA256, 0);
+
+  return ctx;
+}
+
+void sha256_update(SHACTX c, const void *data, unsigned long len) {
+  gcry_md_write(c, data, len);
+}
+
+void sha256_final(unsigned char *md, SHACTX c) {
+  gcry_md_final(c);
+  memcpy(md, gcry_md_read(c, 0), SHA256_DIGEST_LEN);
+  gcry_md_close(c);
+}
+
 void sha256(unsigned char *digest, int len, unsigned char *hash){
   gcry_md_hash_buffer(GCRY_MD_SHA256, hash, digest, len);
+}
+
+SHA384CTX sha384_init(void) {
+  SHA384CTX ctx = NULL;
+  gcry_md_open(&ctx, GCRY_MD_SHA384, 0);
+
+  return ctx;
+}
+
+void sha384_update(SHACTX c, const void *data, unsigned long len) {
+  gcry_md_write(c, data, len);
+}
+
+void sha384_final(unsigned char *md, SHACTX c) {
+  gcry_md_final(c);
+  memcpy(md, gcry_md_read(c, 0), SHA384_DIGEST_LEN);
+  gcry_md_close(c);
+}
+
+void sha384(unsigned char *digest, int len, unsigned char *hash) {
+  gcry_md_hash_buffer(GCRY_MD_SHA384, hash, digest, len);
+}
+
+SHA512CTX sha512_init(void) {
+  SHA512CTX ctx = NULL;
+  gcry_md_open(&ctx, GCRY_MD_SHA512, 0);
+
+  return ctx;
+}
+
+void sha512_update(SHACTX c, const void *data, unsigned long len) {
+  gcry_md_write(c, data, len);
+}
+
+void sha512_final(unsigned char *md, SHACTX c) {
+  gcry_md_final(c);
+  memcpy(md, gcry_md_read(c, 0), SHA512_DIGEST_LEN);
+  gcry_md_close(c);
+}
+
+void sha512(unsigned char *digest, int len, unsigned char *hash) {
+  gcry_md_hash_buffer(GCRY_MD_SHA512, hash, digest, len);
 }
 
 MD5CTX md5_init(void) {
@@ -88,7 +150,11 @@ void md5_final(unsigned char *md, MD5CTX c) {
 }
 
 ssh_mac_ctx ssh_mac_ctx_init(enum ssh_mac_e type){
-  ssh_mac_ctx ctx=malloc(sizeof(struct ssh_mac_ctx_struct));
+  ssh_mac_ctx ctx = malloc(sizeof(struct ssh_mac_ctx_struct));
+  if (ctx == NULL) {
+    return NULL;
+  }
+
   ctx->mac_type=type;
   switch(type){
     case SSH_MAC_SHA1:
@@ -121,13 +187,13 @@ void ssh_mac_final(unsigned char *md, ssh_mac_ctx ctx) {
       len=SHA_DIGEST_LEN;
       break;
     case SSH_MAC_SHA256:
-      len=SHA256_DIGEST_LENGTH;
+      len=SHA256_DIGEST_LEN;
       break;
     case SSH_MAC_SHA384:
-      len=SHA384_DIGEST_LENGTH;
+      len=SHA384_DIGEST_LEN;
       break;
     case SSH_MAC_SHA512:
-      len=SHA512_DIGEST_LENGTH;
+      len=SHA512_DIGEST_LEN;
       break;
   }
   gcry_md_final(ctx->ctx);
@@ -142,6 +208,15 @@ HMACCTX hmac_init(const void *key, int len, enum ssh_hmac_e type) {
   switch(type) {
     case SSH_HMAC_SHA1:
       gcry_md_open(&c, GCRY_MD_SHA1, GCRY_MD_FLAG_HMAC);
+      break;
+    case SSH_HMAC_SHA256:
+      gcry_md_open(&c, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC);
+      break;
+    case SSH_HMAC_SHA384:
+      gcry_md_open(&c, GCRY_MD_SHA384, GCRY_MD_FLAG_HMAC);
+      break;
+    case SSH_HMAC_SHA512:
+      gcry_md_open(&c, GCRY_MD_SHA512, GCRY_MD_FLAG_HMAC);
       break;
     case SSH_HMAC_MD5:
       gcry_md_open(&c, GCRY_MD_MD5, GCRY_MD_FLAG_HMAC);
@@ -403,8 +478,8 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .keysize         = 128,
     .set_encrypt_key = blowfish_set_key,
     .set_decrypt_key = blowfish_set_key,
-    .cbc_encrypt     = blowfish_encrypt,
-    .cbc_decrypt     = blowfish_decrypt
+    .encrypt     = blowfish_encrypt,
+    .decrypt     = blowfish_decrypt
   },
   {
     .name            = "aes128-ctr",
@@ -414,8 +489,8 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .keysize         = 128,
     .set_encrypt_key = aes_set_key,
     .set_decrypt_key = aes_set_key,
-    .cbc_encrypt     = aes_encrypt,
-    .cbc_decrypt     = aes_encrypt
+    .encrypt     = aes_encrypt,
+    .decrypt     = aes_encrypt
   },
   {
       .name            = "aes192-ctr",
@@ -425,8 +500,8 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
       .keysize         = 192,
       .set_encrypt_key = aes_set_key,
       .set_decrypt_key = aes_set_key,
-      .cbc_encrypt     = aes_encrypt,
-      .cbc_decrypt     = aes_encrypt
+      .encrypt     = aes_encrypt,
+      .decrypt     = aes_encrypt
   },
   {
       .name            = "aes256-ctr",
@@ -436,8 +511,8 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
       .keysize         = 256,
       .set_encrypt_key = aes_set_key,
       .set_decrypt_key = aes_set_key,
-      .cbc_encrypt     = aes_encrypt,
-      .cbc_decrypt     = aes_encrypt
+      .encrypt     = aes_encrypt,
+      .decrypt     = aes_encrypt
   },
   {
     .name            = "aes128-cbc",
@@ -447,8 +522,8 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .keysize         = 128,
     .set_encrypt_key = aes_set_key,
     .set_decrypt_key = aes_set_key,
-    .cbc_encrypt     = aes_encrypt,
-    .cbc_decrypt     = aes_decrypt
+    .encrypt     = aes_encrypt,
+    .decrypt     = aes_decrypt
   },
   {
     .name            = "aes192-cbc",
@@ -458,8 +533,8 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .keysize         = 192,
     .set_encrypt_key = aes_set_key,
     .set_decrypt_key = aes_set_key,
-    .cbc_encrypt     = aes_encrypt,
-    .cbc_decrypt     = aes_decrypt
+    .encrypt     = aes_encrypt,
+    .decrypt     = aes_decrypt
   },
   {
     .name            = "aes256-cbc",
@@ -469,8 +544,8 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .keysize         = 256,
     .set_encrypt_key = aes_set_key,
     .set_decrypt_key = aes_set_key,
-    .cbc_encrypt     = aes_encrypt,
-    .cbc_decrypt     = aes_decrypt
+    .encrypt     = aes_encrypt,
+    .decrypt     = aes_decrypt
   },
   {
     .name            = "3des-cbc",
@@ -480,8 +555,8 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .keysize         = 192,
     .set_encrypt_key = des3_set_key,
     .set_decrypt_key = des3_set_key,
-    .cbc_encrypt     = des3_encrypt,
-    .cbc_decrypt     = des3_decrypt
+    .encrypt     = des3_encrypt,
+    .decrypt     = des3_decrypt
   },
   {
     .name            = "3des-cbc-ssh1",
@@ -491,8 +566,8 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .keysize         = 192,
     .set_encrypt_key = des3_1_set_key,
     .set_decrypt_key = des3_1_set_key,
-    .cbc_encrypt     = des3_1_encrypt,
-    .cbc_decrypt     = des3_1_decrypt
+    .encrypt     = des3_1_encrypt,
+    .decrypt     = des3_1_decrypt
   },
   {
     .name            = "des-cbc-ssh1",
@@ -502,8 +577,8 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .keysize         = 64,
     .set_encrypt_key = des1_set_key,
     .set_decrypt_key = des1_set_key,
-    .cbc_encrypt     = des1_1_encrypt,
-    .cbc_decrypt     = des1_1_decrypt
+    .encrypt     = des1_1_encrypt,
+    .decrypt     = des1_1_decrypt
   },
   {
     .name            = NULL,
@@ -513,8 +588,8 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .keysize         = 0,
     .set_encrypt_key = NULL,
     .set_decrypt_key = NULL,
-    .cbc_encrypt     = NULL,
-    .cbc_decrypt     = NULL
+    .encrypt     = NULL,
+    .decrypt     = NULL
   }
 };
 

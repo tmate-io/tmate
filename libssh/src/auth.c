@@ -3,8 +3,8 @@
  *
  * This file is part of the SSH Library
  *
- * Copyright (c) 2003-2011 by Aris Adamantiadis <aris@0xbadc0de.be>
- * Copyright (c) 2008-2011 Andreas Schneider <asn@cryptomilk.org>
+ * Copyright (c) 2003-2013 by Aris Adamantiadis <aris@0xbadc0de.be>
+ * Copyright (c) 2008-2013 Andreas Schneider <asn@cryptomilk.org>
  *
  * The SSH Library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -182,22 +182,16 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_banner){
  */
 SSH_PACKET_CALLBACK(ssh_packet_userauth_failure){
   char *auth_methods = NULL;
-  ssh_string auth;
   uint8_t partial = 0;
+  int rc;
   (void) type;
   (void) user;
 
-  auth = buffer_get_ssh_string(packet);
-  if (auth == NULL || buffer_get_u8(packet, &partial) != 1) {
+  rc = ssh_buffer_unpack(packet, "sb", &auth_methods, &partial);
+  if (rc != SSH_OK) {
     ssh_set_error(session, SSH_FATAL,
         "Invalid SSH_MSG_USERAUTH_FAILURE message");
     session->auth_state=SSH_AUTH_STATE_ERROR;
-    goto end;
-  }
-
-  auth_methods = ssh_string_to_char(auth);
-  if (auth_methods == NULL) {
-    ssh_set_error_oom(session);
     goto end;
   }
 
@@ -234,7 +228,6 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_failure){
   }
 
 end:
-  ssh_string_free(auth);
   SAFE_FREE(auth_methods);
 
   return SSH_PACKET_USED;
@@ -359,7 +352,6 @@ int ssh_userauth_list(ssh_session session, const char *username)
  * before you connect to the server.
  */
 int ssh_userauth_none(ssh_session session, const char *username) {
-    ssh_string str;
     int rc;
 
 #ifdef WITH_SSH1
@@ -387,47 +379,12 @@ int ssh_userauth_none(ssh_session session, const char *username) {
     }
 
     /* request */
-    rc = buffer_add_u8(session->out_buffer, SSH2_MSG_USERAUTH_REQUEST);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* username */
-    if (username) {
-        str = ssh_string_from_char(username);
-    } else {
-        str = ssh_string_from_char(session->opts.username);
-    }
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* service */
-    str = ssh_string_from_char("ssh-connection");
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* method */
-    str = ssh_string_from_char("none");
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
+    rc = ssh_buffer_pack(session->out_buffer, "bsss",
+            SSH2_MSG_USERAUTH_REQUEST,
+            username ? username : session->opts.username,
+            "ssh-connection",
+            "none"
+            );
     if (rc < 0) {
         goto fail;
     }
@@ -448,7 +405,7 @@ pending:
     return rc;
 fail:
     ssh_set_error_oom(session);
-    buffer_reinit(session->out_buffer);
+    ssh_buffer_reinit(session->out_buffer);
 
     return SSH_AUTH_ERROR;
 }
@@ -485,7 +442,7 @@ int ssh_userauth_try_publickey(ssh_session session,
                                const char *username,
                                const ssh_key pubkey)
 {
-    ssh_string str;
+    ssh_string pubkey_s = NULL;
     int rc;
 
     if (session == NULL) {
@@ -522,81 +479,27 @@ int ssh_userauth_try_publickey(ssh_session session,
         return SSH_AUTH_ERROR;
     }
 
-    /* request */
-    rc = buffer_add_u8(session->out_buffer, SSH2_MSG_USERAUTH_REQUEST);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* username */
-    if (username) {
-        str = ssh_string_from_char(username);
-    } else {
-        str = ssh_string_from_char(session->opts.username);
-    }
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* service */
-    str = ssh_string_from_char("ssh-connection");
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* method */
-    str = ssh_string_from_char("publickey");
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* private key? */
-    rc = buffer_add_u8(session->out_buffer, 0);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* algo */
-    str = ssh_string_from_char(pubkey->type_c);
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
-    if (rc < 0) {
-        goto fail;
-    }
-
     /* public key */
-    rc = ssh_pki_export_pubkey_blob(pubkey, &str);
+    rc = ssh_pki_export_pubkey_blob(pubkey, &pubkey_s);
     if (rc < 0) {
         goto fail;
     }
 
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
+    /* request */
+    rc = ssh_buffer_pack(session->out_buffer, "bsssbsS",
+            SSH2_MSG_USERAUTH_REQUEST,
+            username ? username : session->opts.username,
+            "ssh-connection",
+            "publickey",
+            0, /* private key ? */
+            pubkey->type_c, /* algo */
+            pubkey_s /* public key */
+            );
     if (rc < 0) {
         goto fail;
     }
+
+    ssh_string_free(pubkey_s);
 
     session->auth_state = SSH_AUTH_STATE_NONE;
     session->pending_call_state = SSH_PENDING_CALL_AUTH_OFFER_PUBKEY;
@@ -613,8 +516,9 @@ pending:
 
     return rc;
 fail:
+    ssh_string_free(pubkey_s);
     ssh_set_error_oom(session);
-    buffer_reinit(session->out_buffer);
+    ssh_buffer_reinit(session->out_buffer);
 
     return SSH_AUTH_ERROR;
 }
@@ -647,7 +551,7 @@ int ssh_userauth_publickey(ssh_session session,
                            const char *username,
                            const ssh_key privkey)
 {
-    ssh_string str;
+    ssh_string str = NULL;
     int rc;
 
     if (session == NULL) {
@@ -684,81 +588,26 @@ int ssh_userauth_publickey(ssh_session session,
         return SSH_AUTH_ERROR;
     }
 
-    /* request */
-    rc = buffer_add_u8(session->out_buffer, SSH2_MSG_USERAUTH_REQUEST);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* username */
-    if (username) {
-        str = ssh_string_from_char(username);
-    } else {
-        str = ssh_string_from_char(session->opts.username);
-    }
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* service */
-    str = ssh_string_from_char("ssh-connection");
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* method */
-    str = ssh_string_from_char("publickey");
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* private key? */
-    rc = buffer_add_u8(session->out_buffer, 1);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* algo */
-    str = ssh_string_from_char(privkey->type_c);
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
-    if (rc < 0) {
-        goto fail;
-    }
-
     /* public key */
     rc = ssh_pki_export_pubkey_blob(privkey, &str);
     if (rc < 0) {
         goto fail;
     }
 
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
+    /* request */
+    rc = ssh_buffer_pack(session->out_buffer, "bsssbsS",
+            SSH2_MSG_USERAUTH_REQUEST,
+            username ? username : session->opts.username,
+            "ssh-connection",
+            "publickey",
+            1, /* private key */
+            privkey->type_c, /* algo */
+            str /* public key */
+            );
     if (rc < 0) {
         goto fail;
     }
+    ssh_string_free(str);
 
     /* sign the buffer with the private key */
     str = ssh_pki_do_sign(session, session->out_buffer, privkey);
@@ -768,6 +617,7 @@ int ssh_userauth_publickey(ssh_session session,
 
     rc = buffer_add_ssh_string(session->out_buffer, str);
     ssh_string_free(str);
+    str = NULL;
     if (rc < 0) {
         goto fail;
     }
@@ -787,8 +637,9 @@ pending:
 
     return rc;
 fail:
+    ssh_string_free(str);
     ssh_set_error_oom(session);
-    buffer_reinit(session->out_buffer);
+    ssh_buffer_reinit(session->out_buffer);
 
     return SSH_AUTH_ERROR;
 }
@@ -798,7 +649,7 @@ static int ssh_userauth_agent_publickey(ssh_session session,
                                         const char *username,
                                         ssh_key pubkey)
 {
-    ssh_string str;
+    ssh_string str = NULL;
     int rc;
 
     switch(session->pending_call_state) {
@@ -820,69 +671,6 @@ static int ssh_userauth_agent_publickey(ssh_session session,
         return SSH_AUTH_ERROR;
     }
 
-    /* request */
-    rc = buffer_add_u8(session->out_buffer, SSH2_MSG_USERAUTH_REQUEST);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* username */
-    if (username) {
-        str = ssh_string_from_char(username);
-    } else {
-        str = ssh_string_from_char(session->opts.username);
-    }
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* service */
-    str = ssh_string_from_char("ssh-connection");
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* method */
-    str = ssh_string_from_char("publickey");
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* private key? */
-    rc = buffer_add_u8(session->out_buffer, 1);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* algo */
-    str = ssh_string_from_char(pubkey->type_c);
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
-    if (rc < 0) {
-        goto fail;
-    }
 
     /* public key */
     rc = ssh_pki_export_pubkey_blob(pubkey, &str);
@@ -890,11 +678,21 @@ static int ssh_userauth_agent_publickey(ssh_session session,
         goto fail;
     }
 
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
+    /* request */
+    rc = ssh_buffer_pack(session->out_buffer, "bsssbsS",
+            SSH2_MSG_USERAUTH_REQUEST,
+            username ? username : session->opts.username,
+            "ssh-connection",
+            "publickey",
+            1, /* private key */
+            pubkey->type_c, /* algo */
+            str /* public key */
+            );
     if (rc < 0) {
         goto fail;
     }
+
+    ssh_string_free(str);
 
     /* sign the buffer with the private key */
     str = ssh_pki_do_sign_agent(session, session->out_buffer, pubkey);
@@ -924,7 +722,8 @@ pending:
     return rc;
 fail:
     ssh_set_error_oom(session);
-    buffer_reinit(session->out_buffer);
+    ssh_buffer_reinit(session->out_buffer);
+    ssh_string_free(str);
 
     return SSH_AUTH_ERROR;
 }
@@ -1306,7 +1105,6 @@ int ssh_userauth_publickey_auto(ssh_session session,
 int ssh_userauth_password(ssh_session session,
                           const char *username,
                           const char *password) {
-    ssh_string str;
     int rc;
 
 #ifdef WITH_SSH1
@@ -1336,65 +1134,14 @@ int ssh_userauth_password(ssh_session session,
     }
 
     /* request */
-    rc = buffer_add_u8(session->out_buffer, SSH2_MSG_USERAUTH_REQUEST);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* username */
-    if (username) {
-        str = ssh_string_from_char(username);
-    } else {
-        str = ssh_string_from_char(session->opts.username);
-    }
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* service */
-    str = ssh_string_from_char("ssh-connection");
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* method */
-    str = ssh_string_from_char("password");
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* FALSE */
-    rc = buffer_add_u8(session->out_buffer, 0);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* password */
-    str = ssh_string_from_char(password);
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
+    rc = ssh_buffer_pack(session->out_buffer, "bsssbs",
+            SSH2_MSG_USERAUTH_REQUEST,
+            username ? username : session->opts.username,
+            "ssh-connection",
+            "password",
+            0, /* false */
+            password
+    );
     if (rc < 0) {
         goto fail;
     }
@@ -1415,7 +1162,7 @@ pending:
     return rc;
 fail:
     ssh_set_error_oom(session);
-    buffer_reinit(session->out_buffer);
+    ssh_buffer_reinit(session->out_buffer);
 
     return SSH_AUTH_ERROR;
 }
@@ -1536,7 +1283,6 @@ static int ssh_userauth_kbdint_init(ssh_session session,
                                     const char *username,
                                     const char *submethods)
 {
-    ssh_string str;
     int rc;
     if (session->pending_call_state == SSH_PENDING_CALL_AUTH_KBDINT_INIT)
         goto pending;
@@ -1552,78 +1298,18 @@ static int ssh_userauth_kbdint_init(ssh_session session,
     }
 
     /* request */
-    rc = buffer_add_u8(session->out_buffer, SSH2_MSG_USERAUTH_REQUEST);
+    rc = ssh_buffer_pack(session->out_buffer, "bsssss",
+            SSH2_MSG_USERAUTH_REQUEST,
+            username ? username : session->opts.username,
+            "ssh-connection",
+            "keyboard-interactive",
+            "", /* lang (ignore it) */
+            submethods ? submethods : ""
+    );
     if (rc < 0) {
         goto fail;
     }
 
-    /* username */
-    if (username) {
-        str = ssh_string_from_char(username);
-    } else {
-        str = ssh_string_from_char(session->opts.username);
-    }
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* service */
-    str = ssh_string_from_char("ssh-connection");
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* method */
-    str = ssh_string_from_char("keyboard-interactive");
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* lang string (ignore it) */
-    str = ssh_string_from_char("");
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    /* submethods */
-    if (submethods == NULL) {
-        submethods = "";
-    }
-
-    str = ssh_string_from_char(submethods);
-    if (str == NULL) {
-        goto fail;
-    }
-
-    rc = buffer_add_ssh_string(session->out_buffer, str);
-    ssh_string_free(str);
-    if (rc < 0) {
-        goto fail;
-    }
 
     session->auth_state = SSH_AUTH_STATE_KBDINT_SENT;
     session->pending_call_state = SSH_PENDING_CALL_AUTH_KBDINT_INIT;
@@ -1642,7 +1328,7 @@ pending:
     return rc;
 fail:
     ssh_set_error_oom(session);
-    buffer_reinit(session->out_buffer);
+    ssh_buffer_reinit(session->out_buffer);
 
     return SSH_AUTH_ERROR;
 }
@@ -1660,7 +1346,6 @@ fail:
  */
 static int ssh_userauth_kbdint_send(ssh_session session)
 {
-    ssh_string answer;
     uint32_t i;
     int rc;
     if (session->pending_call_state == SSH_PENDING_CALL_AUTH_KBDINT_SEND)
@@ -1669,29 +1354,17 @@ static int ssh_userauth_kbdint_send(ssh_session session)
         ssh_set_error_invalid(session);
         return SSH_ERROR;
     }
-    rc = buffer_add_u8(session->out_buffer, SSH2_MSG_USERAUTH_INFO_RESPONSE);
-    if (rc < 0) {
-        goto fail;
-    }
-
-    rc = buffer_add_u32(session->out_buffer, htonl(session->kbdint->nprompts));
+    rc = ssh_buffer_pack(session->out_buffer, "bd",
+            SSH2_MSG_USERAUTH_INFO_RESPONSE,
+            session->kbdint->nprompts);
     if (rc < 0) {
         goto fail;
     }
 
     for (i = 0; i < session->kbdint->nprompts; i++) {
-        if (session->kbdint->answers && session->kbdint->answers[i]) {
-            answer = ssh_string_from_char(session->kbdint->answers[i]);
-        } else {
-            answer = ssh_string_from_char("");
-        }
-        if (answer == NULL) {
-            goto fail;
-        }
-
-        rc = buffer_add_ssh_string(session->out_buffer, answer);
-        string_burn(answer);
-        string_free(answer);
+        rc = ssh_buffer_pack(session->out_buffer, "s",
+                session->kbdint->answers && session->kbdint->answers[i] ?
+                        session->kbdint->answers[i]:"");
         if (rc < 0) {
             goto fail;
         }
@@ -1716,7 +1389,7 @@ pending:
     return rc;
 fail:
     ssh_set_error_oom(session);
-    buffer_reinit(session->out_buffer);
+    ssh_buffer_reinit(session->out_buffer);
 
     return SSH_AUTH_ERROR;
 }
@@ -1728,64 +1401,41 @@ fail:
  *        authentication state.
  */
 SSH_PACKET_CALLBACK(ssh_packet_userauth_info_request) {
-  ssh_string name; /* name of the "asking" window showed to client */
-  ssh_string instruction;
-  ssh_string tmp;
+  ssh_string tmp = NULL;
   uint32_t nprompts;
   uint32_t i;
+  int rc;
   (void)user;
   (void)type;
 
-  name = buffer_get_ssh_string(packet);
-  instruction = buffer_get_ssh_string(packet);
-  tmp = buffer_get_ssh_string(packet);
-  buffer_get_u32(packet, &nprompts);
-
-  /* We don't care about tmp */
-  ssh_string_free(tmp);
-
-  if (name == NULL || instruction == NULL) {
-    ssh_string_free(name);
-    ssh_string_free(instruction);
-    ssh_set_error(session, SSH_FATAL, "Invalid USERAUTH_INFO_REQUEST msg");
-
-    return SSH_PACKET_USED;
-  }
 
   if (session->kbdint == NULL) {
     session->kbdint = ssh_kbdint_new();
     if (session->kbdint == NULL) {
       ssh_set_error_oom(session);
-      ssh_string_free(name);
-      ssh_string_free(instruction);
-
       return SSH_PACKET_USED;
     }
   } else {
     ssh_kbdint_clean(session->kbdint);
   }
 
-  session->kbdint->name = ssh_string_to_char(name);
-  ssh_string_free(name);
-  if (session->kbdint->name == NULL) {
-    ssh_set_error_oom(session);
-    ssh_kbdint_free(session->kbdint);
-    ssh_string_free(instruction);
+  rc = ssh_buffer_unpack(packet, "ssSd",
+          &session->kbdint->name, /* name of the "asking" window shown to client */
+          &session->kbdint->instruction,
+          &tmp, /* to ignore */
+          &nprompts
+          );
 
-    return SSH_PACKET_USED;
+  /* We don't care about tmp */
+  ssh_string_free(tmp);
+
+  if (rc != SSH_OK) {
+      ssh_set_error(session, SSH_FATAL, "Invalid USERAUTH_INFO_REQUEST msg");
+      ssh_kbdint_free(session->kbdint);
+      session->kbdint = NULL;
+      return SSH_PACKET_USED;
   }
 
-  session->kbdint->instruction = ssh_string_to_char(instruction);
-  ssh_string_free(instruction);
-  if (session->kbdint->instruction == NULL) {
-    ssh_set_error_oom(session);
-    ssh_kbdint_free(session->kbdint);
-    session->kbdint = NULL;
-
-    return SSH_PACKET_USED;
-  }
-
-  nprompts = ntohl(nprompts);
   SSH_LOG(SSH_LOG_DEBUG,
           "%d keyboard-interactive prompts", nprompts);
   if (nprompts > KBDINT_MAX_PROMPT) {
@@ -1823,20 +1473,11 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_info_request) {
   memset(session->kbdint->echo, 0, nprompts);
 
   for (i = 0; i < nprompts; i++) {
-    tmp = buffer_get_ssh_string(packet);
-    buffer_get_u8(packet, &session->kbdint->echo[i]);
-    if (tmp == NULL) {
+    rc = ssh_buffer_unpack(packet, "sb",
+            &session->kbdint->prompts[i],
+            &session->kbdint->echo[i]);
+    if (rc == SSH_ERROR) {
       ssh_set_error(session, SSH_FATAL, "Short INFO_REQUEST packet");
-      ssh_kbdint_free(session->kbdint);
-      session->kbdint = NULL;
-
-      return SSH_PACKET_USED;
-    }
-    session->kbdint->prompts[i] = ssh_string_to_char(tmp);
-    ssh_string_free(tmp);
-    if (session->kbdint->prompts[i] == NULL) {
-      ssh_set_error_oom(session);
-      session->kbdint->nprompts = i;
       ssh_kbdint_free(session->kbdint);
       session->kbdint = NULL;
 

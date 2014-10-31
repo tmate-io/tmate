@@ -1,7 +1,7 @@
 /*
  * This file is part of the SSH Library
  *
- * Copyright (c) 2011 by Aris Adamantiadis
+ * Copyright (c) 2011-2013 by Aris Adamantiadis
  *
  * The SSH Library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -26,6 +26,7 @@
 #include "libssh/buffer.h"
 #include "libssh/ssh2.h"
 #include "libssh/pki.h"
+#include "libssh/bignum.h"
 
 #ifdef HAVE_ECDH
 #include <openssl/ecdh.h>
@@ -154,7 +155,7 @@ static int ecdh_build_k(ssh_session session) {
       return -1;
   }
 
-  BN_bin2bn(buffer, len, session->next_crypto->k);
+  bignum_bin2bn(buffer, len, session->next_crypto->k);
   free(buffer);
 
   EC_KEY_free(session->next_crypto->ecdh_privkey);
@@ -285,12 +286,6 @@ int ssh_server_ecdh_init(ssh_session session, ssh_buffer packet){
     session->next_crypto->ecdh_privkey = ecdh_key;
     session->next_crypto->ecdh_server_pubkey = q_s_string;
 
-    rc = buffer_add_u8(session->out_buffer, SSH2_MSG_KEXDH_REPLY);
-    if (rc < 0) {
-        ssh_set_error_oom(session);
-        return SSH_ERROR;
-    }
-
     /* build k and session_id */
     rc = ecdh_build_k(session);
     if (rc < 0) {
@@ -310,30 +305,22 @@ int ssh_server_ecdh_init(ssh_session session, ssh_buffer packet){
         return SSH_ERROR;
     }
 
-    /* add host's public key */
-    rc = buffer_add_ssh_string(session->out_buffer,
-                               session->next_crypto->server_pubkey);
-    if (rc < 0) {
-        ssh_set_error_oom(session);
-        return SSH_ERROR;
-    }
-
-    /* add ecdh public key */
-    rc = buffer_add_ssh_string(session->out_buffer, q_s_string);
-    if (rc < 0) {
-        ssh_set_error_oom(session);
-        return SSH_ERROR;
-    }
-    /* add signature blob */
     sig_blob = ssh_srv_pki_do_sign_sessionid(session, privkey);
     if (sig_blob == NULL) {
         ssh_set_error(session, SSH_FATAL, "Could not sign the session id");
         return SSH_ERROR;
     }
 
-    rc = buffer_add_ssh_string(session->out_buffer, sig_blob);
+    rc = ssh_buffer_pack(session->out_buffer,
+                         "bSSS",
+                         SSH2_MSG_KEXDH_REPLY,
+                         session->next_crypto->server_pubkey, /* host's pubkey */
+                         q_s_string, /* ecdh public key */
+                         sig_blob); /* signature blob */
+
     ssh_string_free(sig_blob);
-    if (rc < 0) {
+
+    if (rc != SSH_OK) {
         ssh_set_error_oom(session);
         return SSH_ERROR;
     }

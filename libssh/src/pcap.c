@@ -342,7 +342,7 @@ static int ssh_pcap_context_connect(ssh_pcap_context ctx){
 int ssh_pcap_context_write(ssh_pcap_context ctx,enum ssh_pcap_direction direction
 		, void *data, uint32_t len, uint32_t origlen){
 	ssh_buffer ip;
-	int err;
+	int rc;
 	if(ctx==NULL || ctx->file ==NULL)
 		return SSH_ERROR;
 	if(ctx->connected==0)
@@ -353,147 +353,104 @@ int ssh_pcap_context_write(ssh_pcap_context ctx,enum ssh_pcap_direction directio
 		ssh_set_error_oom(ctx->session);
 		return SSH_ERROR;
 	}
-	/* build an IP packet */
-	/* V4, 20 bytes */
-    err = buffer_add_u8(ip,4 << 4 | 5);
-    if (err < 0) {
-        goto error;
-    }
-	/* tos */
-    err = buffer_add_u8(ip,0);
-    if (err < 0) {
-        goto error;
-    }
-	/* total len */
-    err = buffer_add_u16(ip,htons(origlen + TCPIPHDR_LEN));
-    if (err < 0) {
-        goto error;
-    }
-	/* IP id number */
-    err = buffer_add_u16(ip,htons(ctx->file->ipsequence));
-    if (err < 0) {
-        goto error;
-    }
+
+    /* build an IP packet */
+    rc = ssh_buffer_pack(ip,
+                         "bbwwwbbw",
+                         4 << 4 | 5, /* V4, 20 bytes */
+                         0,          /* tos */
+                         origlen + TCPIPHDR_LEN, /* total len */
+                         ctx->file->ipsequence,  /* IP id number */
+                         0,          /* fragment offset */
+                         64,         /* TTL */
+                         6,          /* protocol TCP=6 */
+                         0);         /* checksum */
+
 	ctx->file->ipsequence++;
-	/* fragment offset */
-    err = buffer_add_u16(ip,htons(0));
-    if (err < 0) {
-        goto error;
-    }
-	/* TTL */
-    err = buffer_add_u8(ip,64);
-    if (err < 0) {
-        goto error;
-    }
-	/* protocol TCP=6 */
-    err = buffer_add_u8(ip,6);
-    if (err < 0) {
-        goto error;
-    }
-	/* checksum */
-    err = buffer_add_u16(ip,0);
-    if (err < 0) {
-        goto error;
-    }
+	if (rc != SSH_OK){
+	    goto error;
+	}
 	if(direction==SSH_PCAP_DIR_OUT){
-        err = buffer_add_u32(ip,ctx->ipsource);
-        if (err < 0) {
+        rc = buffer_add_u32(ip,ctx->ipsource);
+        if (rc < 0) {
             goto error;
         }
-        err = buffer_add_u32(ip,ctx->ipdest);
-        if (err < 0) {
+        rc = buffer_add_u32(ip,ctx->ipdest);
+        if (rc < 0) {
             goto error;
         }
 	} else {
-        err = buffer_add_u32(ip,ctx->ipdest);
-        if (err < 0) {
+        rc = buffer_add_u32(ip,ctx->ipdest);
+        if (rc < 0) {
             goto error;
         }
-        err = buffer_add_u32(ip,ctx->ipsource);
-        if (err < 0) {
+        rc = buffer_add_u32(ip,ctx->ipsource);
+        if (rc < 0) {
             goto error;
         }
 	}
 	/* TCP */
 	if(direction==SSH_PCAP_DIR_OUT){
-	    err = buffer_add_u16(ip,ctx->portsource);
-        if (err < 0) {
+	    rc = buffer_add_u16(ip,ctx->portsource);
+        if (rc < 0) {
             goto error;
         }
-	    err = buffer_add_u16(ip,ctx->portdest);
-        if (err < 0) {
+	    rc = buffer_add_u16(ip,ctx->portdest);
+        if (rc < 0) {
             goto error;
         }
 	} else {
-	    err = buffer_add_u16(ip,ctx->portdest);
-        if (err < 0) {
+	    rc = buffer_add_u16(ip,ctx->portdest);
+        if (rc < 0) {
             goto error;
         }
-	    err = buffer_add_u16(ip,ctx->portsource);
-        if (err < 0) {
+	    rc = buffer_add_u16(ip,ctx->portsource);
+        if (rc < 0) {
             goto error;
         }
 	}
 	/* sequence number */
 	if(direction==SSH_PCAP_DIR_OUT){
-	    err = buffer_add_u32(ip,ntohl(ctx->outsequence));
-        if (err < 0) {
+	    rc = ssh_buffer_pack(ip, "d", ctx->outsequence);
+        if (rc != SSH_OK) {
             goto error;
         }
 		ctx->outsequence+=origlen;
 	} else {
-	    err = buffer_add_u32(ip,ntohl(ctx->insequence));
-        if (err < 0) {
+	    rc = ssh_buffer_pack(ip, "d", ctx->insequence);
+        if (rc != SSH_OK) {
             goto error;
         }
 		ctx->insequence+=origlen;
 	}
 	/* ack number */
 	if(direction==SSH_PCAP_DIR_OUT){
-	    err = buffer_add_u32(ip,ntohl(ctx->insequence));
-        if (err < 0) {
+	    rc = ssh_buffer_pack(ip, "d", ctx->insequence);
+        if (rc != SSH_OK) {
             goto error;
         }
 	} else {
-	    err = buffer_add_u32(ip,ntohl(ctx->outsequence));
-        if (err < 0) {
+	    rc = ssh_buffer_pack(ip, "d", ctx->outsequence);
+        if (rc != SSH_OK) {
             goto error;
         }
 	}
-	/* header len = 20 = 5 * 32 bits, at offset 4*/
-    err = buffer_add_u8(ip,5 << 4);
-    if (err < 0) {
+
+    rc = ssh_buffer_pack(ip,
+                         "bbwwwP",
+                         5 << 4,             /* header len = 20 = 5 * 32 bits, at offset 4*/
+                         TH_PUSH | TH_ACK,   /* flags */
+                         65535,              /* window */
+                         0,                  /* checksum */
+                         0,                  /* urgent data ptr */
+                         (size_t)len, data); /* actual data */
+    if (rc != SSH_OK) {
         goto error;
     }
-	/* flags */
-    err = buffer_add_u8(ip,TH_PUSH | TH_ACK);
-    if (err < 0) {
-        goto error;
-    }
-	/* window */
-    err = buffer_add_u16(ip,htons(65535));
-    if (err < 0) {
-        goto error;
-    }
-	/* checksum */
-    err = buffer_add_u16(ip,htons(0));
-    if (err < 0) {
-        goto error;
-    }
-	/* urgent data ptr */
-    err = buffer_add_u16(ip,0);
-    if (err < 0) {
-        goto error;
-    }
-	/* actual data */
-    err = buffer_add_data(ip,data,len);
-    if (err < 0) {
-        goto error;
-    }
-	err=ssh_pcap_file_write_packet(ctx->file,ip,origlen + TCPIPHDR_LEN);
+	rc=ssh_pcap_file_write_packet(ctx->file,ip,origlen + TCPIPHDR_LEN);
 error:
 	ssh_buffer_free(ip);
-	return err;
+	return rc;
 }
 
 /** @brief sets the pcap file used to trace the session

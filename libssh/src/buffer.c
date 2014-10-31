@@ -24,6 +24,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 
 #ifndef _WIN32
 #include <netinet/in.h>
@@ -32,6 +33,8 @@
 
 #include "libssh/priv.h"
 #include "libssh/buffer.h"
+#include "libssh/misc.h"
+#include "libssh/bignum.h"
 
 /**
  * @defgroup libssh_buffer The SSH buffer functions.
@@ -104,11 +107,23 @@ void ssh_buffer_free(struct ssh_buffer_struct *buffer) {
 
   if (buffer->data) {
     /* burn the data */
-    memset(buffer->data, 0, buffer->allocated);
+    BURN_BUFFER(buffer->data, buffer->allocated);
     SAFE_FREE(buffer->data);
   }
-  memset(buffer, 'X', sizeof(*buffer));
+  BURN_BUFFER(buffer, sizeof(struct ssh_buffer_struct));
   SAFE_FREE(buffer);
+}
+
+/**
+ * @brief Sets the buffer as secure.
+ *
+ * A secure buffer will never leave cleartext data in the heap
+ * after being reallocated or freed.
+ *
+ * @param[in] buffer buffer to set secure.
+ */
+void ssh_buffer_set_secure(ssh_buffer buffer){
+	buffer->secure = 1;
 }
 
 static int realloc_buffer(struct ssh_buffer_struct *buffer, size_t needed) {
@@ -125,9 +140,20 @@ static int realloc_buffer(struct ssh_buffer_struct *buffer, size_t needed) {
       smallest <<= 1;
   }
   needed = smallest;
-  new = realloc(buffer->data, needed);
-  if (new == NULL) {
-    return -1;
+  if (buffer->secure){
+	  new = malloc(needed);
+	  if (new == NULL) {
+		  return -1;
+      }
+	  memcpy(new, buffer->data,buffer->used);
+	  BURN_BUFFER(buffer->data, buffer->used);
+	  SAFE_FREE(buffer->data);
+  } else {
+	  new = realloc(buffer->data, needed);
+	  if (new == NULL) {
+		  buffer->data = NULL;
+		  return -1;
+	  }
   }
   buffer->data = new;
   buffer->allocated = needed;
@@ -140,12 +166,20 @@ static int realloc_buffer(struct ssh_buffer_struct *buffer, size_t needed) {
  * @param buffer SSH buffer
  */
 static void buffer_shift(ssh_buffer buffer){
+  uint32_t burn_pos = buffer->pos;
+
   buffer_verify(buffer);
   if(buffer->pos==0)
     return;
   memmove(buffer->data, buffer->data + buffer->pos, buffer->used - buffer->pos);
   buffer->used -= buffer->pos;
   buffer->pos=0;
+
+  if (buffer->secure){
+	  void *ptr = buffer->data + buffer->used;
+	  BURN_BUFFER(ptr, burn_pos);
+  }
+
   buffer_verify(buffer);
 }
 
@@ -158,9 +192,10 @@ static void buffer_shift(ssh_buffer buffer){
  *
  * @return              0 on success, < 0 on error.
  */
-int buffer_reinit(struct ssh_buffer_struct *buffer) {
+int ssh_buffer_reinit(struct ssh_buffer_struct *buffer)
+{
   buffer_verify(buffer);
-  memset(buffer->data, 0, buffer->used);
+  BURN_BUFFER(buffer->data, buffer->used);
   buffer->used = 0;
   buffer->pos = 0;
   if(buffer->allocated > 127) {
@@ -185,7 +220,8 @@ int buffer_reinit(struct ssh_buffer_struct *buffer) {
  *
  * @return              0 on success, < 0 on error.
  */
-int buffer_add_data(struct ssh_buffer_struct *buffer, const void *data, uint32_t len) {
+int ssh_buffer_add_data(struct ssh_buffer_struct *buffer, const void *data, uint32_t len)
+{
   buffer_verify(buffer);
 
   if (buffer->used + len < len) {
@@ -222,7 +258,7 @@ int buffer_add_ssh_string(struct ssh_buffer_struct *buffer,
   uint32_t len = 0;
 
   len = ssh_string_len(string);
-  if (buffer_add_data(buffer, string, len + sizeof(uint32_t)) < 0) {
+  if (ssh_buffer_add_data(buffer, string, len + sizeof(uint32_t)) < 0) {
     return -1;
   }
 
@@ -240,12 +276,16 @@ int buffer_add_ssh_string(struct ssh_buffer_struct *buffer,
  *
  * @return              0 on success, -1 on error.
  */
-int buffer_add_u32(struct ssh_buffer_struct *buffer,uint32_t data){
-  if (buffer_add_data(buffer, &data, sizeof(data)) < 0) {
-    return -1;
-  }
+int buffer_add_u32(struct ssh_buffer_struct *buffer,uint32_t data)
+{
+    int rc;
 
-  return 0;
+    rc = ssh_buffer_add_data(buffer, &data, sizeof(data));
+    if (rc < 0) {
+        return -1;
+    }
+
+    return 0;
 }
 
 /**
@@ -259,12 +299,16 @@ int buffer_add_u32(struct ssh_buffer_struct *buffer,uint32_t data){
  *
  * @return              0 on success, -1 on error.
  */
-int buffer_add_u16(struct ssh_buffer_struct *buffer,uint16_t data){
-  if (buffer_add_data(buffer, &data, sizeof(data)) < 0) {
-    return -1;
-  }
+int buffer_add_u16(struct ssh_buffer_struct *buffer,uint16_t data)
+{
+    int rc;
 
-  return 0;
+    rc = ssh_buffer_add_data(buffer, &data, sizeof(data));
+    if (rc < 0) {
+        return -1;
+    }
+
+    return 0;
 }
 
 /**
@@ -278,12 +322,16 @@ int buffer_add_u16(struct ssh_buffer_struct *buffer,uint16_t data){
  *
  * @return              0 on success, -1 on error.
  */
-int buffer_add_u64(struct ssh_buffer_struct *buffer, uint64_t data){
-  if (buffer_add_data(buffer, &data, sizeof(data)) < 0) {
-    return -1;
-  }
+int buffer_add_u64(struct ssh_buffer_struct *buffer, uint64_t data)
+{
+    int rc;
 
-  return 0;
+    rc = ssh_buffer_add_data(buffer, &data, sizeof(data));
+    if (rc < 0) {
+        return -1;
+    }
+
+    return 0;
 }
 
 /**
@@ -297,12 +345,16 @@ int buffer_add_u64(struct ssh_buffer_struct *buffer, uint64_t data){
  *
  * @return              0 on success, -1 on error.
  */
-int buffer_add_u8(struct ssh_buffer_struct *buffer,uint8_t data){
-  if (buffer_add_data(buffer, &data, sizeof(uint8_t)) < 0) {
-    return -1;
-  }
+int buffer_add_u8(struct ssh_buffer_struct *buffer,uint8_t data)
+{
+    int rc;
 
-  return 0;
+    rc = ssh_buffer_add_data(buffer, &data, sizeof(uint8_t));
+    if (rc < 0) {
+        return -1;
+    }
+
+    return 0;
 }
 
 /**
@@ -360,12 +412,18 @@ int buffer_prepend_data(struct ssh_buffer_struct *buffer, const void *data,
  * @return              0 on success, -1 on error.
  */
 int buffer_add_buffer(struct ssh_buffer_struct *buffer,
-    struct ssh_buffer_struct *source) {
-  if (buffer_add_data(buffer, buffer_get_rest(source), buffer_get_rest_len(source)) < 0) {
-    return -1;
-  }
+    struct ssh_buffer_struct *source)
+{
+    int rc;
 
-  return 0;
+    rc = ssh_buffer_add_data(buffer,
+                             buffer_get_rest(source),
+                             buffer_get_rest_len(source));
+    if (rc < 0) {
+        return -1;
+    }
+
+    return 0;
 }
 
 /**
@@ -619,6 +677,318 @@ struct ssh_string_struct *buffer_get_mpint(struct ssh_buffer_struct *buffer) {
     return NULL;
   }
   return str;
+}
+
+/** @internal
+ * @brief Add multiple values in a buffer on a single function call
+ * @param[in] buffer    The buffer to add to
+ * @param[in] format    A format string of arguments.
+ * @param[in] ap        A va_list of arguments.
+ * @returns             SSH_OK on success
+ *                      SSH_ERROR on error
+ * @see ssh_buffer_add_format() for format list values.
+ */
+int ssh_buffer_pack_va(struct ssh_buffer_struct *buffer, const char *format, va_list ap){
+    int rc = SSH_ERROR;
+    const char *p;
+    union {
+        uint8_t byte;
+        uint16_t word;
+        uint32_t dword;
+        uint64_t qword;
+        ssh_string string;
+        void *data;
+    } o;
+    char *cstring;
+    bignum b;
+    size_t len;
+
+    for (p = format; *p != '\0'; p++) {
+        switch(*p) {
+        case 'b':
+            o.byte = (uint8_t)va_arg(ap, unsigned int);
+            rc = buffer_add_u8(buffer, o.byte);
+            break;
+        case 'w':
+            o.word = (uint16_t)va_arg(ap, unsigned int);
+            o.word = htons(o.word);
+            rc = buffer_add_u16(buffer, o.word);
+            break;
+        case 'd':
+            o.dword = va_arg(ap, uint32_t);
+            o.dword = htonl(o.dword);
+            rc = buffer_add_u32(buffer, o.dword);
+            break;
+        case 'q':
+            o.qword = va_arg(ap, uint64_t);
+            o.qword = htonll(o.qword);
+            rc = buffer_add_u64(buffer, o.qword);
+            break;
+        case 'S':
+            o.string = va_arg(ap, ssh_string);
+            rc = buffer_add_ssh_string(buffer, o.string);
+            o.string = NULL;
+            break;
+        case 's':
+            cstring = va_arg(ap, char *);
+            len = strlen(cstring);
+            rc = buffer_add_u32(buffer, htonl(len));
+            if (rc == SSH_OK){
+                rc = ssh_buffer_add_data(buffer, cstring, len);
+            }
+            cstring = NULL;
+            break;
+        case 'P':
+            len = va_arg(ap, size_t);
+            o.data = va_arg(ap, void *);
+            rc = ssh_buffer_add_data(buffer, o.data, len);
+            o.data = NULL;
+            break;
+        case 'B':
+            b = va_arg(ap, bignum);
+            o.string = make_bignum_string(b);
+            if(o.string == NULL){
+                rc = SSH_ERROR;
+                break;
+            }
+            rc = buffer_add_ssh_string(buffer, o.string);
+            SAFE_FREE(o.string);
+            break;
+        case 't':
+            cstring = va_arg(ap, char *);
+            len = strlen(cstring);
+            rc = ssh_buffer_add_data(buffer, cstring, len);
+            cstring = NULL;
+            break;
+        default:
+            SSH_LOG(SSH_LOG_WARN, "Invalid buffer format %c", *p);
+            rc = SSH_ERROR;
+        }
+        if (rc != SSH_OK){
+            break;
+        }
+    }
+
+    if (rc != SSH_ERROR){
+        /* verify that the last hidden argument is correct */
+        o.dword = va_arg(ap, uint32_t);
+        if (o.dword != SSH_BUFFER_PACK_END){
+            rc = SSH_ERROR;
+        }
+    }
+    return rc;
+}
+
+/** @internal
+ * @brief Add multiple values in a buffer on a single function call
+ * @param[in] buffer    The buffer to add to
+ * @param[in] format    A format string of arguments. This string contains single
+ *                      letters describing the order and type of arguments:
+ *                         'b': uint8_t  (pushed in network byte order)
+ *                         'w': uint16_t (pushed in network byte order)
+ *                         'd': uint32_t (pushed in network byte order)
+ *                         'q': uint64_t (pushed in network byte order)
+ *                         'S': ssh_string
+ *                         's': char * (C string, pushed as SSH string)
+ *                         't': char * (C string, pushed as free text)
+ *                         'P': size_t, void * (len of data, pointer to data)
+ *                              only pushes data.
+ *                         'B': bignum (pushed as SSH string)
+ * @returns             SSH_OK on success
+ *                      SSH_ERROR on error
+ * @warning             when using 'P' with a constant size (e.g. 8), do not
+ *                      forget to cast to (size_t).
+ */
+int _ssh_buffer_pack(struct ssh_buffer_struct *buffer, const char *format, ...){
+    va_list ap;
+    int rc;
+
+    va_start(ap, format);
+    rc = ssh_buffer_pack_va(buffer, format, ap);
+    va_end(ap);
+    return rc;
+}
+
+/** @internal
+ * @brief Get multiple values from a buffer on a single function call
+ * @param[in] buffer    The buffer to get from
+ * @param[in] format    A format string of arguments.
+ * @param[in] ap        A va_list of arguments.
+ * @returns             SSH_OK on success
+ *                      SSH_ERROR on error
+ * @see ssh_buffer_get_format() for format list values.
+ */
+int ssh_buffer_unpack_va(struct ssh_buffer_struct *buffer, const char *format, va_list ap){
+    int rc = SSH_ERROR;
+    const char *p, *last;
+    union {
+        uint8_t *byte;
+        uint16_t *word;
+        uint32_t *dword;
+        uint64_t *qword;
+        ssh_string *string;
+        char **cstring;
+        void **data;
+    } o;
+    size_t len, rlen;
+    uint32_t u32len;
+    va_list ap_copy;
+
+    /* copy the argument list in case a rollback is needed */
+    va_copy(ap_copy, ap);
+
+    for (p = format; *p != '\0'; p++) {
+        switch (*p) {
+        case 'b':
+            o.byte = va_arg(ap, uint8_t *);
+            rlen = buffer_get_u8(buffer, o.byte);
+            rc = rlen==1 ? SSH_OK : SSH_ERROR;
+            break;
+        case 'w':
+            o.word = va_arg(ap,  uint16_t *);
+            rlen = buffer_get_data(buffer, o.word, sizeof(uint16_t));
+            *o.word = ntohs(*o.word);
+            rc = rlen==2 ? SSH_OK : SSH_ERROR;
+            break;
+        case 'd':
+            o.dword = va_arg(ap, uint32_t *);
+            rlen = buffer_get_u32(buffer, o.dword);
+            *o.dword = ntohl(*o.dword);
+            rc = rlen==4 ? SSH_OK : SSH_ERROR;
+            break;
+        case 'q':
+            o.qword = va_arg(ap, uint64_t*);
+            rlen = buffer_get_u64(buffer, o.qword);
+            *o.qword = ntohll(*o.qword);
+            rc = rlen==8 ? SSH_OK : SSH_ERROR;
+            break;
+        case 'S':
+            o.string = va_arg(ap, ssh_string *);
+            *o.string = buffer_get_ssh_string(buffer);
+            rc = *o.string != NULL ? SSH_OK : SSH_ERROR;
+            o.string = NULL;
+            break;
+        case 's':
+            o.cstring = va_arg(ap, char **);
+            *o.cstring = NULL;
+            rc = buffer_get_u32(buffer, &u32len);
+            if (rc != 4){
+                rc = SSH_ERROR;
+                break;
+            }
+            len = ntohl(u32len);
+            if (len > UINT_MAX - 1){
+                rc = SSH_ERROR;
+                break;
+            }
+            *o.cstring = malloc(len + 1);
+            if (*o.cstring == NULL){
+                rc = SSH_ERROR;
+                break;
+            }
+            rlen = buffer_get_data(buffer, *o.cstring, len);
+            if (rlen != len){
+                SAFE_FREE(*o.cstring);
+                rc = SSH_ERROR;
+                break;
+            }
+            (*o.cstring)[len] = '\0';
+            o.cstring = NULL;
+            rc = SSH_OK;
+            break;
+        case 'P':
+            len = va_arg(ap, size_t);
+            o.data = va_arg(ap, void **);
+            *o.data = malloc(len);
+            if(*o.data == NULL){
+                rc = SSH_ERROR;
+                break;
+            }
+            rlen = buffer_get_data(buffer, *o.data, len);
+            if (rlen != len){
+                SAFE_FREE(*o.data);
+                rc = SSH_ERROR;
+                break;
+            }
+            o.data = NULL;
+            rc = SSH_OK;
+            break;
+        default:
+            SSH_LOG(SSH_LOG_WARN, "Invalid buffer format %c", *p);
+            rc = SSH_ERROR;
+        }
+        if (rc != SSH_OK) {
+            break;
+        }
+    }
+    if (rc != SSH_ERROR){
+        /* verify that the last hidden argument is correct */
+        uint32_t canary = va_arg(ap, uint32_t);
+        if (canary != SSH_BUFFER_PACK_END){
+            rc = SSH_ERROR;
+        }
+    }
+    if (rc != SSH_OK){
+        /* Reset the format string and erase everything that was allocated */
+        last = p;
+        for(p=format;p<last;++p){
+            switch(*p){
+            case 'b':
+            case 'w':
+            case 'd':
+            case 'q':
+                (void)va_arg(ap_copy, void *);
+                break;
+            case 'S':
+                o.string=va_arg(ap_copy, ssh_string *);
+                SAFE_FREE(*o.string);
+                break;
+            case 's':
+                o.cstring=va_arg(ap_copy, char **);
+                SAFE_FREE(*o.cstring);
+                break;
+            case 'P':
+                (void)va_arg(ap_copy, size_t);
+                o.data = va_arg(ap_copy, void **);
+                SAFE_FREE(*o.data);
+                break;
+            default:
+                (void)va_arg(ap_copy, void *);
+                break;
+            }
+        }
+    }
+    va_end(ap_copy);
+
+    return rc;
+}
+
+/** @internal
+ * @brief Get multiple values from a buffer on a single function call
+ * @param[in] buffer    The buffer to get from
+ * @param[in] format    A format string of arguments. This string contains single
+ *                      letters describing the order and type of arguments:
+ *                         'b': uint8_t *  (pulled in network byte order)
+ *                         'w': uint16_t * (pulled in network byte order)
+ *                         'd': uint32_t * (pulled in network byte order)
+ *                         'q': uint64_t * (pulled in network byte order)
+ *                         'S': ssh_string *
+ *                         's': char ** (C string, pulled as SSH string)
+ *                         'P': size_t, void ** (len of data, pointer to data)
+ *                              only pulls data.
+ * @returns             SSH_OK on success
+ *                      SSH_ERROR on error
+ * @warning             when using 'P' with a constant size (e.g. 8), do not
+ *                      forget to cast to (size_t).
+ */
+int _ssh_buffer_unpack(struct ssh_buffer_struct *buffer, const char *format, ...){
+    va_list ap;
+    int rc;
+
+    va_start(ap, format);
+    rc = ssh_buffer_unpack_va(buffer, format, ap);
+    va_end(ap);
+    return rc;
 }
 
 /** @} */

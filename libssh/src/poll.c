@@ -3,8 +3,8 @@
  *
  * This file is part of the SSH Library
  *
- * Copyright (c) 2009-2010 by Andreas Schneider <mail@cynapses.org>
- * Copyright (c) 2003-2009 by Aris Adamantiadis
+ * Copyright (c) 2009-2013 by Andreas Schneider <asn@cryptomilk.org>
+ * Copyright (c) 2003-2013 by Aris Adamantiadis
  * Copyright (c) 2009 Aleksandar Kanchev
  *
  * The SSH Library is free software; you can redistribute it and/or modify
@@ -64,6 +64,7 @@
 
 struct ssh_poll_handle_struct {
   ssh_poll_ctx ctx;
+  ssh_session session;
   union {
     socket_t fd;
     size_t idx;
@@ -472,14 +473,18 @@ static int ssh_poll_ctx_resize(ssh_poll_ctx ctx, size_t new_size) {
   if (pollptrs == NULL) {
     return -1;
   }
+  ctx->pollptrs = pollptrs;
 
   pollfds = realloc(ctx->pollfds, sizeof(ssh_pollfd_t) * new_size);
   if (pollfds == NULL) {
-    ctx->pollptrs = realloc(pollptrs, sizeof(ssh_poll_handle) * ctx->polls_allocated);
+    pollptrs = realloc(ctx->pollptrs, sizeof(ssh_poll_handle) * ctx->polls_allocated);
+    if (pollptrs == NULL) {
+        return -1;
+    }
+    ctx->pollptrs = pollptrs;
     return -1;
   }
 
-  ctx->pollptrs = pollptrs;
   ctx->pollfds = pollfds;
   ctx->polls_allocated = new_size;
 
@@ -786,6 +791,10 @@ int ssh_event_add_session(ssh_event event, ssh_session session) {
         p = session->default_poll_ctx->pollptrs[i];
         ssh_poll_ctx_remove(session->default_poll_ctx, p);
         ssh_poll_ctx_add(event->ctx, p);
+        /* associate the pollhandler with a session so we can put it back
+         * at ssh_event_free()
+         */
+        p->session = session;
     }
 #ifdef WITH_SERVER
     iterator = ssh_list_get_iterator(event->sessions);
@@ -848,12 +857,22 @@ int ssh_event_remove_fd(ssh_event event, socket_t fd) {
     for (i = 0; i < used; i++) {
         if(fd == event->ctx->pollfds[i].fd) {
             ssh_poll_handle p = event->ctx->pollptrs[i];
-            struct ssh_event_fd_wrapper *pw = p->cb_data;
+            if (p->session != NULL){
+            	/* we cannot free that handle, it's owned by its session */
+            	continue;
+            }
+            if (p->cb == ssh_event_fd_wrapper_callback) {
+                struct ssh_event_fd_wrapper *pw = p->cb_data;
+                SAFE_FREE(pw);
+            }
 
-            ssh_poll_ctx_remove(event->ctx, p);
-            free(pw);
+            /*
+             * The free function calls ssh_poll_ctx_remove() and decrements
+             * event->ctx->polls_used.
+             */
             ssh_poll_free(p);
             rc = SSH_OK;
+
             /* restart the loop */
             used = event->ctx->polls_used;
             i = 0;
@@ -876,7 +895,6 @@ int ssh_event_remove_session(ssh_event event, ssh_session session) {
     ssh_poll_handle p;
     register size_t i, used;
     int rc = SSH_ERROR;
-    socket_t session_fd;
 #ifdef WITH_SERVER
     struct ssh_iterator *iterator;
 #endif
@@ -885,14 +903,15 @@ int ssh_event_remove_session(ssh_event event, ssh_session session) {
         return SSH_ERROR;
     }
 
-    session_fd = ssh_get_fd(session);
     used = event->ctx->polls_used;
     for(i = 0; i < used; i++) {
-        if(session_fd == event->ctx->pollfds[i].fd) {
-            p = event->ctx->pollptrs[i];
+    	p = event->ctx->pollptrs[i];
+    	if(p->session == session){
             ssh_poll_ctx_remove(event->ctx, p);
+            p->session = NULL;
             ssh_poll_ctx_add(session->default_poll_ctx, p);
             rc = SSH_OK;
+            used = 0;
         }
     }
 #ifdef WITH_SERVER
@@ -919,10 +938,23 @@ int ssh_event_remove_session(ssh_event event, ssh_session session) {
  *
  */
 void ssh_event_free(ssh_event event) {
-    if(event == NULL) {
+	int used, i;
+	ssh_poll_handle p;
+	if(event == NULL) {
         return;
     }
     if(event->ctx != NULL) {
+        used = event->ctx->polls_used;
+        for(i = 0; i < used; i++) {
+        	p = event->ctx->pollptrs[i];
+        	if(p->session != NULL){
+                ssh_poll_ctx_remove(event->ctx, p);
+                ssh_poll_ctx_add(p->session->default_poll_ctx, p);
+                p->session = NULL;
+                used = 0;
+            }
+        }
+
         ssh_poll_ctx_free(event->ctx);
     }
 #ifdef WITH_SERVER

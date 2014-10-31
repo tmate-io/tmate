@@ -388,7 +388,7 @@ static ssh_buffer privatekey_string_to_buffer(const char *pkey, int type,
         }
     } else {
         if(len > 0) {
-            if (buffer_add_data(buffer, p, len) < 0) {
+            if (ssh_buffer_add_data(buffer, p, len) < 0) {
                 ssh_buffer_free(buffer);
                 SAFE_FREE(iv);
                 return NULL;
@@ -398,7 +398,7 @@ static ssh_buffer privatekey_string_to_buffer(const char *pkey, int type,
 
     get_next_line(p, len);
     while(len > 0 && strncmp(p, header_end, header_end_size) != 0) {
-        if (buffer_add_data(buffer, p, len) < 0) {
+        if (ssh_buffer_add_data(buffer, p, len) < 0) {
             ssh_buffer_free(buffer);
             SAFE_FREE(iv);
             return NULL;
@@ -412,7 +412,7 @@ static ssh_buffer privatekey_string_to_buffer(const char *pkey, int type,
         return NULL;
     }
 
-    if (buffer_add_data(buffer, "\0", 1) < 0) {
+    if (ssh_buffer_add_data(buffer, "\0", 1) < 0) {
         ssh_buffer_free(buffer);
         SAFE_FREE(iv);
         return NULL;
@@ -590,6 +590,19 @@ int pki_key_ecdsa_nid_from_name(const char *name)
     return -1;
 }
 #endif
+
+ssh_string pki_private_key_to_pem(const ssh_key key,
+                                  const char *passphrase,
+                                  ssh_auth_callback auth_fn,
+                                  void *auth_data)
+{
+    (void) key;
+    (void) passphrase;
+    (void) auth_fn;
+    (void) auth_data;
+
+    return NULL;
+}
 
 ssh_key pki_private_key_from_base64(const char *b64_key,
                                     const char *passphrase,
@@ -1141,7 +1154,7 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
     }
 
     rc = buffer_add_ssh_string(buffer, type_s);
-    string_free(type_s);
+    ssh_string_free(type_s);
     if (rc < 0) {
         ssh_buffer_free(buffer);
         return NULL;
@@ -1577,7 +1590,7 @@ ssh_signature pki_do_sign(const ssh_key privkey,
         return NULL;
     }
     sig->type = privkey->type;
-
+    sig->type_c = privkey->type_c;
     switch (privkey->type) {
         case SSH_KEYTYPE_DSS:
             /* That is to mark the number as positive */
@@ -1644,6 +1657,7 @@ ssh_signature pki_do_sign_sessionid(const ssh_key key,
         return NULL;
     }
     sig->type = key->type;
+    sig->type_c = key->type_c;
 
     switch(key->type) {
         case SSH_KEYTYPE_DSS:

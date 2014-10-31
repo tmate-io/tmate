@@ -6,7 +6,7 @@
 #  ARGP_LIBRARIES - Link these to use Argp
 #  ARGP_DEFINITIONS - Compiler switches required for using Argp
 #
-#  Copyright (c) 2010 Andreas Schneider <asn@cynapses.org>
+#  Copyright (c) 2010 Andreas Schneider <asn@cryptomilk.org>
 #
 #  Redistribution and use is allowed according to the terms of the New
 #  BSD license.

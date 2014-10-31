@@ -26,7 +26,9 @@
 #ifdef HAVE_LIBCRYPTO
 #ifdef HAVE_OPENSSL_ECDH_H
 
-#define HAVE_ECDH
+#ifdef HAVE_ECC
+#define HAVE_ECDH 1
+#endif
 
 #endif /* HAVE_OPENSSL_ECDH_H */
 #endif /* HAVE_LIBCRYPTO */

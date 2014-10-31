@@ -20,6 +20,7 @@ static void torture_channel_select(void **state)
     fd = open("/dev/null", 0);
     assert_true(fd > 2);
 
+    FD_ZERO(&readfds);
     FD_SET(fd, &readfds);
 
     for (i = 0; i < 10; i++) {

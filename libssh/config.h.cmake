@@ -20,8 +20,14 @@
 /* Define to 1 if you have the <pty.h> header file. */
 #cmakedefine HAVE_PTY_H 1
 
+/* Define to 1 if you have the <utmp.h> header file. */
+#cmakedefine HAVE_UTMP_H 1
+
 /* Define to 1 if you have the <util.h> header file. */
 #cmakedefine HAVE_UTIL_H 1
+
+/* Define to 1 if you have the <libutil.h> header file. */
+#cmakedefine HAVE_LIBUTIL_H 1
 
 /* Define to 1 if you have the <termios.h> header file. */
 #cmakedefine HAVE_TERMIOS_H 1

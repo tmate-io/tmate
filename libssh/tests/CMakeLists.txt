@@ -1,8 +1,8 @@
 project(tests C)
 
-if (BSD OR SOLARIS)
+if (BSD OR SOLARIS OR OSX)
     find_package(Argp)
-endif (BSD OR SOLARIS)
+endif (BSD OR SOLARIS OR OSX)
 
 set(TORTURE_LIBRARY torture)
 
@@ -38,6 +38,7 @@ set(TEST_TARGET_LIBRARIES
 )
 
 add_subdirectory(unittests)
+
 if (WITH_CLIENT_TESTING)
     add_subdirectory(client)
 endif (WITH_CLIENT_TESTING)
@@ -46,3 +47,6 @@ if (WITH_BENCHMARKS)
     add_subdirectory(benchmarks)
 endif (WITH_BENCHMARKS)
 
+if (WITH_SERVER)
+    add_subdirectory(pkd)
+endif (WITH_SERVER)

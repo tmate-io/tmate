@@ -4,7 +4,7 @@
  * This file is part of the SSH Library
  *
  * Copyright (c) 2003-2009 by Aris Adamantiadis
- * Copyright (c) 2008-2009 by Andreas Schneider <mail@cynapses.org>
+ * Copyright (c) 2008-2009 by Andreas Schneider <asn@cryptomilk.org>
  *
  * The SSH Library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -697,7 +697,6 @@ char *ssh_path_expand_tilde(const char *d) {
 }
 
 char *ssh_path_expand_escape(ssh_session session, const char *s) {
-#define MAX_BUF_SIZE 4096
     char host[NI_MAXHOST];
     char buf[MAX_BUF_SIZE];
     char *r, *x = NULL;

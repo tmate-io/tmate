@@ -6,7 +6,7 @@
 #  NACL_LIBRARIES - Link these to use NaCl
 #  NACL_DEFINITIONS - Compiler switches required for using NaCl
 #
-#  Copyright (c) 2010 Andreas Schneider <asn@cynapses.org>
+#  Copyright (c) 2010 Andreas Schneider <asn@cryptomilk.org>
 #  Copyright (c) 2013 Aris Adamantiadis <aris@badcode.be>
 #
 #  Redistribution and use is allowed according to the terms of the New

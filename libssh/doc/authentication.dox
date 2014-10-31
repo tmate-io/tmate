@@ -285,7 +285,7 @@ int authenticate_kbdint(ssh_session session)
 {
   int rc;
 
-  rc = ssh_userauth_none(session, NULL, NULL);
+  rc = ssh_userauth_none(session, NULL);
   return rc;
 }
 @endcode
@@ -304,7 +304,7 @@ int test_several_auth_methods(ssh_session session)
 {
   int method, rc;
 
-  rc = ssh_userauth_none(session, NULL, NULL);
+  rc = ssh_userauth_none(session, NULL);
   if (rc != SSH_AUTH_SUCCESS) {
       return rc;
   }

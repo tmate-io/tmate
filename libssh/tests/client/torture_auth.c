@@ -64,9 +64,10 @@ static void torture_auth_autopubkey(void **state) {
     if (rc == SSH_ERROR) {
         assert_true(ssh_get_error_code(session) == SSH_REQUEST_DENIED);
     }
-    assert_true(ssh_auth_list(session) & SSH_AUTH_METHOD_PUBLICKEY);
+    rc = ssh_userauth_list(session, NULL);
+    assert_true(rc & SSH_AUTH_METHOD_PUBLICKEY);
 
-    rc = ssh_userauth_autopubkey(session, NULL);
+    rc = ssh_userauth_publickey_auto(session, NULL, NULL);
     assert_true(rc == SSH_AUTH_SUCCESS);
 }
 
@@ -87,16 +88,21 @@ static void torture_auth_autopubkey_nonblocking(void **state) {
     rc = ssh_connect(session);
     assert_true(rc == SSH_OK);
 
-    rc = ssh_userauth_none(session,NULL);
+    ssh_set_blocking(session,0);
+    do {
+      rc = ssh_userauth_none(session, NULL);
+    } while (rc == SSH_AUTH_AGAIN);
+
     /* This request should return a SSH_REQUEST_DENIED error */
     if (rc == SSH_ERROR) {
         assert_true(ssh_get_error_code(session) == SSH_REQUEST_DENIED);
     }
-    assert_true(ssh_auth_list(session) & SSH_AUTH_METHOD_PUBLICKEY);
 
-    ssh_set_blocking(session, 0);
+    rc = ssh_userauth_list(session, NULL);
+    assert_true(rc & SSH_AUTH_METHOD_PUBLICKEY);
+
     do {
-        rc = ssh_userauth_autopubkey(session, NULL);
+        rc = ssh_userauth_publickey_auto(session, NULL, NULL);
     } while (rc == SSH_AUTH_AGAIN);
     assert_true(rc == SSH_AUTH_SUCCESS);
 }
@@ -130,7 +136,8 @@ static void torture_auth_kbdint(void **state) {
     if (rc == SSH_ERROR) {
         assert_true(ssh_get_error_code(session) == SSH_REQUEST_DENIED);
     }
-    assert_true(ssh_auth_list(session) & SSH_AUTH_METHOD_INTERACTIVE);
+    rc = ssh_userauth_list(session, NULL);
+    assert_true(rc & SSH_AUTH_METHOD_INTERACTIVE);
 
     rc = ssh_userauth_kbdint(session, NULL, NULL);
     assert_true(rc == SSH_AUTH_INFO);
@@ -172,13 +179,18 @@ static void torture_auth_kbdint_nonblocking(void **state) {
     rc = ssh_connect(session);
     assert_true(rc == SSH_OK);
 
-    rc = ssh_userauth_none(session,NULL);
+    ssh_set_blocking(session,0);
+    do {
+      rc = ssh_userauth_none(session, NULL);
+    } while (rc == SSH_AUTH_AGAIN);
+
     /* This request should return a SSH_REQUEST_DENIED error */
     if (rc == SSH_ERROR) {
         assert_true(ssh_get_error_code(session) == SSH_REQUEST_DENIED);
     }
-    assert_true(ssh_auth_list(session) & SSH_AUTH_METHOD_INTERACTIVE);
-    ssh_set_blocking(session,0);
+    rc = ssh_userauth_list(session, NULL);
+    assert_true(rc & SSH_AUTH_METHOD_INTERACTIVE);
+
     do {
         rc = ssh_userauth_kbdint(session, NULL, NULL);
     } while (rc == SSH_AUTH_AGAIN);
@@ -231,7 +243,8 @@ static void torture_auth_password(void **state) {
     if (rc == SSH_AUTH_ERROR) {
         assert_true(ssh_get_error_code(session) == SSH_REQUEST_DENIED);
     }
-    assert_true(ssh_auth_list(session) & SSH_AUTH_METHOD_PASSWORD);
+    rc = ssh_userauth_list(session, NULL);
+    assert_true(rc & SSH_AUTH_METHOD_PASSWORD);
 
     rc = ssh_userauth_password(session, NULL, password);
     assert_true(rc == SSH_AUTH_SUCCESS);
@@ -260,17 +273,19 @@ static void torture_auth_password_nonblocking(void **state) {
 
     rc = ssh_connect(session);
     assert_true(rc == SSH_OK);
-    ssh_set_blocking(session,0);
 
+    ssh_set_blocking(session,0);
     do {
       rc = ssh_userauth_none(session, NULL);
-    } while (rc==SSH_AUTH_AGAIN);
+    } while (rc == SSH_AUTH_AGAIN);
 
     /* This request should return a SSH_REQUEST_DENIED error */
     if (rc == SSH_AUTH_ERROR) {
         assert_true(ssh_get_error_code(session) == SSH_REQUEST_DENIED);
     }
-    assert_true(ssh_auth_list(session) & SSH_AUTH_METHOD_PASSWORD);
+
+    rc = ssh_userauth_list(session, NULL);
+    assert_true(rc & SSH_AUTH_METHOD_PASSWORD);
 
     do {
       rc = ssh_userauth_password(session, NULL, password);
@@ -290,7 +305,7 @@ static void torture_auth_agent(void **state) {
         return;
     }
     if (!agent_is_running(session)){
-        print_message("*** Agent not running. Test ignored");
+        print_message("*** Agent not running. Test ignored\n");
         return;
     }
     rc = ssh_options_set(session, SSH_OPTIONS_USER, user);
@@ -304,7 +319,8 @@ static void torture_auth_agent(void **state) {
     if (rc == SSH_ERROR) {
         assert_true(ssh_get_error_code(session) == SSH_REQUEST_DENIED);
     }
-    assert_true(ssh_auth_list(session) & SSH_AUTH_METHOD_PUBLICKEY);
+    rc = ssh_userauth_list(session, NULL);
+    assert_true(rc & SSH_AUTH_METHOD_PUBLICKEY);
 
     rc = ssh_userauth_agent(session, NULL);
     assert_true(rc == SSH_AUTH_SUCCESS);
@@ -321,7 +337,7 @@ static void torture_auth_agent_nonblocking(void **state) {
         return;
     }
     if (!agent_is_running(session)){
-        print_message("*** Agent not running. Test ignored");
+        print_message("*** Agent not running. Test ignored\n");
         return;
     }
     rc = ssh_options_set(session, SSH_OPTIONS_USER, user);
@@ -335,12 +351,72 @@ static void torture_auth_agent_nonblocking(void **state) {
     if (rc == SSH_ERROR) {
         assert_true(ssh_get_error_code(session) == SSH_REQUEST_DENIED);
     }
-    assert_true(ssh_auth_list(session) & SSH_AUTH_METHOD_PUBLICKEY);
-    ssh_set_blocking(session, 0);
+    rc = ssh_userauth_list(session, NULL);
+    assert_true(rc & SSH_AUTH_METHOD_PUBLICKEY);
+
+    ssh_set_blocking(session,0);
+
     do {
       rc = ssh_userauth_agent(session, NULL);
     } while (rc == SSH_AUTH_AGAIN);
     assert_true(rc == SSH_AUTH_SUCCESS);
+}
+
+
+static void torture_auth_none(void **state) {
+    ssh_session session = *state;
+    char *user = getenv("TORTURE_USER");
+    int rc;
+
+    if (user == NULL) {
+        print_message("*** Please set the environment variable TORTURE_USER"
+                      " to enable this test!!\n");
+        return;
+    }
+    rc = ssh_options_set(session, SSH_OPTIONS_USER, user);
+    assert_true(rc == SSH_OK);
+
+    rc = ssh_connect(session);
+    assert_true(rc == SSH_OK);
+
+    rc = ssh_userauth_none(session,NULL);
+
+    assert_true(rc == SSH_AUTH_DENIED);
+    /* This request should return a SSH_REQUEST_DENIED error */
+    if (rc == SSH_ERROR) {
+        assert_true(ssh_get_error_code(session) == SSH_REQUEST_DENIED);
+    }
+}
+
+static void torture_auth_none_nonblocking(void **state) {
+    ssh_session session = *state;
+    char *user = getenv("TORTURE_USER");
+    int rc;
+
+    if (user == NULL) {
+        print_message("*** Please set the environment variable TORTURE_USER"
+                      " to enable this test!!\n");
+        return;
+    }
+    rc = ssh_options_set(session, SSH_OPTIONS_USER, user);
+    assert_true(rc == SSH_OK);
+
+    rc = ssh_connect(session);
+    assert_true(rc == SSH_OK);
+
+    /* This request should return a SSH_REQUEST_DENIED error */
+    if (rc == SSH_ERROR) {
+        assert_true(ssh_get_error_code(session) == SSH_REQUEST_DENIED);
+    }
+
+    ssh_set_blocking(session,0);
+
+    do {
+        rc = ssh_userauth_none(session,NULL);
+    } while (rc == SSH_AUTH_AGAIN);
+    assert_true(rc == SSH_AUTH_DENIED);
+    assert_true(ssh_get_error_code(session) == SSH_REQUEST_DENIED);
+
 }
 
 int torture_run_tests(void) {
@@ -354,6 +430,8 @@ int torture_run_tests(void) {
         unit_test_setup_teardown(torture_auth_autopubkey_nonblocking, setup, teardown),
         unit_test_setup_teardown(torture_auth_agent, setup, teardown),
         unit_test_setup_teardown(torture_auth_agent_nonblocking, setup, teardown),
+        unit_test_setup_teardown(torture_auth_none, setup, teardown),
+        unit_test_setup_teardown(torture_auth_none_nonblocking, setup, teardown),
     };
 
     ssh_init();

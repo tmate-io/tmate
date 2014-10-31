@@ -7,8 +7,8 @@ cmake_minimum_required(VERSION 2.6.0)
 set(APPLICATION_NAME ${PROJECT_NAME})
 
 set(APPLICATION_VERSION_MAJOR "0")
-set(APPLICATION_VERSION_MINOR "5")
-set(APPLICATION_VERSION_PATCH "90")
+set(APPLICATION_VERSION_MINOR "7")
+set(APPLICATION_VERSION_PATCH "0")
 
 set(APPLICATION_VERSION "${APPLICATION_VERSION_MAJOR}.${APPLICATION_VERSION_MINOR}.${APPLICATION_VERSION_PATCH}")
 
@@ -38,10 +38,6 @@ include(CPackConfig.cmake)
 # disallow in-source build
 include(MacroEnsureOutOfSourceBuild)
 macro_ensure_out_of_source_build("${PROJECT_NAME} requires an out of source build. Please create a separate build directory and run 'cmake /path/to/${PROJECT_NAME} [options]' there.")
-
-# add macros
-include(MacroAddPlugin)
-include(MacroCopyFile)
 
 # search for libraries
 if (WITH_ZLIB)
@@ -101,17 +97,21 @@ install(
 )
 
 # cmake config files
-configure_file(libssh-config.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/libssh-config.cmake @ONLY)
-configure_file(libssh-config-version.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/libssh-config-version.cmake @ONLY)
+set(LIBSSH_LIBRARY_NAME @CMAKE_SHARED_LIBRARY_PREFIX@ssh@CMAKE_SHARED_LIBRARY_SUFFIX@)
+set(LIBSSH_THREADS_LIBRARY_NAME @CMAKE_SHARED_LIBRARY_PREFIX@ssh@CMAKE_SHARED_LIBRARY_SUFFIX@)
+
+configure_file(${PROJECT_NAME}-config.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake @ONLY)
+configure_file(${PROJECT_NAME}-config-version.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake @ONLY)
 install(
     FILES
-        ${CMAKE_CURRENT_BINARY_DIR}/libssh-config.cmake
-        ${CMAKE_CURRENT_BINARY_DIR}/libssh-config-version.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
     DESTINATION
-        ${CMAKE_INSTALL_DIR}
+        ${CMAKE_INSTALL_DIR}/${PROJECT_NAME}
     COMPONENT
         devel
 )
+
 
 # in tree build settings
 configure_file(libssh-build-tree-settings.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/libssh-build-tree-settings.cmake @ONLY)

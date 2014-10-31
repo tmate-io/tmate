@@ -163,7 +163,7 @@ int channel_change_pty_size(ssh_channel channel,int cols,int rows){
 }
 
 ssh_channel channel_forward_accept(ssh_session session, int timeout_ms){
-  return ssh_forward_accept(session,timeout_ms);
+  return ssh_channel_accept_forward(session, timeout_ms, NULL);
 }
 
 int channel_close(ssh_channel channel){
@@ -171,12 +171,12 @@ int channel_close(ssh_channel channel){
 }
 
 int channel_forward_cancel(ssh_session session, const char *address, int port){
-  return ssh_forward_cancel(session, address, port);
+  return ssh_channel_cancel_forward(session, address, port);
 }
 
 int channel_forward_listen(ssh_session session, const char *address,
     int port, int *bound_port){
-  return ssh_forward_listen(session, address, port, bound_port);
+  return ssh_channel_listen_forward(session, address, port, bound_port);
 }
 
 void channel_free(ssh_channel channel){
@@ -580,7 +580,7 @@ int ssh_publickey_to_file(ssh_session session,
         ssh_set_error(session, SSH_FATAL, "Invalid parameters");
         return SSH_ERROR;
     }
-    pubkey_64 = bin_to_base64(string_data(pubkey), ssh_string_len(pubkey));
+    pubkey_64 = bin_to_base64(ssh_string_data(pubkey), ssh_string_len(pubkey));
     if (pubkey_64 == NULL) {
         return SSH_ERROR;
     }

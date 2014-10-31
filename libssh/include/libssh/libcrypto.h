@@ -36,6 +36,8 @@
 
 typedef SHA_CTX* SHACTX;
 typedef SHA256_CTX* SHA256CTX;
+typedef SHA512_CTX* SHA384CTX;
+typedef SHA512_CTX* SHA512CTX;
 typedef MD5_CTX*  MD5CTX;
 typedef HMAC_CTX* HMACCTX;
 #ifdef HAVE_ECC
@@ -45,6 +47,9 @@ typedef void *EVPCTX;
 #endif
 
 #define SHA_DIGEST_LEN SHA_DIGEST_LENGTH
+#define SHA256_DIGEST_LEN SHA256_DIGEST_LENGTH
+#define SHA384_DIGEST_LEN SHA384_DIGEST_LENGTH
+#define SHA512_DIGEST_LEN SHA512_DIGEST_LENGTH
 #ifdef MD5_DIGEST_LEN
     #undef MD5_DIGEST_LEN
 #endif
@@ -83,6 +88,14 @@ typedef BN_CTX* bignum_CTX;
 SHA256CTX sha256_init(void);
 void sha256_update(SHA256CTX c, const void *data, unsigned long len);
 void sha256_final(unsigned char *md, SHA256CTX c);
+
+SHA384CTX sha384_init(void);
+void sha384_update(SHA384CTX c, const void *data, unsigned long len);
+void sha384_final(unsigned char *md, SHA384CTX c);
+
+SHA512CTX sha512_init(void);
+void sha512_update(SHA512CTX c, const void *data, unsigned long len);
+void sha512_final(unsigned char *md, SHA512CTX c);
 
 struct ssh_cipher_struct *ssh_get_ciphertab(void);
 

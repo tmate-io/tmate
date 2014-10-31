@@ -3,7 +3,7 @@
  *
  * This file is part of the SSH Library
  *
- * Copyright (c) 2008      by Aris Adamantiadis
+ * Copyright (c) 2008-2013   by Aris Adamantiadis
  *
  * The SSH Library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -215,6 +215,10 @@ ssh_logging_callback ssh_get_log_callback(void) {
  */
 void *ssh_get_log_userdata(void)
 {
+    if (ssh_log_userdata == NULL) {
+        return NULL;
+    }
+
     return ssh_log_userdata;
 }
 

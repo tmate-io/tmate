@@ -106,7 +106,7 @@ int ssh_packet_socket_callback1(const void *data, size_t receivedlen, void *user
   size_t processed=0;
   uint32_t padding;
   uint32_t crc;
-  uint32_t len;
+  uint32_t len, buffer_len;
   ssh_session session=(ssh_session)user;
 
   switch (session->packet_state){
@@ -114,7 +114,7 @@ int ssh_packet_socket_callback1(const void *data, size_t receivedlen, void *user
       memset(&session->in_packet, 0, sizeof(PACKET));
 
       if (session->in_buffer) {
-        if (buffer_reinit(session->in_buffer) < 0) {
+        if (ssh_buffer_reinit(session->in_buffer) < 0) {
           goto error;
         }
       } else {
@@ -155,7 +155,7 @@ int ssh_packet_socket_callback1(const void *data, size_t receivedlen, void *user
       /* it is _not_ possible that to_be_read be < 8. */
       packet = (char *)data + processed;
 
-      if (buffer_add_data(session->in_buffer,packet,to_be_read) < 0) {
+      if (ssh_buffer_add_data(session->in_buffer,packet,to_be_read) < 0) {
         goto error;
       }
       processed += to_be_read;
@@ -168,11 +168,16 @@ int ssh_packet_socket_callback1(const void *data, size_t receivedlen, void *user
          * We decrypt everything, missing the lenght part (which was
          * previously read, unencrypted, and is not part of the buffer
          */
-        if (packet_decrypt(session,
-              ssh_buffer_get_begin(session->in_buffer),
-              ssh_buffer_get_len(session->in_buffer)) < 0) {
-          ssh_set_error(session, SSH_FATAL, "Packet decrypt error");
-          goto error;
+        buffer_len = ssh_buffer_get_len(session->in_buffer);
+        if (buffer_len > 0) {
+          int rc;
+          rc = packet_decrypt(session,
+                 ssh_buffer_get_begin(session->in_buffer),
+                 buffer_len);
+          if (rc < 0) {
+            ssh_set_error(session, SSH_FATAL, "Packet decrypt error");
+            goto error;
+          }
         }
       }
 #ifdef DEBUG_CRYPTO
@@ -236,7 +241,7 @@ int ssh_packet_socket_callback1(const void *data, size_t receivedlen, void *user
 
       return processed;
     case PACKET_STATE_PROCESSING:
-      SSH_LOG(SSH_LOG_RARE, "Nested packet processing. Delaying.");
+      SSH_LOG(SSH_LOG_PACKET, "Nested packet processing. Delaying.");
       return 0;
   }
 
@@ -300,6 +305,8 @@ int packet_send1(ssh_session session) {
       ssh_buffer_get_len(session->out_buffer));
 #endif
 
+  /* session->out_buffer should have more than sizeof(uint32_t) bytes
+     in it as required for packet_encrypt */
   packet_encrypt(session, (unsigned char *)ssh_buffer_get_begin(session->out_buffer) + sizeof(uint32_t),
       ssh_buffer_get_len(session->out_buffer) - sizeof(uint32_t));
 
@@ -315,7 +322,7 @@ int packet_send1(ssh_session session) {
 
   session->send_seq++;
 
-  if (buffer_reinit(session->out_buffer) < 0) {
+  if (ssh_buffer_reinit(session->out_buffer) < 0) {
     rc = SSH_ERROR;
   }
 error:

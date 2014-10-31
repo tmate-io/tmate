@@ -235,10 +235,11 @@ struct ssh_string_struct *ssh_string_copy(struct ssh_string_struct *s) {
  * @param[in] s         The string to burn.
  */
 void ssh_string_burn(struct ssh_string_struct *s) {
-  if (s == NULL) {
-    return;
-  }
-  memset(s->data, 'X', ssh_string_len(s));
+    if (s == NULL || s->size == 0) {
+        return;
+    }
+
+    BURN_BUFFER(s->data, ssh_string_len(s));
 }
 
 /**

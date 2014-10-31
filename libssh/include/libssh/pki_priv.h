@@ -34,12 +34,15 @@ void _ssh_pki_log(const char *function,
                   const char *format, ...) PRINTF_ATTRIBUTE(2, 3);
 
 int pki_key_ecdsa_nid_from_name(const char *name);
+const char *pki_key_ecdsa_nid_to_name(int nid);
 
 /* SSH Key Functions */
 ssh_key pki_key_dup(const ssh_key key, int demote);
 int pki_key_generate_rsa(ssh_key key, int parameter);
 int pki_key_generate_dss(ssh_key key, int parameter);
 int pki_key_generate_ecdsa(ssh_key key, int parameter);
+int pki_key_generate_ed25519(ssh_key key);
+
 int pki_key_compare(const ssh_key k1,
                     const ssh_key k2,
                     enum ssh_keycmp_e what);
@@ -50,6 +53,11 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
                                     const char *passphrase,
                                     ssh_auth_callback auth_fn,
                                     void *auth_data);
+
+ssh_string pki_private_key_to_pem(const ssh_key key,
+                                  const char *passphrase,
+                                  ssh_auth_callback auth_fn,
+                                  void *auth_data);
 
 /* SSH Public Key Functions */
 int pki_pubkey_build_dss(ssh_key key,
@@ -85,4 +93,16 @@ ssh_signature pki_do_sign(const ssh_key privkey,
 ssh_signature pki_do_sign_sessionid(const ssh_key key,
                                     const unsigned char *hash,
                                     size_t hlen);
+int pki_ed25519_sign(const ssh_key privkey, ssh_signature sig,
+		const unsigned char *hash, size_t hlen);
+int pki_ed25519_verify(const ssh_key pubkey, ssh_signature sig,
+		const unsigned char *hash, size_t hlen);
+int pki_ed25519_key_cmp(const ssh_key k1,
+                const ssh_key k2,
+                enum ssh_keycmp_e what);
+int pki_ed25519_key_dup(ssh_key new, const ssh_key key);
+int pki_ed25519_public_key_to_blob(ssh_buffer buffer, ssh_key key);
+ssh_string pki_ed25519_sig_to_blob(ssh_signature sig);
+int pki_ed25519_sig_from_blob(ssh_signature sig, ssh_string sig_blob);
+
 #endif /* PKI_PRIV_H_ */

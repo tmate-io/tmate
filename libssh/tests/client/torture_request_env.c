@@ -61,7 +61,7 @@ static void torture_request_env(void **state)
 {
     ssh_session session = *state;
     ssh_channel c;
-    char buffer[4096];
+    char buffer[4096] = {0};
     int nbytes;
     int rc;
     int lang_found = 0;
@@ -72,20 +72,20 @@ static void torture_request_env(void **state)
     rc = ssh_channel_open_session(c);
     assert_int_equal(rc, SSH_OK);
 
-    rc = ssh_channel_request_env(c, "LANG", "LIBSSH");
+    rc = ssh_channel_request_env(c, "LC_LIBSSH", "LIBSSH");
     assert_int_equal(rc, SSH_OK);
 
     rc = ssh_channel_request_exec(c, "bash -c export");
     assert_int_equal(rc, SSH_OK);
 
-    nbytes = ssh_channel_read(c, buffer, sizeof(buffer), 0);
+    nbytes = ssh_channel_read(c, buffer, sizeof(buffer) - 1, 0);
     while (nbytes > 0) {
 #if 0
         rc = fwrite(buffer, 1, nbytes, stdout);
         assert_int_equal(rc, nbytes);
 #endif
-
-        if (strstr(buffer, "LANG=\"LIBSSH\"")) {
+        buffer[nbytes]='\0';
+        if (strstr(buffer, "LC_LIBSSH=\"LIBSSH\"")) {
             lang_found = 1;
             break;
         }

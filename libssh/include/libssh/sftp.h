@@ -143,10 +143,10 @@ struct sftp_request_queue_struct {
 
 /* SSH_FXP_MESSAGE described into .7 page 26 */
 struct sftp_status_message_struct {
-		uint32_t id;
-		uint32_t status;
-    ssh_string error;
-    ssh_string lang;
+    uint32_t id;
+	uint32_t status;
+    ssh_string error_unused; /* not used anymore */
+    ssh_string lang_unused;  /* not used anymore */
     char *errormsg;
     char *langmsg;
 };

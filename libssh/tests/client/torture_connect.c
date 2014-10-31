@@ -24,6 +24,7 @@
 #include "torture.h"
 #include <libssh/libssh.h>
 #include <sys/time.h>
+#include <arpa/inet.h>
 
 #define HOST "localhost"
 /* Should work until Apnic decides to assign it :) */
@@ -54,12 +55,11 @@ static void torture_connect_nonblocking(void **state) {
     ssh_set_blocking(session,0);
 
     do {
-    	rc = ssh_connect(session);
-    	assert_true(rc != SSH_ERROR);
+        rc = ssh_connect(session);
+        assert_true(rc != SSH_ERROR);
     } while(rc == SSH_AGAIN);
 
-    assert_true(rc==SSH_OK);
-
+    assert_true(rc == SSH_OK);
 }
 
 static void torture_connect_timeout(void **state) {
@@ -84,9 +84,9 @@ static void torture_connect_timeout(void **state) {
     sec = after.tv_sec - before.tv_sec;
     usec = after.tv_usec - before.tv_usec;
     /* Borrow a second for the missing usecs, but don't bother calculating */
-    if(usec < 0)
+    if (usec < 0)
       sec--;
-    assert_in_range(sec,1,3);
+    assert_in_range(sec, 1, 3);
 }
 
 static void torture_connect_double(void **state) {
@@ -102,10 +102,9 @@ static void torture_connect_double(void **state) {
 
     rc = ssh_connect(session);
     assert_true(rc == SSH_OK);
-
 }
 
-static void torture_connect_failure(void **state){
+static void torture_connect_failure(void **state) {
     /*
      * The intent of this test is to check that a fresh
      * ssh_new/ssh_disconnect/ssh_free sequence doesn't crash/leak
@@ -114,6 +113,30 @@ static void torture_connect_failure(void **state){
     ssh_session session = *state;
     ssh_disconnect(session);
 }
+
+static void torture_connect_socket(void **state) {
+    ssh_session session = *state;
+
+    int rc;
+    int sock_fd = 0;
+    struct sockaddr_in server_addr;
+
+    sock_fd = socket(AF_INET, SOCK_STREAM, 0);
+    assert_true(sock_fd > 0);
+
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(22);
+    server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+    rc = connect(sock_fd, (struct sockaddr *)&server_addr, sizeof(server_addr));
+    assert_true(rc == 0);
+
+    ssh_options_set(session, SSH_OPTIONS_FD, &sock_fd);
+
+    rc = ssh_connect(session);
+    assert_true(rc == SSH_OK);
+}
+
 int torture_run_tests(void) {
     int rc;
     const UnitTest tests[] = {
@@ -121,6 +144,7 @@ int torture_run_tests(void) {
         unit_test_setup_teardown(torture_connect_double, setup, teardown),
         unit_test_setup_teardown(torture_connect_failure, setup, teardown),
         unit_test_setup_teardown(torture_connect_timeout, setup, teardown),
+        unit_test_setup_teardown(torture_connect_socket, setup, teardown),
     };
 
     ssh_init();

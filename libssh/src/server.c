@@ -3,7 +3,7 @@
  *
  * This file is part of the SSH Library
  *
- * Copyright (c) 2004-2005 by Aris Adamantiadis
+ * Copyright (c) 2004-2013 by Aris Adamantiadis
  *
  * The SSH Library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -174,6 +174,15 @@ SSH_PACKET_CALLBACK(ssh_packet_kexdh_init){
     SSH_LOG(SSH_LOG_RARE,"Invalid state for SSH_MSG_KEXDH_INIT");
     goto error;
   }
+
+  /* If first_kex_packet_follows guess was wrong, ignore this message. */
+  if (session->first_kex_follows_guess_wrong != 0) {
+    SSH_LOG(SSH_LOG_RARE, "first_kex_packet_follows guess was wrong, "
+                          "ignoring first SSH_MSG_KEXDH_INIT message");
+    session->first_kex_follows_guess_wrong = 0;
+    goto error;
+  }
+
   switch(session->next_crypto->kex_type){
       case SSH_KEX_DH_GROUP1_SHA1:
       case SSH_KEX_DH_GROUP14_SHA1:
@@ -217,6 +226,7 @@ int ssh_get_key_params(ssh_session session, ssh_key *privkey){
         *privkey = session->srv.ecdsa_key;
         break;
       case SSH_KEYTYPE_UNKNOWN:
+      default:
         *privkey = NULL;
     }
 
@@ -241,9 +251,9 @@ int ssh_get_key_params(ssh_session session, ssh_key *privkey){
 
 static int dh_handshake_server(ssh_session session) {
   ssh_key privkey;
-  //ssh_string pubkey_blob = NULL;
   ssh_string sig_blob;
   ssh_string f;
+  int rc;
 
   if (dh_generate_y(session) < 0) {
     ssh_set_error(session, SSH_FATAL, "Could not create y number");
@@ -284,25 +294,26 @@ static int dh_handshake_server(ssh_session session) {
     return -1;
   }
 
-  if (buffer_add_u8(session->out_buffer, SSH2_MSG_KEXDH_REPLY) < 0 ||
-      buffer_add_ssh_string(session->out_buffer,
-              session->next_crypto->server_pubkey) < 0 ||
-      buffer_add_ssh_string(session->out_buffer, f) < 0 ||
-      buffer_add_ssh_string(session->out_buffer, sig_blob) < 0) {
-    ssh_set_error(session, SSH_FATAL, "Not enough space");
-    buffer_reinit(session->out_buffer);
-    ssh_string_free(f);
-    ssh_string_free(sig_blob);
-    return -1;
-  }
+  rc = ssh_buffer_pack(session->out_buffer,
+                       "bSSS",
+                       SSH2_MSG_KEXDH_REPLY,
+                       session->next_crypto->server_pubkey,
+                       f,
+                       sig_blob);
   ssh_string_free(f);
   ssh_string_free(sig_blob);
+  if(rc != SSH_OK){
+    ssh_set_error_oom(session);
+    ssh_buffer_reinit(session->out_buffer);
+    return -1;
+  }
+
   if (packet_send(session) == SSH_ERROR) {
     return -1;
   }
 
   if (buffer_add_u8(session->out_buffer, SSH2_MSG_NEWKEYS) < 0) {
-    buffer_reinit(session->out_buffer);
+    ssh_buffer_reinit(session->out_buffer);
     return -1;
   }
 
@@ -581,12 +592,8 @@ int ssh_handle_key_exchange(ssh_session session) {
  */
 int ssh_auth_reply_default(ssh_session session,int partial) {
   char methods_c[128] = {0};
-  ssh_string methods = NULL;
   int rc = SSH_ERROR;
 
-  if (buffer_add_u8(session->out_buffer, SSH2_MSG_USERAUTH_FAILURE) < 0) {
-    return rc;
-  }
 
   if (session->auth_methods == 0) {
     session->auth_methods = SSH_AUTH_METHOD_PUBLICKEY | SSH_AUTH_METHOD_PASSWORD;
@@ -622,63 +629,43 @@ int ssh_auth_reply_default(ssh_session session,int partial) {
   SSH_LOG(SSH_LOG_PACKET,
       "Sending a auth failure. methods that can continue: %s", methods_c);
 
-  methods = ssh_string_from_char(methods_c);
-  if (methods == NULL) {
-    goto error;
+  rc = ssh_buffer_pack(session->out_buffer,
+                       "bsb",
+                       SSH2_MSG_USERAUTH_FAILURE,
+                       methods_c,
+                       partial ? 1 : 0);
+  if (rc != SSH_OK){
+      ssh_set_error_oom(session);
+      return SSH_ERROR;
   }
-
-  if (buffer_add_ssh_string(session->out_buffer, methods) < 0) {
-    goto error;
-  }
-
-  if (partial) {
-    if (buffer_add_u8(session->out_buffer, 1) < 0) {
-      goto error;
-    }
-  } else {
-    if (buffer_add_u8(session->out_buffer, 0) < 0) {
-      goto error;
-    }
-  }
-
   rc = packet_send(session);
-error:
-  ssh_string_free(methods);
-
   return rc;
 }
 
 static int ssh_message_channel_request_open_reply_default(ssh_message msg) {
-  SSH_LOG(SSH_LOG_FUNCTIONS, "Refusing a channel");
+    int rc;
 
-  if (buffer_add_u8(msg->session->out_buffer
-        , SSH2_MSG_CHANNEL_OPEN_FAILURE) < 0) {
-    goto error;
-  }
-  if (buffer_add_u32(msg->session->out_buffer,
-        htonl(msg->channel_request_open.sender)) < 0) {
-    goto error;
-  }
-  if (buffer_add_u32(msg->session->out_buffer,
-        htonl(SSH2_OPEN_ADMINISTRATIVELY_PROHIBITED)) < 0) {
-    goto error;
-  }
-  /* reason is an empty string */
-  if (buffer_add_u32(msg->session->out_buffer, 0) < 0) {
-    goto error;
-  }
-  /* language too */
-  if (buffer_add_u32(msg->session->out_buffer, 0) < 0) {
-    goto error;
-  }
+    SSH_LOG(SSH_LOG_FUNCTIONS, "Refusing a channel");
 
-  return packet_send(msg->session);
-error:
-  return SSH_ERROR;
+    rc = ssh_buffer_pack(msg->session->out_buffer,
+                         "bdddd",
+                         SSH2_MSG_CHANNEL_OPEN_FAILURE,
+                         msg->channel_request_open.sender,
+                         SSH2_OPEN_ADMINISTRATIVELY_PROHIBITED,
+                         0,    /* reason is empty string */
+                         0);   /* language string */
+    if (rc != SSH_OK){
+        ssh_set_error_oom(msg->session);
+        return SSH_ERROR;
+    }
+
+    rc = packet_send(msg->session);
+    return rc;
 }
 
 static int ssh_message_channel_request_reply_default(ssh_message msg) {
   uint32_t channel;
+  int rc;
 
   if (msg->channel_request.want_reply) {
     channel = msg->channel_request.channel->remote_channel;
@@ -686,13 +673,14 @@ static int ssh_message_channel_request_reply_default(ssh_message msg) {
     SSH_LOG(SSH_LOG_PACKET,
         "Sending a default channel_request denied to channel %d", channel);
 
-    if (buffer_add_u8(msg->session->out_buffer, SSH2_MSG_CHANNEL_FAILURE) < 0) {
-      return SSH_ERROR;
+    rc = ssh_buffer_pack(msg->session->out_buffer,
+                         "bd",
+                         SSH2_MSG_CHANNEL_FAILURE,
+                         channel);
+    if (rc != SSH_OK){
+        ssh_set_error_oom(msg->session);
+        return SSH_ERROR;
     }
-    if (buffer_add_u32(msg->session->out_buffer, htonl(channel)) < 0) {
-      return SSH_ERROR;
-    }
-
     return packet_send(msg->session);
   }
 
@@ -708,33 +696,32 @@ static int ssh_message_service_request_reply_default(ssh_message msg) {
 }
 
 int ssh_message_service_reply_success(ssh_message msg) {
-  struct ssh_string_struct *service;
-  ssh_session session;
+    ssh_session session;
+    int rc;
 
-  if (msg == NULL) {
-    return SSH_ERROR;
-  }
-  session = msg->session;
+    if (msg == NULL) {
+        return SSH_ERROR;
+    }
+    session = msg->session;
 
-  SSH_LOG(SSH_LOG_PACKET,
-      "Sending a SERVICE_ACCEPT for service %s", msg->service_request.service);
-  if (buffer_add_u8(session->out_buffer, SSH2_MSG_SERVICE_ACCEPT) < 0) {
-    return -1;
-  }
-  service=ssh_string_from_char(msg->service_request.service);
-  if (service == NULL) {
-      return -1;
-  }
+    SSH_LOG(SSH_LOG_PACKET,
+            "Sending a SERVICE_ACCEPT for service %s", msg->service_request.service);
 
-  if (buffer_add_ssh_string(session->out_buffer, service) < 0) {
-    ssh_string_free(service);
-    return -1;
-  }
-  ssh_string_free(service);
-  return packet_send(msg->session);
+    rc = ssh_buffer_pack(session->out_buffer,
+                         "bs",
+                         SSH2_MSG_SERVICE_ACCEPT,
+                         msg->service_request.service);
+    if (rc != SSH_OK){
+        ssh_set_error_oom(session);
+        return SSH_ERROR;
+    }
+    rc = packet_send(msg->session);
+    return rc;
 }
 
 int ssh_message_global_request_reply_success(ssh_message msg, uint16_t bound_port) {
+    int rc;
+
     SSH_LOG(SSH_LOG_FUNCTIONS, "Accepting a global request");
 
     if (msg->global_request.want_reply) {
@@ -745,7 +732,9 @@ int ssh_message_global_request_reply_success(ssh_message msg, uint16_t bound_por
 
         if(msg->global_request.type == SSH_GLOBAL_REQUEST_TCPIP_FORWARD 
                                 && msg->global_request.bind_port == 0) {
-            if (buffer_add_u32(msg->session->out_buffer, htonl(bound_port)) < 0) {
+            rc = ssh_buffer_pack(msg->session->out_buffer, "d", bound_port);
+            if (rc != SSH_ERROR) {
+                ssh_set_error_oom(msg->session);
                 goto error;
             }
         }
@@ -876,9 +865,8 @@ int ssh_message_auth_set_methods(ssh_message msg, int methods) {
 int ssh_message_auth_interactive_request(ssh_message msg, const char *name,
                             const char *instruction, unsigned int num_prompts,
                             const char **prompts, char *echo) {
-  int r;
+  int rc;
   unsigned int i = 0;
-  ssh_string tmp = NULL;
 
   if(name == NULL || instruction == NULL) {
     return SSH_ERROR;
@@ -887,71 +875,30 @@ int ssh_message_auth_interactive_request(ssh_message msg, const char *name,
     return SSH_ERROR;
   }
 
-  if (buffer_add_u8(msg->session->out_buffer, SSH2_MSG_USERAUTH_INFO_REQUEST) < 0) {
-    return SSH_ERROR;
-  }
-
-  /* name */
-  tmp = ssh_string_from_char(name);
-  if (tmp == NULL) {
-      return SSH_ERROR;
-  }
-
-  r = buffer_add_ssh_string(msg->session->out_buffer, tmp);
-  ssh_string_free(tmp);
-  if (r < 0) {
-    return SSH_ERROR;
-  }
-
-  /* instruction */
-  tmp = ssh_string_from_char(instruction);
-  if (tmp == NULL) {
-      return SSH_ERROR;
-  }
-
-  r = buffer_add_ssh_string(msg->session->out_buffer, tmp);
-  ssh_string_free(tmp);
-  if (r < 0) {
-    return SSH_ERROR;
-  }
-
-  /* language tag */
-  tmp = ssh_string_from_char("");
-  if (tmp == NULL) {
-      return SSH_ERROR;
-  }
-
-  r = buffer_add_ssh_string(msg->session->out_buffer, tmp);
-  ssh_string_free(tmp);
-  if (r < 0) {
-    return SSH_ERROR;
-  }
-
-  /* num prompts */
-  if (buffer_add_u32(msg->session->out_buffer, ntohl(num_prompts)) < 0) {
+  rc = ssh_buffer_pack(msg->session->out_buffer,
+                       "bsssd",
+                       SSH2_MSG_USERAUTH_INFO_REQUEST,
+                       name,
+                       instruction,
+                       "",           /* language tag */
+                       num_prompts);
+  if (rc != SSH_OK){
+    ssh_set_error_oom(msg->session);
     return SSH_ERROR;
   }
 
   for(i = 0; i < num_prompts; i++) {
-    /* prompt[i] */
-    tmp = ssh_string_from_char(prompts[i]);
-    if (tmp == NULL) {
-        return SSH_ERROR;
-    }
-
-    r = buffer_add_ssh_string(msg->session->out_buffer, tmp);
-    ssh_string_free(tmp);
-    if (r < 0) {
-        return SSH_ERROR;
-    }
-
-    /* echo[i] */
-    if (buffer_add_u8(msg->session->out_buffer, echo[i]) < 0) {
+    rc = ssh_buffer_pack(msg->session->out_buffer,
+                         "sb",
+                         prompts[i],
+                         echo[1] ? 1 : 0);
+    if (rc != SSH_OK){
+        ssh_set_error_oom(msg->session);
         return SSH_ERROR;
     }
   }
 
-  r = packet_send(msg->session);
+  rc = packet_send(msg->session);
 
   /* fill in the kbdint structure */
   if (msg->session->kbdint == NULL) {
@@ -994,7 +941,7 @@ int ssh_message_auth_interactive_request(ssh_message msg, const char *name,
       msg->session->kbdint = NULL;
       return SSH_ERROR;
     }
-    msg->session->kbdint->echo = malloc(num_prompts * sizeof(char));
+    msg->session->kbdint->echo = malloc(num_prompts * sizeof(unsigned char));
     if (msg->session->kbdint->echo == NULL) {
       ssh_set_error_oom(msg->session);
       ssh_kbdint_free(msg->session->kbdint);
@@ -1017,7 +964,7 @@ int ssh_message_auth_interactive_request(ssh_message msg, const char *name,
     msg->session->kbdint->echo = NULL;
   }
 
-  return r;
+  return rc;
 }
 
 int ssh_auth_reply_success(ssh_session session, int partial) {
@@ -1058,17 +1005,23 @@ int ssh_message_auth_reply_success(ssh_message msg, int partial) {
 
 /* Answer OK to a pubkey auth request */
 int ssh_message_auth_reply_pk_ok(ssh_message msg, ssh_string algo, ssh_string pubkey) {
-  if (msg == NULL) {
-    return SSH_ERROR;
-  }
+    int rc;
+    if (msg == NULL) {
+        return SSH_ERROR;
+    }
 
-  if (buffer_add_u8(msg->session->out_buffer, SSH2_MSG_USERAUTH_PK_OK) < 0 ||
-      buffer_add_ssh_string(msg->session->out_buffer, algo) < 0 ||
-      buffer_add_ssh_string(msg->session->out_buffer, pubkey) < 0) {
-    return SSH_ERROR;
-  }
+    rc = ssh_buffer_pack(msg->session->out_buffer,
+                         "bSS",
+                         SSH2_MSG_USERAUTH_PK_OK,
+                         algo,
+                         pubkey);
+    if(rc != SSH_OK){
+        ssh_set_error_oom(msg->session);
+        return SSH_ERROR;
+    }
 
-  return packet_send(msg->session);
+    rc = packet_send(msg->session);
+    return rc;
 }
 
 int ssh_message_auth_reply_pk_ok_simple(ssh_message msg) {
@@ -1223,27 +1176,14 @@ int ssh_execute_message_callbacks(ssh_session session){
 
 int ssh_send_keepalive(ssh_session session)
 {
-  struct ssh_string_struct *req;
   int rc;
 
-  rc = buffer_add_u8(session->out_buffer, SSH2_MSG_GLOBAL_REQUEST);
-  if (rc < 0) {
-    goto err;
-  }
-
-  req = ssh_string_from_char("keepalive@openssh.com");
-  if (req == NULL) {
-    goto err;
-  }
-
-  rc = buffer_add_ssh_string(session->out_buffer, req);
-  ssh_string_free(req);
-  if (rc < 0) {
-    goto err;
-  }
-
-  rc = buffer_add_u8(session->out_buffer, 1);
-  if (rc < 0) {
+  rc = ssh_buffer_pack(session->out_buffer,
+                       "bsb",
+                       SSH2_MSG_GLOBAL_REQUEST,
+                       "keepalive@openssh.com",
+                       1);
+  if (rc != SSH_OK) {
     goto err;
   }
 
@@ -1251,14 +1191,14 @@ int ssh_send_keepalive(ssh_session session)
     goto err;
   }
 
-  ssh_handle_packets(session, 0);
+  ssh_handle_packets(session, SSH_TIMEOUT_NONBLOCKING);
 
   SSH_LOG(SSH_LOG_PACKET, "Sent a keepalive");
   return SSH_OK;
 
 err:
   ssh_set_error_oom(session);
-  buffer_reinit(session->out_buffer);
+  ssh_buffer_reinit(session->out_buffer);
   return SSH_ERROR;
 }
 

@@ -28,7 +28,7 @@ if (HAVE_LIBSOCKET)
   )
 endif (HAVE_LIBSOCKET)
 
-if (OPENSSL_LIBRARIES)
+if (OPENSSL_CRYPTO_LIBRARIES)
   set(LIBSSH_PRIVATE_INCLUDE_DIRS
     ${LIBSSH_PRIVATE_INCLUDE_DIRS}
     ${OPENSSL_INCLUDE_DIRS}
@@ -36,9 +36,9 @@ if (OPENSSL_LIBRARIES)
 
   set(LIBSSH_LINK_LIBRARIES
     ${LIBSSH_LINK_LIBRARIES}
-    ${OPENSSL_LIBRARIES}
+    ${OPENSSL_CRYPTO_LIBRARIES}
   )
-endif (OPENSSL_LIBRARIES)
+endif (OPENSSL_CRYPTO_LIBRARIES)
 
 if (GCRYPT_LIBRARY)
   set(LIBSSH_PRIVATE_INCLUDE_DIRS
@@ -109,6 +109,7 @@ set(libssh_SRCS
   agent.c
   auth.c
   base64.c
+  bignum.c
   buffer.c
   callbacks.c
   channels.c
@@ -118,7 +119,10 @@ set(libssh_SRCS
   curve25519.c
   dh.c
   ecdh.c
+  ed25519.c
   error.c
+  fe25519.c
+  ge25519.c
   getpass.c
   init.c
   kex.c
@@ -135,8 +139,10 @@ set(libssh_SRCS
   packet_crypt.c
   pcap.c
   pki.c
+  pki_ed25519.c
   poll.c
   session.c
+  sc25519.c
   scp.c
   socket.c
   string.c
@@ -288,6 +294,6 @@ if (WITH_STATIC_LIB)
   )
 endif (WITH_STATIC_LIB)
 
-if (CMAKE_HAVE_THREADS_LIBRARY)
+if (Threads_FOUND)
     add_subdirectory(threads)
-endif (CMAKE_HAVE_THREADS_LIBRARY)
+endif (Threads_FOUND)

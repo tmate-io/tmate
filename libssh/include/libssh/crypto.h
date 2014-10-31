@@ -46,6 +46,8 @@
 #include "libssh/kex.h"
 #include "libssh/curve25519.h"
 
+#define DIGEST_MAX_LEN 64
+
 enum ssh_key_exchange_e {
   /* diffie-hellman-group1-sha1 */
   SSH_KEX_DH_GROUP1_SHA1=1,
@@ -79,8 +81,10 @@ struct ssh_crypto_struct {
     unsigned char *encryptkey;
     unsigned char *encryptMAC;
     unsigned char *decryptMAC;
-    unsigned char hmacbuf[EVP_MAX_MD_SIZE];
+    unsigned char hmacbuf[DIGEST_MAX_LEN];
     struct ssh_cipher_struct *in_cipher, *out_cipher; /* the cipher structures/objects */
+    enum ssh_hmac_e in_hmac, out_hmac; /* the MAC algorithms used */
+
     ssh_string server_pubkey;
     const char *server_pubkey_type;
     int do_compress_out; /* idem */
@@ -111,9 +115,9 @@ struct ssh_cipher_struct {
     /* sets the new key for immediate use */
     int (*set_encrypt_key)(struct ssh_cipher_struct *cipher, void *key, void *IV);
     int (*set_decrypt_key)(struct ssh_cipher_struct *cipher, void *key, void *IV);
-    void (*cbc_encrypt)(struct ssh_cipher_struct *cipher, void *in, void *out,
+    void (*encrypt)(struct ssh_cipher_struct *cipher, void *in, void *out,
         unsigned long len);
-    void (*cbc_decrypt)(struct ssh_cipher_struct *cipher, void *in, void *out,
+    void (*decrypt)(struct ssh_cipher_struct *cipher, void *in, void *out,
         unsigned long len);
 };
 

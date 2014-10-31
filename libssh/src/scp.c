@@ -545,7 +545,7 @@ int ssh_scp_read_string(ssh_scp scp, char *buffer, size_t len){
  * @see ssh_scp_request_get_warning()
  */
 int ssh_scp_pull_request(ssh_scp scp){
-  char buffer[4096] = {0};
+  char buffer[MAX_BUF_SIZE] = {0};
   char *mode=NULL;
   char *p,*tmp;
   uint64_t size;
@@ -642,7 +642,7 @@ int ssh_scp_pull_request(ssh_scp scp){
  *                      the message failed, or sending it in a bad state.
  */
 int ssh_scp_deny_request(ssh_scp scp, const char *reason){
-  char buffer[4096];
+  char buffer[MAX_BUF_SIZE];
   int err;
   if(scp==NULL)
       return SSH_ERROR;
@@ -814,7 +814,7 @@ int ssh_scp_integer_mode(const char *mode){
  */
 char *ssh_scp_string_mode(int mode){
 	char buffer[16];
-	snprintf(buffer,sizeof(buffer),"%.4d",mode);
+	snprintf(buffer,sizeof(buffer),"%.4o",mode);
 	return strdup(buffer);
 }
 

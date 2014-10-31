@@ -37,7 +37,7 @@ static void teardown(void **state) {
     ssh_free(*state);
 }
 
-static void test_algorithm(ssh_session session, const char *algo) {
+static void test_algorithm(ssh_session session, const char *algo, const char *hmac) {
     int rc;
 
     rc = ssh_options_set(session, SSH_OPTIONS_HOST, "localhost");
@@ -47,6 +47,12 @@ static void test_algorithm(ssh_session session, const char *algo) {
     assert_true(rc == SSH_OK);
 
     rc = ssh_options_set(session, SSH_OPTIONS_CIPHERS_S_C, algo);
+    assert_true(rc == SSH_OK);
+
+    rc = ssh_options_set(session, SSH_OPTIONS_HMAC_C_S, hmac);
+    assert_true(rc == SSH_OK);
+
+    rc = ssh_options_set(session, SSH_OPTIONS_HMAC_S_C, hmac);
     assert_true(rc == SSH_OK);
 
     rc = ssh_connect(session);
@@ -61,36 +67,100 @@ static void test_algorithm(ssh_session session, const char *algo) {
     ssh_disconnect(session);
 }
 
-static void torture_algorithms_aes128_cbc(void **state) {
-    test_algorithm(*state, "aes128-cbc");
+static void torture_algorithms_aes128_cbc_hmac_sha1(void **state) {
+    test_algorithm(*state, "aes128-cbc", "hmac-sha1");
 }
 
-static void torture_algorithms_aes192_cbc(void **state) {
-    test_algorithm(*state, "aes192-cbc");
+static void torture_algorithms_aes128_cbc_hmac_sha2_256(void **state) {
+    test_algorithm(*state, "aes128-cbc", "hmac-sha2-256");
 }
 
-static void torture_algorithms_aes256_cbc(void **state) {
-    test_algorithm(*state, "aes256-cbc");
+static void torture_algorithms_aes128_cbc_hmac_sha2_512(void **state) {
+    test_algorithm(*state, "aes128-cbc", "hmac-sha2-512");
 }
 
-static void torture_algorithms_aes128_ctr(void **state) {
-    test_algorithm(*state, "aes128-ctr");
+static void torture_algorithms_aes192_cbc_hmac_sha1(void **state) {
+    test_algorithm(*state, "aes192-cbc", "hmac-sha1");
 }
 
-static void torture_algorithms_aes192_ctr(void **state) {
-    test_algorithm(*state, "aes192-ctr");
+static void torture_algorithms_aes192_cbc_hmac_sha2_256(void **state) {
+    test_algorithm(*state, "aes192-cbc", "hmac-sha2-256");
 }
 
-static void torture_algorithms_aes256_ctr(void **state) {
-    test_algorithm(*state, "aes256-ctr");
+static void torture_algorithms_aes192_cbc_hmac_sha2_512(void **state) {
+    test_algorithm(*state, "aes192-cbc", "hmac-sha2-512");
 }
 
-static void torture_algorithms_3des_cbc(void **state) {
-    test_algorithm(*state, "3des-cbc");
+static void torture_algorithms_aes256_cbc_hmac_sha1(void **state) {
+    test_algorithm(*state, "aes256-cbc", "hmac-sha1");
 }
 
-static void torture_algorithms_blowfish_cbc(void **state) {
-    test_algorithm(*state, "blowfish-cbc");
+static void torture_algorithms_aes256_cbc_hmac_sha2_256(void **state) {
+    test_algorithm(*state, "aes256-cbc", "hmac-sha2-256");
+}
+
+static void torture_algorithms_aes256_cbc_hmac_sha2_512(void **state) {
+    test_algorithm(*state, "aes256-cbc", "hmac-sha2-512");
+}
+
+static void torture_algorithms_aes128_ctr_hmac_sha1(void **state) {
+    test_algorithm(*state, "aes128-ctr", "hmac-sha1");
+}
+
+static void torture_algorithms_aes128_ctr_hmac_sha2_256(void **state) {
+    test_algorithm(*state, "aes128-ctr", "hmac-sha2-256");
+}
+
+static void torture_algorithms_aes128_ctr_hmac_sha2_512(void **state) {
+    test_algorithm(*state, "aes128-ctr", "hmac-sha2-512");
+}
+
+static void torture_algorithms_aes192_ctr_hmac_sha1(void **state) {
+    test_algorithm(*state, "aes192-ctr", "hmac-sha1");
+}
+
+static void torture_algorithms_aes192_ctr_hmac_sha2_256(void **state) {
+    test_algorithm(*state, "aes192-ctr", "hmac-sha2-256");
+}
+
+static void torture_algorithms_aes192_ctr_hmac_sha2_512(void **state) {
+    test_algorithm(*state, "aes192-ctr", "hmac-sha2-512");
+}
+
+static void torture_algorithms_aes256_ctr_hmac_sha1(void **state) {
+    test_algorithm(*state, "aes256-ctr", "hmac-sha1");
+}
+
+static void torture_algorithms_aes256_ctr_hmac_sha2_256(void **state) {
+    test_algorithm(*state, "aes256-ctr", "hmac-sha2-256");
+}
+
+static void torture_algorithms_aes256_ctr_hmac_sha2_512(void **state) {
+    test_algorithm(*state, "aes256-ctr", "hmac-sha2-512");
+}
+
+static void torture_algorithms_3des_cbc_hmac_sha1(void **state) {
+    test_algorithm(*state, "3des-cbc", "hmac-sha1");
+}
+
+static void torture_algorithms_3des_cbc_hmac_sha2_256(void **state) {
+    test_algorithm(*state, "3des-cbc", "hmac-sha2-256");
+}
+
+static void torture_algorithms_3des_cbc_hmac_sha2_512(void **state) {
+    test_algorithm(*state, "3des-cbc", "hmac-sha2-512");
+}
+
+static void torture_algorithms_blowfish_cbc_hmac_sha1(void **state) {
+    test_algorithm(*state, "blowfish-cbc", "hmac-sha1");
+}
+
+static void torture_algorithms_blowfish_cbc_hmac_sha2_256(void **state) {
+    test_algorithm(*state, "blowfish-cbc", "hmac-sha2-256");
+}
+
+static void torture_algorithms_blowfish_cbc_hmac_sha2_512(void **state) {
+    test_algorithm(*state, "blowfish-cbc", "hmac-sha2-512");
 }
 
 static void torture_algorithms_zlib(void **state) {
@@ -220,14 +290,30 @@ static void torture_algorithms_dh_group1(void **state) {
 int torture_run_tests(void) {
     int rc;
     const UnitTest tests[] = {
-        unit_test_setup_teardown(torture_algorithms_aes128_cbc, setup, teardown),
-        unit_test_setup_teardown(torture_algorithms_aes192_cbc, setup, teardown),
-        unit_test_setup_teardown(torture_algorithms_aes256_cbc, setup, teardown),
-        unit_test_setup_teardown(torture_algorithms_aes128_ctr, setup, teardown),
-        unit_test_setup_teardown(torture_algorithms_aes192_ctr, setup, teardown),
-        unit_test_setup_teardown(torture_algorithms_aes256_ctr, setup, teardown),
-        unit_test_setup_teardown(torture_algorithms_3des_cbc, setup, teardown),
-        unit_test_setup_teardown(torture_algorithms_blowfish_cbc, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_aes128_cbc_hmac_sha1, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_aes128_cbc_hmac_sha2_256, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_aes128_cbc_hmac_sha2_512, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_aes192_cbc_hmac_sha1, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_aes192_cbc_hmac_sha2_256, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_aes192_cbc_hmac_sha2_512, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_aes256_cbc_hmac_sha1, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_aes256_cbc_hmac_sha2_256, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_aes256_cbc_hmac_sha2_512, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_aes128_ctr_hmac_sha1, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_aes128_ctr_hmac_sha2_256, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_aes128_ctr_hmac_sha2_512, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_aes192_ctr_hmac_sha1, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_aes192_ctr_hmac_sha2_256, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_aes192_ctr_hmac_sha2_512, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_aes256_ctr_hmac_sha1, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_aes256_ctr_hmac_sha2_256, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_aes256_ctr_hmac_sha2_512, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_3des_cbc_hmac_sha1, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_3des_cbc_hmac_sha2_256, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_3des_cbc_hmac_sha2_512, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_blowfish_cbc_hmac_sha1, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_blowfish_cbc_hmac_sha2_256, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_blowfish_cbc_hmac_sha2_512, setup, teardown),
         unit_test_setup_teardown(torture_algorithms_zlib, setup, teardown),
         unit_test_setup_teardown(torture_algorithms_zlib_openssh, setup, teardown),
         unit_test_setup_teardown(torture_algorithms_dh_group1,setup,teardown),

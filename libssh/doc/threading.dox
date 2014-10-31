@@ -61,5 +61,6 @@ implement the following methods :
 - mutex_destroy
 - thread_id
 
+libgcrypt 1.6 and bigger backend does not support custom callback. Using anything else than pthreads (ssh_threads_get_pthread()) here will fail.
 Good luck !
 */

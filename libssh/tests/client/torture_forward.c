@@ -41,15 +41,15 @@ static void setup(void **state)
 
     session = torture_ssh_session(host, user, password);
 
-    assert_false(session == NULL);
+    assert_non_null(session);
     *state = session;
 }
 
 static void teardown(void **state)
 {
-    ssh_session session = *state;
+    ssh_session session = (ssh_session) *state;
 
-    assert_false(session == NULL);
+    assert_non_null(session);
 
     if (ssh_is_connected(session)) {
             ssh_disconnect(session);
@@ -59,14 +59,14 @@ static void teardown(void **state)
 
 static void torture_ssh_forward(void **state)
 {
-    ssh_session session = *state;
+    ssh_session session = (ssh_session) *state;
 #if 0
     ssh_channel c;
 #endif
     int bound_port;
     int rc;
 
-    rc = ssh_forward_listen(session, "127.0.0.1", 8080, &bound_port);
+    rc = ssh_channel_listen_forward(session, "127.0.0.1", 8080, &bound_port);
     assert_int_equal(rc, SSH_OK);
 
 #if 0

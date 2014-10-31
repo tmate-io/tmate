@@ -3,7 +3,7 @@
  *
  * This file is part of the SSH Library
  *
- * Copyright (c) 2009      by Andreas Schneider <mail@cynapses.org>
+ * Copyright (c) 2009-2013    by Andreas Schneider <asn@cryptomilk.org>
  *
  * The SSH Library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -46,7 +46,10 @@ enum ssh_config_opcode_e {
   SOC_PROTOCOL,
   SOC_STRICTHOSTKEYCHECK,
   SOC_KNOWNHOSTS,
-  SOC_PROXYCOMMAND
+  SOC_PROXYCOMMAND,
+  SOC_GSSAPISERVERIDENTITY,
+  SOC_GSSAPICLIENTIDENTITY,
+  SOC_GSSAPIDELEGATECREDENTIALS,
 };
 
 struct ssh_config_keyword_table_s {
@@ -67,6 +70,9 @@ static struct ssh_config_keyword_table_s ssh_config_keyword_table[] = {
   { "stricthostkeychecking", SOC_STRICTHOSTKEYCHECK },
   { "userknownhostsfile", SOC_KNOWNHOSTS },
   { "proxycommand", SOC_PROXYCOMMAND },
+  { "gssapiserveridentity", SOC_GSSAPISERVERIDENTITY },
+  { "gssapiserveridentity", SOC_GSSAPICLIENTIDENTITY },
+  { "gssapidelegatecredentials", SOC_GSSAPIDELEGATECREDENTIALS },
   { NULL, SOC_UNSUPPORTED }
 };
 
@@ -213,16 +219,25 @@ static int ssh_config_parse_line(ssh_session session, const char *line,
 
   switch (opcode) {
     case SOC_HOST:
-      *parsing = 0;
-      lowerhost = (session->opts.host) ? ssh_lowercase(session->opts.host) : NULL;
-      for (p = ssh_config_get_str_tok(&s, NULL); p && *p;
-          p = ssh_config_get_str_tok(&s, NULL)) {
-        if (match_hostname(lowerhost, p, strlen(p))) {
-          *parsing = 1;
+        *parsing = 0;
+        lowerhost = (session->opts.host) ? ssh_lowercase(session->opts.host) : NULL;
+        for (p = ssh_config_get_str_tok(&s, NULL);
+             p != NULL && p[0] != '\0';
+             p = ssh_config_get_str_tok(&s, NULL)) {
+            char *z = ssh_path_expand_escape(session, p);
+            int ok;
+
+            if (z == NULL) {
+                z = strdup(p);
+            }
+            ok = match_hostname(lowerhost, z, strlen(z));
+            if (ok) {
+                *parsing = 1;
+            }
+            free(z);
         }
-      }
-      SAFE_FREE(lowerhost);
-      break;
+        SAFE_FREE(lowerhost);
+        break;
     case SOC_HOSTNAME:
       p = ssh_config_get_str_tok(&s, NULL);
       if (p && *parsing) {
@@ -323,6 +338,24 @@ static int ssh_config_parse_line(ssh_session session, const char *line,
         ssh_options_set(session, SSH_OPTIONS_PROXYCOMMAND, p);
       }
       break;
+    case SOC_GSSAPISERVERIDENTITY:
+      p = ssh_config_get_str_tok(&s, NULL);
+      if (p && *parsing) {
+        ssh_options_set(session, SSH_OPTIONS_GSSAPI_SERVER_IDENTITY, p);
+      }
+      break;
+    case SOC_GSSAPICLIENTIDENTITY:
+      p = ssh_config_get_str_tok(&s, NULL);
+      if (p && *parsing) {
+        ssh_options_set(session, SSH_OPTIONS_GSSAPI_CLIENT_IDENTITY, p);
+      }
+      break;
+    case SOC_GSSAPIDELEGATECREDENTIALS:
+      i = ssh_config_get_yesno(&s, -1);
+      if (i >=0 && *parsing) {
+        ssh_options_set(session, SSH_OPTIONS_GSSAPI_DELEGATE_CREDENTIALS, &i);
+      }
+      break;
     case SOC_UNSUPPORTED:
       SSH_LOG(SSH_LOG_RARE, "Unsupported option: %s, line: %d\n",
               keyword, count);
@@ -350,7 +383,7 @@ int ssh_config_parse_file(ssh_session session, const char *filename) {
     return 0;
   }
 
-  SSH_LOG(SSH_LOG_RARE, "Reading configuration data from %s", filename);
+  SSH_LOG(SSH_LOG_PACKET, "Reading configuration data from %s", filename);
 
   parsing = 1;
   while (fgets(line, sizeof(line), f)) {

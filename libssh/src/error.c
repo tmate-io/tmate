@@ -104,7 +104,7 @@ void _ssh_set_error_invalid(void *error, const char *function)
 /**
  * @brief Retrieve the error text message from the last error.
  *
- * @param  error        The SSH session pointer.
+ * @param  error        An ssh_session or ssh_bind.
  *
  * @return A static string describing the error.
  */
@@ -117,7 +117,7 @@ const char *ssh_get_error(void *error) {
 /**
  * @brief Retrieve the error code from the last error.
  *
- * @param  error        The SSH session pointer.
+ * @param  error        An ssh_session or ssh_bind.
  *
  * \return SSH_NO_ERROR       No error occurred\n
  *         SSH_REQUEST_DENIED The last request was denied but situation is

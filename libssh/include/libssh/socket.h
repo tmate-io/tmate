@@ -52,6 +52,7 @@ void ssh_socket_set_write_wontblock(ssh_socket s);
 void ssh_socket_set_read_wontblock(ssh_socket s);
 void ssh_socket_set_except(ssh_socket s);
 int ssh_socket_get_status(ssh_socket s);
+int ssh_socket_get_poll_flags(ssh_socket s);
 int ssh_socket_buffered_write_bytes(ssh_socket s);
 int ssh_socket_data_available(ssh_socket s);
 int ssh_socket_data_writable(ssh_socket s);

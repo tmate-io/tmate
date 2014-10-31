@@ -495,6 +495,8 @@ LIBSSH_API int ssh_set_callbacks(ssh_session session, ssh_callbacks cb);
  * @param len the length of the data
  * @param is_stderr is 0 for stdout or 1 for stderr
  * @param userdata Userdata to be passed to the callback function.
+ * @returns number of bytes processed by the callee. The remaining bytes will
+ * be sent in the next callback message, when more data is available.
  */
 typedef int (*ssh_channel_data_callback) (ssh_session session,
                                            ssh_channel channel,
@@ -801,6 +803,8 @@ struct ssh_threads_callbacks_struct {
  *
  * @see ssh_threads_callbacks_struct
  * @see SSH_THREADS_PTHREAD
+ * @bug libgcrypt 1.6 and bigger backend does not support custom callback.
+ *      Using anything else than pthreads here will fail.
  */
 LIBSSH_API int ssh_threads_set_callbacks(struct ssh_threads_callbacks_struct
     *cb);

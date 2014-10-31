@@ -4,7 +4,7 @@
 #
 # Script to build libssh on UNIX.
 #
-# Copyright (c) 2006-2007 Andreas Schneider <mail@cynapses.org>
+# Copyright (c) 2006-2007 Andreas Schneider <asn@cryptomilk.org>
 #
 
 SOURCE_DIR=".."

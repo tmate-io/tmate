@@ -82,13 +82,18 @@ ssh_buffer base64_to_bin(const char *source) {
     SAFE_FREE(base64);
     return NULL;
   }
+  /*
+   * The base64 buffer often contains sensitive data. Make sure we don't leak
+   * sensitive data
+   */
+  ssh_buffer_set_secure(buffer);
 
   len = strlen(ptr);
   while (len > 4) {
     if (_base64_to_bin(block, ptr, 3) < 0) {
       goto error;
     }
-    if (buffer_add_data(buffer, block, 3) < 0) {
+    if (ssh_buffer_add_data(buffer, block, 3) < 0) {
       goto error;
     }
     len -= 4;
@@ -112,7 +117,7 @@ ssh_buffer base64_to_bin(const char *source) {
       if (_base64_to_bin(block, ptr, 3) < 0) {
         goto error;
       }
-      if (buffer_add_data(buffer, block, 3) < 0) {
+      if (ssh_buffer_add_data(buffer, block, 3) < 0) {
         goto error;
       }
       SAFE_FREE(base64);
@@ -131,7 +136,7 @@ ssh_buffer base64_to_bin(const char *source) {
       if (_base64_to_bin(block, ptr, 1) < 0) {
         goto error;
       }
-      if (buffer_add_data(buffer, block, 1) < 0) {
+      if (ssh_buffer_add_data(buffer, block, 1) < 0) {
         goto error;
       }
       SAFE_FREE(base64);
@@ -149,7 +154,7 @@ ssh_buffer base64_to_bin(const char *source) {
       if (_base64_to_bin(block, ptr, 2) < 0) {
         goto error;
       }
-      if (buffer_add_data(buffer,block,2) < 0) {
+      if (ssh_buffer_add_data(buffer,block,2) < 0) {
         goto error;
       }
       SAFE_FREE(base64);

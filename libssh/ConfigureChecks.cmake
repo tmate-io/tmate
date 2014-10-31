@@ -48,9 +48,11 @@ endif(CMAKE_COMPILER_IS_GNUCC AND NOT MINGW AND NOT OS2)
 # HEADER FILES
 check_include_file(argp.h HAVE_ARGP_H)
 check_include_file(pty.h HAVE_PTY_H)
+check_include_file(utmp.h HAVE_UTMP_H)
 check_include_file(termios.h HAVE_TERMIOS_H)
 check_include_file(unistd.h HAVE_UNISTD_H)
 check_include_file(util.h HAVE_UTIL_H)
+check_include_file(libutil.h HAVE_LIBUTIL_H)
 
 if (WIN32)
   check_include_files("winsock2.h;ws2tcpip.h;wspiapi.h" HAVE_WSPIAPI_H)
@@ -178,11 +180,9 @@ if (GCRYPT_FOUND)
     endif (GCRYPT_VERSION VERSION_GREATER "1.4.6")
 endif (GCRYPT_FOUND)
 
-if (CMAKE_HAVE_THREADS_LIBRARY)
-    if (CMAKE_USE_PTHREADS_INIT)
-        set(HAVE_PTHREAD 1)
-    endif (CMAKE_USE_PTHREADS_INIT)
-endif (CMAKE_HAVE_THREADS_LIBRARY)
+if (CMAKE_USE_PTHREADS_INIT)
+    set(HAVE_PTHREAD 1)
+endif (CMAKE_USE_PTHREADS_INIT)
 
 # OPTIONS
 check_c_source_compiles("

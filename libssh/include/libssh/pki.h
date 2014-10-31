@@ -21,6 +21,7 @@
 #ifndef PKI_H_
 #define PKI_H_
 
+#include "libssh/priv.h"
 #ifdef HAVE_OPENSSL_EC_H
 #include <openssl/ec.h>
 #endif
@@ -29,6 +30,7 @@
 #endif
 
 #include "libssh/crypto.h"
+#include "libssh/ed25519.h"
 
 #define MAX_PUBKEY_SIZE 0x100000 /* 1M */
 #define MAX_PRIVKEY_SIZE 0x400000 /* 4M */
@@ -55,6 +57,8 @@ struct ssh_key_struct {
     void *ecdsa;
 #endif /* HAVE_OPENSSL_EC_H */
 #endif
+    ed25519_pubkey *ed25519_pubkey;
+    ed25519_privkey *ed25519_privkey;
     void *cert;
 };
 
@@ -74,6 +78,7 @@ struct ssh_signature_struct {
     void *ecdsa_sig;
 # endif
 #endif
+    ed25519_signature *ed25519_sig;
 };
 
 typedef struct ssh_signature_struct *ssh_signature;

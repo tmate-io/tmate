@@ -417,7 +417,7 @@ SSH_PACKET_CALLBACK(ssh_packet_publickey1){
    if (buffer_add_u8(session->out_buffer, support_3DES ? SSH_CIPHER_3DES : SSH_CIPHER_DES) < 0) {
      goto error;
    }
-   if (buffer_add_data(session->out_buffer, session->next_crypto->server_kex.cookie, 8) < 0) {
+   if (ssh_buffer_add_data(session->out_buffer, session->next_crypto->server_kex.cookie, 8) < 0) {
      goto error;
    }
 
@@ -431,10 +431,10 @@ SSH_PACKET_CALLBACK(ssh_packet_publickey1){
        bits, ssh_string_len(enc_session));
    bits = htons(bits);
    /* the encrypted mpint */
-   if (buffer_add_data(session->out_buffer, &bits, sizeof(uint16_t)) < 0) {
+   if (ssh_buffer_add_data(session->out_buffer, &bits, sizeof(uint16_t)) < 0) {
      goto error;
    }
-   if (buffer_add_data(session->out_buffer, ssh_string_data(enc_session),
+   if (ssh_buffer_add_data(session->out_buffer, ssh_string_data(enc_session),
          ssh_string_len(enc_session)) < 0) {
      goto error;
    }

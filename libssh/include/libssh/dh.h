@@ -25,7 +25,6 @@
 
 #include "libssh/crypto.h"
 
-void ssh_print_bignum(const char *which,bignum num);
 int dh_generate_e(ssh_session session);
 int dh_generate_f(ssh_session session);
 int dh_generate_x(ssh_session session);
@@ -48,8 +47,5 @@ int make_sessionid(ssh_session session);
 int hashbufin_add_cookie(ssh_session session, unsigned char *cookie);
 int hashbufout_add_cookie(ssh_session session);
 int generate_session_keys(ssh_session session);
-bignum make_string_bn(ssh_string string);
-ssh_string make_bignum_string(bignum num);
-
 
 #endif /* DH_H_ */

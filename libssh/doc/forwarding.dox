@@ -144,10 +144,10 @@ or whatever use you have for it.
 
 @subsection libssh_reverse Doing reverse port forwarding with libssh
 
-To do reverse port forwarding, call ssh_forward_listen(),
-then ssh_forward_accept().
+To do reverse port forwarding, call ssh_channel_listen_forward(),
+then ssh_channel_accept_forward().
 
-When you call ssh_forward_listen(), you can let the remote server
+When you call ssh_channel_listen_forward(), you can let the remote server
 chose the non-priviledged port it should listen to. Otherwise, you can chose
 your own priviledged or non-priviledged port. Beware that you should have
 administrative priviledges on the remote server to open a priviledged port
@@ -164,6 +164,7 @@ int web_server(ssh_session session)
   ssh_channel channel;
   char buffer[256];
   int nbytes, nwritten;
+  int port = 0;
   char *helloworld = ""
 "HTTP/1.1 200 OK\n"
 "Content-Type: text/html\n"
@@ -178,7 +179,7 @@ int web_server(ssh_session session)
 "  </body>\n"
 "</html>\n";
 
-  rc = ssh_forward_listen(session, NULL, 8080, NULL);
+  rc = ssh_channel_listen_forward(session, NULL, 8080, NULL);
   if (rc != SSH_OK)
   {
     fprintf(stderr, "Error opening remote port: %s\n",
@@ -186,7 +187,7 @@ int web_server(ssh_session session)
     return rc;
   }
 
-  channel = ssh_forward_accept(session, 60000);
+  channel = ssh_channel_accept_forward(session, 60000, &port);
   if (channel == NULL)
   {
     fprintf(stderr, "Error waiting for incoming connection: %s\n",

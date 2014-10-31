@@ -3,7 +3,7 @@
  *
  * This file is part of the SSH Library
  *
- * Copyright (c) 2011      by Andreas Schneider <mail@cryptomilk.org>
+ * Copyright (c) 2011-2013    by Andreas Schneider <mail@cryptomilk.org>
  *
  * The SSH Library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by

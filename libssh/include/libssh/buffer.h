@@ -21,6 +21,8 @@
 #ifndef BUFFER_H_
 #define BUFFER_H_
 
+#include <stdarg.h>
+
 #include "libssh/libssh.h"
 /*
  * Describes a buffer state
@@ -34,21 +36,32 @@ struct ssh_buffer_struct {
     uint32_t used;
     uint32_t allocated;
     uint32_t pos;
+    int secure;
 };
+
+#define SSH_BUFFER_PACK_END ((uint32_t) 0x4f65feb3)
 
 LIBSSH_API void ssh_buffer_free(ssh_buffer buffer);
 LIBSSH_API void *ssh_buffer_get_begin(ssh_buffer buffer);
 LIBSSH_API uint32_t ssh_buffer_get_len(ssh_buffer buffer);
 LIBSSH_API ssh_buffer ssh_buffer_new(void);
+void ssh_buffer_set_secure(ssh_buffer buffer);
 int buffer_add_ssh_string(ssh_buffer buffer, ssh_string string);
 int buffer_add_u8(ssh_buffer buffer, uint8_t data);
 int buffer_add_u16(ssh_buffer buffer, uint16_t data);
 int buffer_add_u32(ssh_buffer buffer, uint32_t data);
 int buffer_add_u64(ssh_buffer buffer, uint64_t data);
-int buffer_add_data(ssh_buffer buffer, const void *data, uint32_t len);
+int ssh_buffer_add_data(ssh_buffer buffer, const void *data, uint32_t len);
+int ssh_buffer_pack_va(struct ssh_buffer_struct *buffer, const char *format, va_list ap);
+int _ssh_buffer_pack(struct ssh_buffer_struct *buffer, const char *format, ...);
+#define ssh_buffer_pack(buffer, format, ...) _ssh_buffer_pack((buffer),(format), __VA_ARGS__, SSH_BUFFER_PACK_END)
+int ssh_buffer_unpack_va(struct ssh_buffer_struct *buffer, const char *format, va_list ap);
+int _ssh_buffer_unpack(struct ssh_buffer_struct *buffer, const char *format, ...);
+#define ssh_buffer_unpack(buffer, format, ...) _ssh_buffer_unpack((buffer),(format), __VA_ARGS__, SSH_BUFFER_PACK_END)
+
 int buffer_prepend_data(ssh_buffer buffer, const void *data, uint32_t len);
 int buffer_add_buffer(ssh_buffer buffer, ssh_buffer source);
-int buffer_reinit(ssh_buffer buffer);
+int ssh_buffer_reinit(ssh_buffer buffer);
 
 /* buffer_get_rest returns a pointer to the current position into the buffer */
 void *buffer_get_rest(ssh_buffer buffer);

@@ -42,51 +42,51 @@ LIBSSH_API int ssh_userauth_autopubkey(ssh_session session, const char *passphra
 LIBSSH_API int ssh_userauth_privatekey_file(ssh_session session, const char *username,
     const char *filename, const char *passphrase);
 
-LIBSSH_API void buffer_free(ssh_buffer buffer);
-LIBSSH_API void *buffer_get(ssh_buffer buffer);
-LIBSSH_API uint32_t buffer_get_len(ssh_buffer buffer);
-LIBSSH_API ssh_buffer buffer_new(void);
+SSH_DEPRECATED LIBSSH_API void buffer_free(ssh_buffer buffer);
+SSH_DEPRECATED LIBSSH_API void *buffer_get(ssh_buffer buffer);
+SSH_DEPRECATED LIBSSH_API uint32_t buffer_get_len(ssh_buffer buffer);
+SSH_DEPRECATED LIBSSH_API ssh_buffer buffer_new(void);
 
-LIBSSH_API ssh_channel channel_accept_x11(ssh_channel channel, int timeout_ms);
-LIBSSH_API int channel_change_pty_size(ssh_channel channel,int cols,int rows);
-LIBSSH_API ssh_channel channel_forward_accept(ssh_session session, int timeout_ms);
-LIBSSH_API int channel_close(ssh_channel channel);
-LIBSSH_API int channel_forward_cancel(ssh_session session, const char *address, int port);
-LIBSSH_API int channel_forward_listen(ssh_session session, const char *address, int port, int *bound_port);
-LIBSSH_API void channel_free(ssh_channel channel);
-LIBSSH_API int channel_get_exit_status(ssh_channel channel);
-LIBSSH_API ssh_session channel_get_session(ssh_channel channel);
-LIBSSH_API int channel_is_closed(ssh_channel channel);
-LIBSSH_API int channel_is_eof(ssh_channel channel);
-LIBSSH_API int channel_is_open(ssh_channel channel);
-LIBSSH_API ssh_channel channel_new(ssh_session session);
-LIBSSH_API int channel_open_forward(ssh_channel channel, const char *remotehost,
+SSH_DEPRECATED LIBSSH_API ssh_channel channel_accept_x11(ssh_channel channel, int timeout_ms);
+SSH_DEPRECATED LIBSSH_API int channel_change_pty_size(ssh_channel channel,int cols,int rows);
+SSH_DEPRECATED LIBSSH_API ssh_channel channel_forward_accept(ssh_session session, int timeout_ms);
+SSH_DEPRECATED LIBSSH_API int channel_close(ssh_channel channel);
+SSH_DEPRECATED LIBSSH_API int channel_forward_cancel(ssh_session session, const char *address, int port);
+SSH_DEPRECATED LIBSSH_API int channel_forward_listen(ssh_session session, const char *address, int port, int *bound_port);
+SSH_DEPRECATED LIBSSH_API void channel_free(ssh_channel channel);
+SSH_DEPRECATED LIBSSH_API int channel_get_exit_status(ssh_channel channel);
+SSH_DEPRECATED LIBSSH_API ssh_session channel_get_session(ssh_channel channel);
+SSH_DEPRECATED LIBSSH_API int channel_is_closed(ssh_channel channel);
+SSH_DEPRECATED LIBSSH_API int channel_is_eof(ssh_channel channel);
+SSH_DEPRECATED LIBSSH_API int channel_is_open(ssh_channel channel);
+SSH_DEPRECATED LIBSSH_API ssh_channel channel_new(ssh_session session);
+SSH_DEPRECATED LIBSSH_API int channel_open_forward(ssh_channel channel, const char *remotehost,
     int remoteport, const char *sourcehost, int localport);
-LIBSSH_API int channel_open_session(ssh_channel channel);
-LIBSSH_API int channel_poll(ssh_channel channel, int is_stderr);
-LIBSSH_API int channel_read(ssh_channel channel, void *dest, uint32_t count, int is_stderr);
+SSH_DEPRECATED LIBSSH_API int channel_open_session(ssh_channel channel);
+SSH_DEPRECATED LIBSSH_API int channel_poll(ssh_channel channel, int is_stderr);
+SSH_DEPRECATED LIBSSH_API int channel_read(ssh_channel channel, void *dest, uint32_t count, int is_stderr);
 
-LIBSSH_API int channel_read_buffer(ssh_channel channel, ssh_buffer buffer, uint32_t count,
+SSH_DEPRECATED LIBSSH_API int channel_read_buffer(ssh_channel channel, ssh_buffer buffer, uint32_t count,
     int is_stderr);
 
-LIBSSH_API int channel_read_nonblocking(ssh_channel channel, void *dest, uint32_t count,
+SSH_DEPRECATED LIBSSH_API int channel_read_nonblocking(ssh_channel channel, void *dest, uint32_t count,
     int is_stderr);
-LIBSSH_API int channel_request_env(ssh_channel channel, const char *name, const char *value);
-LIBSSH_API int channel_request_exec(ssh_channel channel, const char *cmd);
-LIBSSH_API int channel_request_pty(ssh_channel channel);
-LIBSSH_API int channel_request_pty_size(ssh_channel channel, const char *term,
+SSH_DEPRECATED LIBSSH_API int channel_request_env(ssh_channel channel, const char *name, const char *value);
+SSH_DEPRECATED LIBSSH_API int channel_request_exec(ssh_channel channel, const char *cmd);
+SSH_DEPRECATED LIBSSH_API int channel_request_pty(ssh_channel channel);
+SSH_DEPRECATED LIBSSH_API int channel_request_pty_size(ssh_channel channel, const char *term,
     int cols, int rows);
-LIBSSH_API int channel_request_shell(ssh_channel channel);
-LIBSSH_API int channel_request_send_signal(ssh_channel channel, const char *signum);
-LIBSSH_API int channel_request_sftp(ssh_channel channel);
-LIBSSH_API int channel_request_subsystem(ssh_channel channel, const char *subsystem);
-LIBSSH_API int channel_request_x11(ssh_channel channel, int single_connection, const char *protocol,
+SSH_DEPRECATED LIBSSH_API int channel_request_shell(ssh_channel channel);
+SSH_DEPRECATED LIBSSH_API int channel_request_send_signal(ssh_channel channel, const char *signum);
+SSH_DEPRECATED LIBSSH_API int channel_request_sftp(ssh_channel channel);
+SSH_DEPRECATED LIBSSH_API int channel_request_subsystem(ssh_channel channel, const char *subsystem);
+SSH_DEPRECATED LIBSSH_API int channel_request_x11(ssh_channel channel, int single_connection, const char *protocol,
     const char *cookie, int screen_number);
-LIBSSH_API int channel_send_eof(ssh_channel channel);
-LIBSSH_API int channel_select(ssh_channel *readchans, ssh_channel *writechans, ssh_channel *exceptchans, struct
+SSH_DEPRECATED LIBSSH_API int channel_send_eof(ssh_channel channel);
+SSH_DEPRECATED LIBSSH_API int channel_select(ssh_channel *readchans, ssh_channel *writechans, ssh_channel *exceptchans, struct
         timeval * timeout);
-LIBSSH_API void channel_set_blocking(ssh_channel channel, int blocking);
-LIBSSH_API int channel_write(ssh_channel channel, const void *data, uint32_t len);
+SSH_DEPRECATED LIBSSH_API void channel_set_blocking(ssh_channel channel, int blocking);
+SSH_DEPRECATED LIBSSH_API int channel_write(ssh_channel channel, const void *data, uint32_t len);
 
 LIBSSH_API void privatekey_free(ssh_private_key prv);
 LIBSSH_API ssh_private_key privatekey_from_file(ssh_session session, const char *filename,
@@ -107,14 +107,14 @@ LIBSSH_API ssh_string ssh_get_pubkey(ssh_session session);
 LIBSSH_API ssh_message ssh_message_retrieve(ssh_session session, uint32_t packettype);
 LIBSSH_API ssh_public_key ssh_message_auth_publickey(ssh_message msg);
 
-LIBSSH_API void string_burn(ssh_string str);
-LIBSSH_API ssh_string string_copy(ssh_string str);
-LIBSSH_API void *string_data(ssh_string str);
-LIBSSH_API int string_fill(ssh_string str, const void *data, size_t len);
-LIBSSH_API void string_free(ssh_string str);
-LIBSSH_API ssh_string string_from_char(const char *what);
-LIBSSH_API size_t string_len(ssh_string str);
-LIBSSH_API ssh_string string_new(size_t size);
-LIBSSH_API char *string_to_char(ssh_string str);
+SSH_DEPRECATED LIBSSH_API void string_burn(ssh_string str);
+SSH_DEPRECATED LIBSSH_API ssh_string string_copy(ssh_string str);
+SSH_DEPRECATED LIBSSH_API void *string_data(ssh_string str);
+SSH_DEPRECATED LIBSSH_API int string_fill(ssh_string str, const void *data, size_t len);
+SSH_DEPRECATED LIBSSH_API void string_free(ssh_string str);
+SSH_DEPRECATED LIBSSH_API ssh_string string_from_char(const char *what);
+SSH_DEPRECATED LIBSSH_API size_t string_len(ssh_string str);
+SSH_DEPRECATED LIBSSH_API ssh_string string_new(size_t size);
+SSH_DEPRECATED LIBSSH_API char *string_to_char(ssh_string str);
 
 #endif /* LEGACY_H_ */

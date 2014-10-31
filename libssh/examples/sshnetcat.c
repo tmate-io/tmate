@@ -87,13 +87,23 @@ static void select_loop(ssh_session session,ssh_channel channel){
 	int ret;
 	while(channel){
 		do{
+            int fd;
+
 			FD_ZERO(&fds);
 			if(!eof)
 				FD_SET(0,&fds);
 			timeout.tv_sec=30;
 			timeout.tv_usec=0;
-			FD_SET(ssh_get_fd(session),&fds);
-			maxfd=ssh_get_fd(session)+1;
+
+            fd = ssh_get_fd(session);
+            if (fd == -1) {
+                fprintf(stderr, "Error getting the session file descriptor: %s\n",
+                                ssh_get_error(session));
+                return;
+            }
+            FD_SET(fd, &fds);
+            maxfd = fd + 1;
+
 			channels[0]=channel; // set the first channel we want to read from
 			channels[1]=NULL;
 			ret=ssh_select(channels,outchannels,maxfd,&fds,&timeout);
@@ -102,27 +112,27 @@ static void select_loop(ssh_session session,ssh_channel channel){
 			if(FD_ISSET(0,&fds)){
 				lus=read(0,buffer,sizeof(buffer));
 				if(lus)
-					channel_write(channel,buffer,lus);
+					ssh_channel_write(channel,buffer,lus);
 				else {
 					eof=1;
-					channel_send_eof(channel);
+					ssh_channel_send_eof(channel);
 				}
 			}
-			if(channel && channel_is_closed(channel)){
-				channel_free(channel);
+			if(channel && ssh_channel_is_closed(channel)){
+				ssh_channel_free(channel);
 				channel=NULL;
 				channels[0]=NULL;
 			}
 			if(outchannels[0]){
-				while(channel && channel_is_open(channel) && channel_poll(channel,0)){
-					lus=channel_read(channel,buffer,sizeof(buffer),0);
+				while(channel && ssh_channel_is_open(channel) && ssh_channel_poll(channel,0)){
+					lus = ssh_channel_read(channel,buffer,sizeof(buffer),0);
 					if(lus==-1){
 						fprintf(stderr, "Error reading channel: %s\n",
 								ssh_get_error(session));
 						return;
 					}
 					if(lus==0){
-						channel_free(channel);
+						ssh_channel_free(channel);
 						channel=channels[0]=NULL;
 					} else {
 						ret = write(1, buffer, lus);
@@ -133,27 +143,28 @@ static void select_loop(ssh_session session,ssh_channel channel){
 						}
 					}
 				}
-				while(channel && channel_is_open(channel) && channel_poll(channel,1)){ /* stderr */
-					lus=channel_read(channel,buffer,sizeof(buffer),1);
+				while(channel && ssh_channel_is_open(channel) && ssh_channel_poll(channel,1)){ /* stderr */
+					lus = ssh_channel_read(channel, buffer, sizeof(buffer), 1);
 					if(lus==-1){
 						fprintf(stderr, "Error reading channel: %s\n",
 								ssh_get_error(session));
 						return;
 					}
 					if(lus==0){
-						channel_free(channel);
+						ssh_channel_free(channel);
 						channel=channels[0]=NULL;
-					} else
+					} else {
 						ret = write(2, buffer, lus);
 						if (ret < 0) {
 							fprintf(stderr, "Error writing to stderr: %s",
 								strerror(errno));
 							return;
 						}
+                    }
 				}
 			}
-			if(channel && channel_is_closed(channel)){
-				channel_free(channel);
+			if(channel && ssh_channel_is_closed(channel)){
+				ssh_channel_free(channel);
 				channel=NULL;
 			}
 		} while (ret==EINTR || ret==SSH_EINTR);
@@ -164,8 +175,8 @@ static void select_loop(ssh_session session,ssh_channel channel){
 static void forwarding(ssh_session session){
     ssh_channel channel;
     int r;
-    channel=channel_new(session);
-    r=channel_open_forward(channel,desthost,atoi(port),"localhost",22);
+    channel = ssh_channel_new(session);
+    r = ssh_channel_open_forward(channel, desthost, atoi(port), "localhost", 22);
     if(r<0) {
         printf("error forwarding port : %s\n",ssh_get_error(session));
         return;

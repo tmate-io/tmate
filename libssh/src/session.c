@@ -3,7 +3,7 @@
  *
  * This file is part of the SSH Library
  *
- * Copyright (c) 2005-2008 by Aris Adamantiadis
+ * Copyright (c) 2005-2013 by Aris Adamantiadis
  *
  * The SSH Library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -226,7 +226,11 @@ void ssh_free(ssh_session session) {
 #endif /* _WIN32 */
 
   ssh_key_free(session->srv.dsa_key);
+  session->srv.dsa_key = NULL;
   ssh_key_free(session->srv.rsa_key);
+  session->srv.rsa_key = NULL;
+  ssh_key_free(session->srv.ecdsa_key);
+  session->srv.ecdsa_key = NULL;
 
   if (session->ssh_message_list) {
       ssh_message msg;
@@ -255,16 +259,20 @@ void ssh_free(ssh_session session) {
       ssh_list_free(session->opts.identity);
   }
 
+  SAFE_FREE(session->auth_auto_state);
   SAFE_FREE(session->serverbanner);
   SAFE_FREE(session->clientbanner);
   SAFE_FREE(session->banner);
 
   SAFE_FREE(session->opts.bindaddr);
+  SAFE_FREE(session->opts.custombanner);
   SAFE_FREE(session->opts.username);
   SAFE_FREE(session->opts.host);
   SAFE_FREE(session->opts.sshdir);
   SAFE_FREE(session->opts.knownhosts);
   SAFE_FREE(session->opts.ProxyCommand);
+  SAFE_FREE(session->opts.gss_server_identity);
+  SAFE_FREE(session->opts.gss_client_identity);
 
   for (i = 0; i < 10; i++) {
       if (session->opts.wanted_methods[i]) {
@@ -272,9 +280,24 @@ void ssh_free(ssh_session session) {
       }
   }
 
-  /* burn connection, it could hang sensitive datas */
+  /* burn connection, it could contain sensitive data */
   BURN_BUFFER(session, sizeof(struct ssh_session_struct));
   SAFE_FREE(session);
+}
+
+/**
+ * @brief get the client banner
+ *
+ * @param[in] session   The SSH session
+ *
+ * @return Returns the client banner string or NULL.
+ */
+const char* ssh_get_clientbanner(ssh_session session) {
+    if (session == NULL) {
+        return NULL;
+    }
+
+    return session->clientbanner;
 }
 
 /**
@@ -289,6 +312,68 @@ const char* ssh_get_serverbanner(ssh_session session) {
 		return NULL;
 	}
 	return session->serverbanner;
+}
+
+/**
+ * @brief get the name of the input cipher for the given session.
+ *
+ * @param[in] session The SSH session.
+ *
+ * @return Returns cipher name or NULL.
+ */
+const char* ssh_get_cipher_in(ssh_session session) {
+    if ((session != NULL) &&
+        (session->current_crypto != NULL) &&
+        (session->current_crypto->in_cipher != NULL)) {
+        return session->current_crypto->in_cipher->name;
+    }
+    return NULL;
+}
+
+/**
+ * @brief get the name of the output cipher for the given session.
+ *
+ * @param[in] session The SSH session.
+ *
+ * @return Returns cipher name or NULL.
+ */
+const char* ssh_get_cipher_out(ssh_session session) {
+    if ((session != NULL) &&
+        (session->current_crypto != NULL) &&
+        (session->current_crypto->out_cipher != NULL)) {
+        return session->current_crypto->out_cipher->name;
+    }
+    return NULL;
+}
+
+/**
+ * @brief get the name of the input HMAC algorithm for the given session.
+ *
+ * @param[in] session The SSH session.
+ *
+ * @return Returns HMAC algorithm name or NULL if unknown.
+ */
+const char* ssh_get_hmac_in(ssh_session session) {
+    if ((session != NULL) &&
+        (session->current_crypto != NULL)) {
+        return ssh_hmac_type_to_string(session->current_crypto->in_hmac);
+    }
+    return NULL;
+}
+
+/**
+ * @brief get the name of the output HMAC algorithm for the given session.
+ *
+ * @param[in] session The SSH session.
+ *
+ * @return Returns HMAC algorithm name or NULL if unknown.
+ */
+const char* ssh_get_hmac_out(ssh_session session) {
+    if ((session != NULL) &&
+        (session->current_crypto != NULL)) {
+        return ssh_hmac_type_to_string(session->current_crypto->out_hmac);
+    }
+    return NULL;
 }
 
 /**
@@ -476,9 +561,7 @@ int ssh_handle_packets(ssh_session session, int timeout) {
 
     spoll_in = ssh_socket_get_poll_handle_in(session->socket);
     spoll_out = ssh_socket_get_poll_handle_out(session->socket);
-    if (session->server) {
-        ssh_poll_add_events(spoll_in, POLLIN);
-    }
+    ssh_poll_add_events(spoll_in, POLLIN);
     ctx = ssh_poll_get_ctx(spoll_in);
 
     if (!ctx) {
@@ -551,7 +634,11 @@ int ssh_handle_packets_termination(ssh_session session,
         }
     }
 
-    ssh_timestamp_init(&ts);
+    /* avoid unnecessary syscall for the SSH_TIMEOUT_NONBLOCKING case */
+    if (timeout != SSH_TIMEOUT_NONBLOCKING) {
+        ssh_timestamp_init(&ts);
+    }
+
     tm = timeout;
     while(!fct(user)) {
         ret = ssh_handle_packets(session, tm);
@@ -608,6 +695,25 @@ int ssh_get_status(ssh_session session) {
 }
 
 /**
+ * @brief Get poll flags for an external mainloop
+ *
+ * @param session       The ssh session to use.
+ *
+ * @returns A bitmask including SSH_READ_PENDING or SSH_WRITE_PENDING.
+ *          For SSH_READ_PENDING, your invocation of poll() should include
+ *          POLLIN.  For SSH_WRITE_PENDING, your invocation of poll() should
+ *          include POLLOUT.
+ */
+int ssh_get_poll_flags(ssh_session session)
+{
+  if (session == NULL) {
+    return 0;
+  }
+
+  return ssh_socket_get_poll_flags (session->socket);
+}
+
+/**
  * @brief Get the disconnect message from the server.
  *
  * @param[in] session   The ssh session to use.
@@ -660,8 +766,13 @@ void ssh_socket_exception_callback(int code, int errno_code, void *user){
     ssh_session session=(ssh_session)user;
 
     SSH_LOG(SSH_LOG_RARE,"Socket exception callback: %d (%d)",code, errno_code);
-    session->session_state=SSH_SESSION_STATE_ERROR;
-    ssh_set_error(session,SSH_FATAL,"Socket error: %s",strerror(errno_code));
+    session->session_state = SSH_SESSION_STATE_ERROR;
+    if (errno_code == 0 && code == SSH_SOCKET_EXCEPTION_EOF) {
+        ssh_set_error(session, SSH_FATAL, "Socket error: disconnected");
+    } else {
+        ssh_set_error(session, SSH_FATAL, "Socket error: %s", strerror(errno_code));
+    }
+
     session->ssh_connection_callback(session);
 }
 
@@ -674,33 +785,26 @@ void ssh_socket_exception_callback(int code, int errno_code, void *user){
  * @return              SSH_OK on success, SSH_ERROR otherwise.
  */
 int ssh_send_ignore (ssh_session session, const char *data) {
-    ssh_string str;
+    int rc;
 
     if (ssh_socket_is_open(session->socket)) {
-        if (buffer_add_u8(session->out_buffer, SSH2_MSG_IGNORE) < 0) {
+
+        rc = ssh_buffer_pack(session->out_buffer,
+                             "bs",
+                             SSH2_MSG_IGNORE,
+                             data);
+        if (rc != SSH_OK){
+            ssh_set_error_oom(session);
             goto error;
         }
-
-        str = ssh_string_from_char(data);
-        if (str == NULL) {
-            goto error;
-        }
-
-        if (buffer_add_ssh_string(session->out_buffer, str) < 0) {
-            ssh_string_free(str);
-            goto error;
-        }
-
         packet_send(session);
         ssh_handle_packets(session, 0);
-
-        ssh_string_free(str);
     }
 
     return SSH_OK;
 
 error:
-    buffer_reinit(session->out_buffer);
+    ssh_buffer_reinit(session->out_buffer);
     return SSH_ERROR;
 }
 
@@ -716,34 +820,19 @@ error:
  * @return                     SSH_OK on success, SSH_ERROR otherwise.
  */
 int ssh_send_debug (ssh_session session, const char *message, int always_display) {
-    ssh_string str;
     int rc;
 
     if (ssh_socket_is_open(session->socket)) {
-        if (buffer_add_u8(session->out_buffer, SSH2_MSG_DEBUG) < 0) {
+        rc = ssh_buffer_pack(session->out_buffer,
+                             "bbsd",
+                             SSH2_MSG_DEBUG,
+                             always_display != 0 ? 1 : 0,
+                             message,
+                             0); /* empty language tag */
+        if (rc != SSH_OK) {
+            ssh_set_error_oom(session);
             goto error;
         }
-
-        if (buffer_add_u8(session->out_buffer, always_display) < 0) {
-            goto error;
-        }
-
-        str = ssh_string_from_char(message);
-        if (str == NULL) {
-            goto error;
-        }
-
-        rc = buffer_add_ssh_string(session->out_buffer, str);
-        ssh_string_free(str);
-        if (rc < 0) {
-            goto error;
-        }
-
-        /* Empty language tag */
-        if (buffer_add_u32(session->out_buffer, 0) < 0) {
-            goto error;
-        }
-
         packet_send(session);
         ssh_handle_packets(session, 0);
     }
@@ -751,8 +840,47 @@ int ssh_send_debug (ssh_session session, const char *message, int always_display
     return SSH_OK;
 
 error:
-    buffer_reinit(session->out_buffer);
+    ssh_buffer_reinit(session->out_buffer);
     return SSH_ERROR;
+}
+
+ /**
+ * @brief Set the session data counters.
+ *
+ * This functions sets the counter structures to be used to calculate data
+ * which comes in and goes out through the session at different levels.
+ *
+ * @code
+ * struct ssh_counter_struct scounter = {
+ *     .in_bytes = 0,
+ *     .out_bytes = 0,
+ *     .in_packets = 0,
+ *     .out_packets = 0
+ * };
+ *
+ * struct ssh_counter_struct rcounter = {
+ *     .in_bytes = 0,
+ *     .out_bytes = 0,
+ *     .in_packets = 0,
+ *     .out_packets = 0
+ * };
+ *
+ * ssh_set_counters(session, &scounter, &rcounter);
+ * @endcode
+ *
+ * @param[in] session   The SSH session.
+ *
+ * @param[in] scounter  Counter for byte data handled by the session sockets.
+ *
+ * @param[in] rcounter  Counter for byte and packet data handled by the session,
+ *                      prior compression and SSH overhead.
+ */
+void ssh_set_counters(ssh_session session, ssh_counter scounter,
+                              ssh_counter rcounter) {
+    if (session != NULL) {
+        session->socket_counter = scounter;
+        session->raw_counter = rcounter;
+    }
 }
 
 /** @} */

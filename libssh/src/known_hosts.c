@@ -4,7 +4,7 @@
  * This file is part of the SSH Library
  *
  * Copyright (c) 2003-2009 by Aris Adamantiadis
- * Copyright (c) 2009      by Andreas Schneider <mail@cynapses.org>
+ * Copyright (c) 2009      by Andreas Schneider <asn@cryptomilk.org>
  *
  * The SSH Library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -34,7 +34,7 @@
 #include "libssh/misc.h"
 #include "libssh/pki.h"
 #include "libssh/options.h"
-
+#include "libssh/knownhosts.h"
 /*todo: remove this include */
 #include "libssh/string.h"
 
@@ -239,9 +239,9 @@ static int check_public_key(ssh_session session, char **tokens) {
       /* TODO: fix the hardcoding */
       tmpstring->size = htonl(len);
 #ifdef HAVE_LIBGCRYPT
-      bignum_bn2bin(tmpbn, len, string_data(tmpstring));
+      bignum_bn2bin(tmpbn, len, ssh_string_data(tmpstring));
 #elif defined HAVE_LIBCRYPTO
-      bignum_bn2bin(tmpbn, string_data(tmpstring));
+      bignum_bn2bin(tmpbn, ssh_string_data(tmpstring));
 #endif
       bignum_free(tmpbn);
       if (buffer_add_ssh_string(pubkey_buffer, tmpstring) < 0) {
@@ -645,6 +645,102 @@ int ssh_write_knownhost(ssh_session session) {
 
     fclose(file);
     return 0;
+}
+
+#define KNOWNHOSTS_MAXTYPES 10
+
+/**
+ * @internal
+ * @brief Check which kind of host keys should be preferred for connection
+ *        by reading the known_hosts file.
+ *
+ * @param[in]  session  The SSH session to use.
+ *
+ * @returns array of supported key types
+ *			NULL on error
+ */
+char **ssh_knownhosts_algorithms(ssh_session session) {
+  FILE *file = NULL;
+  char **tokens;
+  char *host;
+  char *hostport;
+  const char *type;
+  int match;
+  char **array;
+  int i=0, j;
+
+  if (session->opts.knownhosts == NULL) {
+    if (ssh_options_apply(session) < 0) {
+      ssh_set_error(session, SSH_REQUEST_DENIED,
+          "Can't find a known_hosts file");
+      return NULL;
+    }
+  }
+
+  if (session->opts.host == NULL) {
+    return NULL;
+  }
+
+  host = ssh_lowercase(session->opts.host);
+  hostport = ssh_hostport(host, session->opts.port);
+  array = malloc(sizeof(char *) * KNOWNHOSTS_MAXTYPES);
+
+  if (host == NULL || hostport == NULL || array == NULL) {
+    ssh_set_error_oom(session);
+    SAFE_FREE(host);
+    SAFE_FREE(hostport);
+    SAFE_FREE(array);
+    return NULL;
+  }
+
+  do {
+    tokens = ssh_get_knownhost_line(&file,
+    		session->opts.knownhosts, &type);
+
+    /* End of file, return the current state */
+    if (tokens == NULL) {
+      break;
+    }
+    match = match_hashed_host(host, tokens[0]);
+    if (match == 0){
+    	match = match_hostname(hostport, tokens[0], strlen(tokens[0]));
+    }
+    if (match == 0) {
+      match = match_hostname(host, tokens[0], strlen(tokens[0]));
+    }
+    if (match == 0) {
+      match = match_hashed_host(hostport, tokens[0]);
+    }
+    if (match) {
+      /* We got a match. Now check the key type */
+    	SSH_LOG(SSH_LOG_DEBUG, "server %s:%d has %s in known_hosts",
+    							host, session->opts.port, type);
+    	/* don't copy more than once */
+    	for(j=0;j<i && match;++j){
+    		if(strcmp(array[j], type)==0)
+    			match=0;
+    	}
+    	if (match){
+    		array[i] = strdup(type);
+    		i++;
+    		if(i>= KNOWNHOSTS_MAXTYPES-1){
+    			tokens_free(tokens);
+    			break;
+    		}
+    	}
+    }
+    tokens_free(tokens);
+  } while (1);
+
+  array[i]=NULL;
+  SAFE_FREE(host);
+  SAFE_FREE(hostport);
+  if (file != NULL) {
+    fclose(file);
+  }
+
+  /* Return the current state at end of file */
+  return array;
 }
 
 /** @} */
