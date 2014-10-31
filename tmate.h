@@ -18,7 +18,7 @@
 
 #define TMATE_MAX_MESSAGE_SIZE (16*1024)
 
-#define TMATE_PROTOCOL_VERSION 3
+#define TMATE_PROTOCOL_VERSION 4
 
 enum tmate_commands {
 	TMATE_HEADER,
@@ -56,10 +56,13 @@ enum tmate_client_commands {
 	TMATE_CLIENT_PANE_KEY,
 	TMATE_CLIENT_RESIZE,
 	TMATE_CLIENT_EXEC_CMD,
+	TMATE_CLIENT_ENV,
+	TMATE_CLIENT_READY,
 };
 
 struct tmate_decoder {
 	struct msgpack_unpacker unpacker;
+	int ready;
 };
 
 extern int tmate_sx;
@@ -146,5 +149,11 @@ extern void tmate_catch_sigsegv(void);
 
 extern void __tmate_status_message(const char *fmt, va_list ap);
 extern void printflike1 tmate_status_message(const char *fmt, ...);
+
+/* tmate-env.c */
+
+extern int tmate_has_received_env(void);
+extern void tmate_set_env(const char *name, const char *value);
+extern void tmate_format(struct format_tree *ft);
 
 #endif

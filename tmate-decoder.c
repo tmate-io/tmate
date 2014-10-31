@@ -148,7 +148,27 @@ out:
 	free(cmd_str);
 }
 
-static void handle_message(msgpack_object obj)
+static void tmate_client_env(struct tmate_unpacker *uk)
+{
+	char *name = unpack_string(uk);
+	char *value = unpack_string(uk);
+
+	tmate_set_env(name, value);
+
+	free(name);
+	free(value);
+}
+
+
+extern void signal_waiting_clients(const char *name);
+static void tmate_client_ready(struct tmate_decoder *decoder,
+			       struct tmate_unpacker *uk)
+{
+	decoder->ready = 1;
+	signal_waiting_clients("tmate-ready");
+}
+
+static void handle_message(struct tmate_decoder *decoder, msgpack_object obj)
 {
 	struct tmate_unpacker _uk;
 	struct tmate_unpacker *uk = &_uk;
@@ -160,6 +180,8 @@ static void handle_message(msgpack_object obj)
 	case TMATE_CLIENT_PANE_KEY:	tmate_client_pane_key(uk); break;
 	case TMATE_CLIENT_RESIZE:	tmate_client_resize(uk); break;
 	case TMATE_CLIENT_EXEC_CMD:	tmate_client_exec_cmd(uk); break;
+	case TMATE_CLIENT_ENV:		tmate_client_env(uk); break;
+	case TMATE_CLIENT_READY:	tmate_client_ready(decoder, uk); break;
 	default:			decoder_error();
 	}
 }
@@ -172,7 +194,7 @@ void tmate_decoder_commit(struct tmate_decoder *decoder, size_t len)
 
 	msgpack_unpacked_init(&result);
 	while (msgpack_unpacker_next(&decoder->unpacker, &result)) {
-		handle_message(result.data);
+		handle_message(decoder, result.data);
 	}
 	msgpack_unpacked_destroy(&result);
 
@@ -199,4 +221,5 @@ void tmate_decoder_init(struct tmate_decoder *decoder)
 {
 	if (!msgpack_unpacker_init(&decoder->unpacker, 2*TMATE_MAX_MESSAGE_SIZE))
 		tmate_fatal("cannot initialize the unpacker");
+	decoder->ready = 0;
 }

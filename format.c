@@ -26,6 +26,7 @@
 #include <unistd.h>
 
 #include "tmux.h"
+#include "tmate.h"
 
 /*
  * Build a list of key-value pairs and use them to expand #{key} entries in a
@@ -213,6 +214,10 @@ format_expand(struct format_tree *ft, const char *fmt)
 	const char	*s;
 	size_t		 off, len, n;
 	int     	 ch;
+
+#ifdef TMATE
+	tmate_format(ft);
+#endif
 
 	len = 64;
 	buf = xmalloc(len);

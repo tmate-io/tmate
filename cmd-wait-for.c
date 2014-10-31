@@ -23,6 +23,7 @@
 #include <string.h>
 
 #include "tmux.h"
+#include "tmate.h"
 
 /*
  * Block or wake a client on a named wait channel.
@@ -116,10 +117,44 @@ cmd_wait_for_signal(struct cmd_q *cmdq, const char *name,
 	return (CMD_RETURN_NORMAL);
 }
 
+#ifdef TMATE
+void signal_waiting_clients(const char *name)
+{
+	struct wait_channel	*wc, wc0;
+	struct cmd_q	*wq, *wq1;
+
+	wc0.name = name;
+	wc = RB_FIND(wait_channels, &wait_channels, &wc0);
+
+	if (wc == NULL || TAILQ_EMPTY(&wc->waiters)) {
+		return;
+	}
+
+	TAILQ_FOREACH_SAFE(wq, &wc->waiters, waitentry, wq1) {
+		TAILQ_REMOVE(&wc->waiters, wq, waitentry);
+		if (!cmdq_free(wq))
+			cmdq_continue(wq);
+	}
+
+	if (!wc->locked) {
+		RB_REMOVE(wait_channels, &wait_channels, wc);
+		free((void*) wc->name);
+		free(wc);
+	}
+}
+#endif
+
 enum cmd_retval
 cmd_wait_for_wait(struct cmd_q *cmdq, const char *name,
     struct wait_channel *wc)
 {
+
+#ifdef TMATE
+	if (!strcmp(name, "tmate-ready") && tmate_session.decoder.ready)
+		return (CMD_RETURN_NORMAL);
+#endif
+
+
 	if (cmdq->client == NULL || cmdq->client->session != NULL) {
 		cmdq_error(cmdq, "not able to wait");
 		return (CMD_RETURN_ERROR);
