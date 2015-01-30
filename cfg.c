@@ -26,6 +26,7 @@
 #include <string.h>
 
 #include "tmux.h"
+#include "tmate.h"
 
 struct cmd_q		*cfg_cmd_q;
 int			 cfg_finished;
@@ -121,6 +122,8 @@ cfg_default_done(unused struct cmd_q *cmdq)
 	if (--cfg_references != 0)
 		return;
 	cfg_finished = 1;
+
+	tmate_session_start();
 
 	if (!RB_EMPTY(&sessions))
 		cfg_show_causes(RB_MIN(sessions, &sessions));

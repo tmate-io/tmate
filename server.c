@@ -205,7 +205,7 @@ server_start(int lockfd, char *lockfile)
 
 	set_signals(server_signal_callback);
 
-	tmate_session_start();
+	/* tmate_session_start() is called in cfg_default_done */
 	server_loop();
 	exit(0);
 }
