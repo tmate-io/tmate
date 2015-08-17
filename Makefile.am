@@ -23,11 +23,11 @@ endif
 
 CFLAGS += -Wno-unused-parameter -Wno-unused-variable
 CFLAGS += -Ilibssh/include/ -Imsgpack/src
-CFLAGS += -rdynamic # for stack traces
 
 # Set flags for gcc. gcc4 whines abouts silly stuff so it needs slightly
 # different flags.
 if IS_GCC
+CFLAGS += -rdynamic # for stack traces
 CFLAGS += -std=gnu99
 if IS_DEBUG
 CFLAGS += -O0 -g
