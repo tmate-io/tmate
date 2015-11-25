@@ -153,6 +153,8 @@ session_create(const char *name, const char *cmd, const char *cwd,
 	return (s);
 }
 
+extern void signal_waiting_clients(const char *name);
+
 /* Destroy a session. */
 void
 session_destroy(struct session *s)
@@ -162,6 +164,8 @@ session_destroy(struct session *s)
 
 	RB_REMOVE(sessions, &sessions, s);
 	notify_session_closed(s);
+
+	signal_waiting_clients("session-exit");
 
 	free(s->tio);
 
