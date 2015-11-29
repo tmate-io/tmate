@@ -22,7 +22,6 @@ CFLAGS += -D_GNU_SOURCE
 endif
 
 CFLAGS += -Wno-unused-parameter -Wno-unused-variable
-CFLAGS += -Ilibssh/include/ -Imsgpack/src
 
 # Set flags for gcc. gcc4 whines abouts silly stuff so it needs slightly
 # different flags.
@@ -243,17 +242,6 @@ nodist_tmate_SOURCES += compat/b64_ntop.c
 endif
 
 tmate_LDADD = \
-	libssh/build/src/libssh.a \
-	msgpack/src/.libs/libmsgpackc.a
+	-lssh \
+	-lmsgpackc
 
-*.c: $(tmate_LDADD)
-
-libssh/build/src/libssh.a:
-	cd libssh/build; ([ -f Makefile ] || cmake .. -DWITH_SFTP=OFF -DWITH_SERVER=OFF -DWITH_PCAP=OFF -DWITH_STATIC_LIB=ON -DWITH_GSSAPI=OFF)
-	+make -C libssh/build ssh_static
-
-msgpack/src/.libs/libmsgpackc.a:
-	cd msgpack; ([ -f Makefile ] || (./bootstrap && ./configure))
-	+make -C msgpack/src libmsgpackc.la
-
-.PHONY: libssh/build/src/libssh.a msgpack/src/.libs/libmsgpackc.a
