@@ -147,6 +147,35 @@ if test "x$found_curses" = xno; then
     AC_MSG_ERROR("curses not found")
 fi
 
+PKG_CHECK_MODULES(
+  MSGPACK,
+  msgpack,
+  [
+    CPPFLAGS="$MSGPACK_CFLAGS $CPPFLAGS"
+    LIBS="$MSGPACK_LIBS $LIBS"
+    found_msgpack=yes
+  ],
+  found_msgpack=no
+)
+if test "x$found_msgpack" = xno; then
+  AC_MSG_ERROR("msgpack not found")
+fi
+
+
+PKG_CHECK_MODULES(
+  LIBSSH,
+  libssh,
+  [
+    CPPFLAGS="$LIBSSH_CFLAGS $CPPFLAGS"
+    LIBS="$LIBSSH_LIBS $LIBS"
+    found_libssh=yes
+  ],
+  found_libssh=no
+)
+if test "x$found_libssh" = xno; then
+  AC_MSG_ERROR("libssh not found")
+fi
+
 # Check for b64_ntop.
 AC_MSG_CHECKING(for b64_ntop)
 AC_TRY_LINK(

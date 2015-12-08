@@ -240,8 +240,3 @@ endif
 if NO_B64_NTOP
 nodist_tmate_SOURCES += compat/b64_ntop.c
 endif
-
-tmate_LDADD = \
-	-lssh \
-	-lmsgpackc
-
