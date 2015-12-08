@@ -223,7 +223,10 @@ static void on_session_event(struct tmate_ssh_client *client)
 		}
 
 	case SSH_AUTH_SERVER:
-		if ((hash_len = ssh_get_pubkey_hash(session, &hash)) < 0) {
+		if (ssh_get_publickey(session, &pubkey) < 0)
+			tmate_fatal("ssh_get_publickey");
+
+		if (ssh_get_publickey_hash(pubkey, SSH_PUBLICKEY_HASH_MD5, &hash, &hash_len) < 0) {
 			kill_session(client, "Cannot authenticate server");
 			return;
 		}
@@ -231,9 +234,6 @@ static void on_session_event(struct tmate_ssh_client *client)
 		hash_str = ssh_get_hexa(hash, hash_len);
 		if (!hash_str)
 			tmate_fatal("malloc failed");
-
-		if (ssh_get_publickey(session, &pubkey) < 0)
-			tmate_fatal("ssh_get_publickey");
 
 		key_type = ssh_key_type(pubkey);
 

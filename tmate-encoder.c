@@ -2,7 +2,7 @@
 
 #define DEFAULT_ENCODER (&tmate_session.encoder)
 
-static int msgpack_write(void *data, const char *buf, unsigned int len)
+static int msgpack_write(void *data, const char *buf, size_t len)
 {
 	struct tmate_encoder *encoder = data;
 
@@ -25,8 +25,8 @@ void tmate_encoder_init(struct tmate_encoder *encoder)
 
 #define msgpack_pack_string(pk, str) do {		\
 	int __strlen = strlen(str);			\
-	msgpack_pack_raw(pk, __strlen);			\
-	msgpack_pack_raw_body(pk, str, __strlen);	\
+	msgpack_pack_str(pk, __strlen);			\
+	msgpack_pack_str_body(pk, str, __strlen);	\
 } while(0)
 
 #define pack(what, ...) msgpack_pack_##what(&DEFAULT_ENCODER->pk, __VA_ARGS__)
@@ -125,8 +125,8 @@ void tmate_pty_data(struct window_pane *wp, const char *buf, size_t len)
 		pack(array, 3);
 		pack(int, TMATE_PTY_DATA);
 		pack(int, wp->id);
-		pack(raw, to_write);
-		pack(raw_body, buf, to_write);
+		pack(str, to_write);
+		pack(str_body, buf, to_write);
 
 		buf += to_write;
 		len -= to_write;

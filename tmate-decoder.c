@@ -49,11 +49,12 @@ static void unpack_raw(struct tmate_unpacker *uk,
 	if (uk->argc == 0)
 		decoder_error();
 
-	if (uk->argv[0].type != MSGPACK_OBJECT_RAW)
+	if (uk->argv[0].type != MSGPACK_OBJECT_STR &&
+	    uk->argv[0].type != MSGPACK_OBJECT_BIN)
 		decoder_error();
 
-	*len = uk->argv[0].via.raw.size;
-	*buf = uk->argv[0].via.raw.ptr;
+	*len = uk->argv[0].via.str.size;
+	*buf = uk->argv[0].via.str.ptr;
 
 	uk->argv++;
 	uk->argc--;
