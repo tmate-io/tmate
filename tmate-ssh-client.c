@@ -83,7 +83,7 @@ static char *get_identity(void)
 {
 	char *identity;
 
-	identity = options_get_string(global_s_options, "tmate-identity");
+	identity = options_get_string(global_options, "tmate-identity");
 	if (!strlen(identity))
 		return NULL;
 
@@ -167,7 +167,7 @@ static void on_session_event(struct tmate_ssh_client *client)
 	int match;
 
 	int verbosity = SSH_LOG_NOLOG + log_get_level();
-	int port = options_get_number(global_s_options, "tmate-server-port");
+	int port = options_get_number(global_options, "tmate-server-port");
 
 	ssh_session session = client->session;
 	ssh_channel channel = client->channel;
@@ -241,11 +241,11 @@ static void on_session_event(struct tmate_ssh_client *client)
 
 		switch (key_type) {
 		case SSH_KEYTYPE_RSA:
-			server_hash_str = options_get_string(global_s_options,
+			server_hash_str = options_get_string(global_options,
 						"tmate-server-rsa-fingerprint");
 			break;
 		case SSH_KEYTYPE_ECDSA:
-			server_hash_str = options_get_string(global_s_options,
+			server_hash_str = options_get_string(global_options,
 						"tmate-server-ecdsa-fingerprint");
 			break;
 		default:
