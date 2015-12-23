@@ -65,7 +65,7 @@ log_open(const char *name)
 	if (log_file != NULL)
 		fclose(log_file);
 
-	xasprintf(&path, "tmux-%s-%ld.log", name, (long)getpid());
+	xasprintf(&path, "tmate-%s-%ld.log", name, (long)getpid());
 	log_file = fopen(path, "w");
 	free(path);
 	if (log_file == NULL)
