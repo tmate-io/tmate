@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $OpenBSD$ */
 
 /*
  * Copyright (c) 2009 Nicholas Marriott <nicm@users.sourceforge.net>
@@ -27,18 +27,27 @@
  * Enter choice mode to choose a client.
  */
 
+#define CHOOSE_CLIENT_TEMPLATE					\
+	"#{client_tty}: #{session_name} "			\
+	"[#{client_width}x#{client_height} #{client_termname}]"	\
+	"#{?client_utf8, (utf8),}#{?client_readonly, (ro),} "	\
+	"(last used #{t:client_activity})"
+
 enum cmd_retval	 cmd_choose_client_exec(struct cmd *, struct cmd_q *);
 
 void	cmd_choose_client_callback(struct window_choose_data *);
 
 const struct cmd_entry cmd_choose_client_entry = {
-	"choose-client", NULL,
-	"F:t:", 0, 1,
-	CMD_TARGET_WINDOW_USAGE " [-F format] [template]",
-	0,
-	NULL,
-	NULL,
-	cmd_choose_client_exec
+	.name = "choose-client",
+	.alias = NULL,
+
+	.args = { "F:t:", 0, 1 },
+	.usage = CMD_TARGET_WINDOW_USAGE " [-F format] [template]",
+
+	.tflag = CMD_WINDOW,
+
+	.flags = 0,
+	.exec = cmd_choose_client_exec
 };
 
 struct cmd_choose_client_data {
@@ -49,21 +58,18 @@ enum cmd_retval
 cmd_choose_client_exec(struct cmd *self, struct cmd_q *cmdq)
 {
 	struct args			*args = self->args;
-	struct client			*c;
+	struct client			*c = cmdq->state.c;
 	struct client			*c1;
 	struct window_choose_data	*cdata;
-	struct winlink			*wl;
+	struct winlink			*wl = cmdq->state.tflag.wl;
 	const char			*template;
 	char				*action;
-	u_int			 	 i, idx, cur;
+	u_int			 	 idx, cur;
 
-	if ((c = cmd_current_client(cmdq)) == NULL) {
+	if (c == NULL) {
 		cmdq_error(cmdq, "no client available");
 		return (CMD_RETURN_ERROR);
 	}
-
-	if ((wl = cmd_find_window(cmdq, args_get(args, 't'), NULL)) == NULL)
-		return (CMD_RETURN_ERROR);
 
 	if (window_pane_set_mode(wl->window->active, &window_choose_mode) != 0)
 		return (CMD_RETURN_NORMAL);
@@ -77,25 +83,24 @@ cmd_choose_client_exec(struct cmd *self, struct cmd_q *cmdq)
 		action = xstrdup("detach-client -t '%%'");
 
 	cur = idx = 0;
-	for (i = 0; i < ARRAY_LENGTH(&clients); i++) {
-		c1 = ARRAY_ITEM(&clients, i);
-		if (c1 == NULL || c1->session == NULL || c1->tty.path == NULL)
+	TAILQ_FOREACH(c1, &clients, entry) {
+		if (c1->session == NULL || c1->tty.path == NULL)
 			continue;
 		if (c1 == cmdq->client)
 			cur = idx;
-		idx++;
 
 		cdata = window_choose_data_create(TREE_OTHER, c, c->session);
-		cdata->idx = i;
+		cdata->idx = idx;
 
 		cdata->ft_template = xstrdup(template);
-		format_add(cdata->ft, "line", "%u", i);
-		format_session(cdata->ft, c1->session);
-		format_client(cdata->ft, c1);
+		format_add(cdata->ft, "line", "%u", idx);
+		format_defaults(cdata->ft, c1, NULL, NULL, NULL);
 
 		cdata->command = cmd_template_replace(action, c1->tty.path, 1);
 
 		window_choose_add(wl->window->active, cdata);
+
+		idx++;
 	}
 	free(action);
 
@@ -109,15 +114,19 @@ void
 cmd_choose_client_callback(struct window_choose_data *cdata)
 {
 	struct client  	*c;
+	u_int		 idx;
 
 	if (cdata == NULL)
 		return;
 	if (cdata->start_client->flags & CLIENT_DEAD)
 		return;
 
-	if (cdata->idx > ARRAY_LENGTH(&clients) - 1)
-		return;
-	c = ARRAY_ITEM(&clients, cdata->idx);
+	idx = 0;
+	TAILQ_FOREACH(c, &clients, entry) {
+		if (idx == cdata->idx)
+			break;
+		idx++;
+	}
 	if (c == NULL || c->session == NULL)
 		return;
 

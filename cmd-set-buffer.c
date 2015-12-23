@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $OpenBSD$ */
 
 /*
  * Copyright (c) 2007 Nicholas Marriott <nicm@users.sourceforge.net>
@@ -24,51 +24,98 @@
 #include "tmux.h"
 
 /*
- * Add or set a paste buffer.
+ * Add, set, append to or delete a paste buffer.
  */
 
 enum cmd_retval	 cmd_set_buffer_exec(struct cmd *, struct cmd_q *);
 
 const struct cmd_entry cmd_set_buffer_entry = {
-	"set-buffer", "setb",
-	"b:", 1, 1,
-	CMD_BUFFER_USAGE " data",
-	0,
-	NULL,
-	NULL,
-	cmd_set_buffer_exec
+	.name = "set-buffer",
+	.alias = "setb",
+
+	.args = { "ab:n:", 0, 1 },
+	.usage = "[-a] " CMD_BUFFER_USAGE " [-n new-buffer-name] data",
+
+	.flags = 0,
+	.exec = cmd_set_buffer_exec
+};
+
+const struct cmd_entry cmd_delete_buffer_entry = {
+	.name = "delete-buffer",
+	.alias = "deleteb",
+
+	.args = { "b:", 0, 0 },
+	.usage = CMD_BUFFER_USAGE,
+
+	.flags = 0,
+	.exec = cmd_set_buffer_exec
 };
 
 enum cmd_retval
 cmd_set_buffer_exec(struct cmd *self, struct cmd_q *cmdq)
 {
-	struct args	*args = self->args;
-	u_int		 limit;
-	char		*pdata, *cause;
-	size_t		 psize;
-	int		 buffer;
+	struct args		*args = self->args;
+	struct paste_buffer	*pb;
+	char			*bufdata, *cause;
+	const char		*bufname, *olddata;
+	size_t			 bufsize, newsize;
 
-	limit = options_get_number(&global_options, "buffer-limit");
+	bufname = args_get(args, 'b');
+	if (bufname == NULL)
+		pb = NULL;
+	else
+		pb = paste_get_name(bufname);
 
-	pdata = xstrdup(args->argv[0]);
-	psize = strlen(pdata);
-
-	if (!args_has(args, 'b')) {
-		paste_add(&global_buffers, pdata, psize, limit);
+	if (self->entry == &cmd_delete_buffer_entry) {
+		if (pb == NULL)
+			pb = paste_get_top(&bufname);
+		if (pb == NULL) {
+			cmdq_error(cmdq, "no buffer");
+			return (CMD_RETURN_ERROR);
+		}
+		paste_free(pb);
 		return (CMD_RETURN_NORMAL);
 	}
 
-	buffer = args_strtonum(args, 'b', 0, INT_MAX, &cause);
-	if (cause != NULL) {
-		cmdq_error(cmdq, "buffer %s", cause);
-		free(cause);
-		free(pdata);
-		return (CMD_RETURN_ERROR);
+	if (args_has(args, 'n')) {
+		if (pb == NULL)
+			pb = paste_get_top(&bufname);
+		if (pb == NULL) {
+			cmdq_error(cmdq, "no buffer");
+			return (CMD_RETURN_ERROR);
+		}
+		if (paste_rename(bufname, args_get(args, 'n'), &cause) != 0) {
+			cmdq_error(cmdq, "%s", cause);
+			free(cause);
+			return (CMD_RETURN_ERROR);
+		}
+		return (CMD_RETURN_NORMAL);
 	}
 
-	if (paste_replace(&global_buffers, buffer, pdata, psize) != 0) {
-		cmdq_error(cmdq, "no buffer %d", buffer);
-		free(pdata);
+	if (args->argc != 1) {
+		cmdq_error(cmdq, "no data specified");
+		return (CMD_RETURN_ERROR);
+	}
+	if ((newsize = strlen(args->argv[0])) == 0)
+		return (CMD_RETURN_NORMAL);
+
+	bufsize = 0;
+	bufdata = NULL;
+
+	if (args_has(args, 'a') && pb != NULL) {
+		olddata = paste_buffer_data(pb, &bufsize);
+		bufdata = xmalloc(bufsize);
+		memcpy(bufdata, olddata, bufsize);
+	}
+
+	bufdata = xrealloc(bufdata, bufsize + newsize);
+	memcpy(bufdata + bufsize, args->argv[0], newsize);
+	bufsize += newsize;
+
+	if (paste_set(bufdata, bufsize, bufname, &cause) != 0) {
+		cmdq_error(cmdq, "%s", cause);
+		free(bufdata);
+		free(cause);
 		return (CMD_RETURN_ERROR);
 	}
 

@@ -102,7 +102,7 @@ static void tmate_client_pane_key(struct tmate_unpacker *uk)
 	if (!wp)
 		return;
 
-	window_pane_key(wp, s, key);
+	window_pane_key(wp, NULL, s, key, NULL);
 }
 
 static void tmate_client_resize(struct tmate_unpacker *uk)
@@ -115,11 +115,15 @@ static void tmate_client_resize(struct tmate_unpacker *uk)
 	/* TODO Handle reconnection cases */
 }
 
+extern char		**cfg_causes;
+extern u_int		  cfg_ncauses;
+
 static void tmate_client_exec_cmd(struct tmate_unpacker *uk)
 {
 	struct cmd_q *cmd_q;
 	struct cmd_list *cmdlist;
 	char *cause;
+	u_int i;
 
 	int client_id = unpack_int(uk);
 	char *cmd_str = unpack_string(uk);
@@ -130,20 +134,20 @@ static void tmate_client_exec_cmd(struct tmate_unpacker *uk)
 		goto out;
 	}
 
-	/* error messages land in cfg_causes */
-	ARRAY_FREE(&cfg_causes);
-
 	cmd_q = cmdq_new(NULL);
-	cmdq_run(cmd_q, cmdlist);
+	cmdq_run(cmd_q, cmdlist, NULL);
 	cmd_list_free(cmdlist);
 	cmdq_free(cmd_q);
 
-	if (!ARRAY_EMPTY(&cfg_causes)) {
-		cause = ARRAY_ITEM(&cfg_causes, 0);
-		tmate_failed_cmd(client_id, cause);
-		free(cause);
-		ARRAY_FREE(&cfg_causes);
+	/* error messages land in cfg_causes */
+	for (i = 0; i < cfg_ncauses; i++) {
+		tmate_failed_cmd(client_id, cfg_causes[i]);
+		free(cfg_causes[i]);
 	}
+
+	free(cfg_causes);
+	cfg_causes = NULL;
+	cfg_ncauses = 0;
 
 out:
 	free(cmd_str);
@@ -163,7 +167,7 @@ static void tmate_client_env(struct tmate_unpacker *uk)
 
 extern void signal_waiting_clients(const char *name);
 static void tmate_client_ready(struct tmate_decoder *decoder,
-			       struct tmate_unpacker *uk)
+			       __unused struct tmate_unpacker *uk)
 {
 	decoder->ready = 1;
 	signal_waiting_clients("tmate-ready");

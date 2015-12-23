@@ -1,5 +1,3 @@
-/* $Id$ */
-
 /*
  * Copyright (c) 2004-2005 Todd C. Miller <Todd.Miller@courtesan.com>
  *
@@ -15,8 +13,6 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-
-#include "tmux.h"
 
 #ifndef HAVE_CLOSEFROM
 
@@ -48,6 +44,8 @@
 #  include <ndir.h>
 # endif
 #endif
+
+#include "tmux.h"
 
 #ifndef OPEN_MAX
 # define OPEN_MAX	256

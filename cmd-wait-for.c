@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $OpenBSD$ */
 
 /*
  * Copyright (c) 2013 Nicholas Marriott <nicm@users.sourceforge.net>
@@ -32,18 +32,20 @@
 enum cmd_retval cmd_wait_for_exec(struct cmd *, struct cmd_q *);
 
 const struct cmd_entry cmd_wait_for_entry = {
-	"wait-for", "wait",
-	"LSU", 1, 1,
-	"[-LSU] channel",
-	0,
-	NULL,
-	NULL,
-	cmd_wait_for_exec
+	.name = "wait-for",
+	.alias = "wait",
+
+	.args = { "LSU", 1, 1 },
+	.usage = "[-L|-S|-U] channel",
+
+	.flags = 0,
+	.exec = cmd_wait_for_exec
 };
 
 struct wait_channel {
 	const char	       *name;
 	int			locked;
+	int			woken;
 
 	TAILQ_HEAD(, cmd_q)	waiters;
 	TAILQ_HEAD(, cmd_q)	lockers;
@@ -72,6 +74,46 @@ enum cmd_retval	cmd_wait_for_lock(struct cmd_q *, const char *,
 enum cmd_retval	cmd_wait_for_unlock(struct cmd_q *, const char *,
 		    struct wait_channel *);
 
+struct wait_channel	*cmd_wait_for_add(const char *);
+void			 cmd_wait_for_remove(struct wait_channel *wc);
+
+struct wait_channel *
+cmd_wait_for_add(const char *name)
+{
+	struct wait_channel *wc;
+
+	wc = xmalloc(sizeof *wc);
+	wc->name = xstrdup(name);
+
+	wc->locked = 0;
+	wc->woken = 0;
+
+	TAILQ_INIT(&wc->waiters);
+	TAILQ_INIT(&wc->lockers);
+
+	RB_INSERT(wait_channels, &wait_channels, wc);
+
+	log_debug("add wait channel %s", wc->name);
+
+	return (wc);
+}
+
+void
+cmd_wait_for_remove(struct wait_channel *wc)
+{
+	if (wc->locked)
+		return;
+	if (!TAILQ_EMPTY(&wc->waiters) || !wc->woken)
+		return;
+
+	log_debug("remove wait channel %s", wc->name);
+
+	RB_REMOVE(wait_channels, &wait_channels, wc);
+
+	free((void *)wc->name);
+	free(wc);
+}
+
 enum cmd_retval
 cmd_wait_for_exec(struct cmd *self, struct cmd_q *cmdq)
 {
@@ -92,15 +134,20 @@ cmd_wait_for_exec(struct cmd *self, struct cmd_q *cmdq)
 }
 
 enum cmd_retval
-cmd_wait_for_signal(struct cmd_q *cmdq, const char *name,
+cmd_wait_for_signal(__unused struct cmd_q *cmdq, const char *name,
     struct wait_channel *wc)
 {
 	struct cmd_q	*wq, *wq1;
 
-	if (wc == NULL || TAILQ_EMPTY(&wc->waiters)) {
-		cmdq_error(cmdq, "no waiting clients on %s", name);
-		return (CMD_RETURN_ERROR);
+	if (wc == NULL)
+		wc = cmd_wait_for_add(name);
+
+	if (TAILQ_EMPTY(&wc->waiters) && !wc->woken) {
+		log_debug("signal wait channel %s, no waiters", wc->name);
+		wc->woken = 1;
+		return (CMD_RETURN_NORMAL);
 	}
+	log_debug("signal wait channel %s, with waiters", wc->name);
 
 	TAILQ_FOREACH_SAFE(wq, &wc->waiters, waitentry, wq1) {
 		TAILQ_REMOVE(&wc->waiters, wq, waitentry);
@@ -108,12 +155,7 @@ cmd_wait_for_signal(struct cmd_q *cmdq, const char *name,
 			cmdq_continue(wq);
 	}
 
-	if (!wc->locked) {
-		RB_REMOVE(wait_channels, &wait_channels, wc);
-		free((void*) wc->name);
-		free(wc);
-	}
-
+	cmd_wait_for_remove(wc);
 	return (CMD_RETURN_NORMAL);
 }
 
@@ -148,26 +190,27 @@ enum cmd_retval
 cmd_wait_for_wait(struct cmd_q *cmdq, const char *name,
     struct wait_channel *wc)
 {
+	struct client	*c = cmdq->client;
 
 #ifdef TMATE
 	if (!strcmp(name, "tmate-ready") && tmate_session.decoder.ready)
 		return (CMD_RETURN_NORMAL);
 #endif
 
-
-	if (cmdq->client == NULL || cmdq->client->session != NULL) {
+	if (c == NULL || c->session != NULL) {
 		cmdq_error(cmdq, "not able to wait");
 		return (CMD_RETURN_ERROR);
 	}
 
-	if (wc == NULL) {
-		wc = xmalloc(sizeof *wc);
-		wc->name = xstrdup(name);
-		wc->locked = 0;
-		TAILQ_INIT(&wc->waiters);
-		TAILQ_INIT(&wc->lockers);
-		RB_INSERT(wait_channels, &wait_channels, wc);
+	if (wc == NULL)
+		wc = cmd_wait_for_add(name);
+
+	if (wc->woken) {
+		log_debug("wait channel %s already woken (%p)", wc->name, c);
+		cmd_wait_for_remove(wc);
+		return (CMD_RETURN_NORMAL);
 	}
+	log_debug("wait channel %s not woken (%p)", wc->name, c);
 
 	TAILQ_INSERT_TAIL(&wc->waiters, cmdq, waitentry);
 	cmdq->references++;
@@ -184,14 +227,8 @@ cmd_wait_for_lock(struct cmd_q *cmdq, const char *name,
 		return (CMD_RETURN_ERROR);
 	}
 
-	if (wc == NULL) {
-		wc = xmalloc(sizeof *wc);
-		wc->name = xstrdup(name);
-		wc->locked = 0;
-		TAILQ_INIT(&wc->waiters);
-		TAILQ_INIT(&wc->lockers);
-		RB_INSERT(wait_channels, &wait_channels, wc);
-	}
+	if (wc == NULL)
+		wc = cmd_wait_for_add(name);
 
 	if (wc->locked) {
 		TAILQ_INSERT_TAIL(&wc->lockers, cmdq, waitentry);
@@ -220,13 +257,31 @@ cmd_wait_for_unlock(struct cmd_q *cmdq, const char *name,
 			cmdq_continue(wq);
 	} else {
 		wc->locked = 0;
-		if (TAILQ_EMPTY(&wc->waiters)) {
-			RB_REMOVE(wait_channels, &wait_channels, wc);
-			free((void*) wc->name);
-			free(wc);
-		}
+		cmd_wait_for_remove(wc);
 	}
 
 	return (CMD_RETURN_NORMAL);
 }
 
+void
+cmd_wait_for_flush(void)
+{
+	struct wait_channel	*wc, *wc1;
+	struct cmd_q		*wq, *wq1;
+
+	RB_FOREACH_SAFE(wc, wait_channels, &wait_channels, wc1) {
+		TAILQ_FOREACH_SAFE(wq, &wc->waiters, waitentry, wq1) {
+			TAILQ_REMOVE(&wc->waiters, wq, waitentry);
+			if (!cmdq_free(wq))
+				cmdq_continue(wq);
+		}
+		wc->woken = 1;
+		TAILQ_FOREACH_SAFE(wq, &wc->lockers, waitentry, wq1) {
+			TAILQ_REMOVE(&wc->lockers, wq, waitentry);
+			if (!cmdq_free(wq))
+				cmdq_continue(wq);
+		}
+		wc->locked = 0;
+		cmd_wait_for_remove(wc);
+	}
+}

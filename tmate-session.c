@@ -15,18 +15,16 @@
 
 struct tmate_session tmate_session;
 
-static struct evdns_base *ev_dnsbase;
-static struct event ev_dns_retry;
 static void lookup_and_connect(void);
 
-static void on_dns_retry(evutil_socket_t fd, short what, void *arg)
+static void on_dns_retry(__unused evutil_socket_t fd, __unused short what,
+			 __unused void *arg)
 {
 	lookup_and_connect();
 }
 
 static void dns_cb(int errcode, struct evutil_addrinfo *addr, void *ptr)
 {
-	struct tmate_ssh_client *client;
 	struct evutil_addrinfo *ai;
 	struct timeval tv;
 	const char *host = ptr;
@@ -39,8 +37,9 @@ static void dns_cb(int errcode, struct evutil_addrinfo *addr, void *ptr)
 		tv.tv_sec = TMATE_DNS_RETRY_TIMEOUT;
 		tv.tv_usec = 0;
 
-		evtimer_assign(&ev_dns_retry, ev_base, on_dns_retry, NULL);
-		evtimer_add(&ev_dns_retry, &tv);
+		evtimer_assign(&tmate_session.ev_dns_retry, tmate_session.ev_base,
+			       on_dns_retry, NULL);
+		evtimer_add(&tmate_session.ev_dns_retry, &tv);
 
 		return;
 	}
@@ -72,8 +71,8 @@ static void dns_cb(int errcode, struct evutil_addrinfo *addr, void *ptr)
 	/*
 	 * XXX For some reason, freeing the DNS resolver makes MacOSX flip out...
 	 * not sure what's going on...
-	 * evdns_base_free(ev_dnsbase, 0);
-	 * ev_dnsbase = NULL;
+	 * evdns_base_free(tmate_session.ev_dnsbase, 0);
+	 * tmate_session.ev_dnsbase = NULL;
 	 */
 }
 
@@ -82,9 +81,9 @@ static void lookup_and_connect(void)
 	struct evutil_addrinfo hints;
 	const char *tmate_server_host;
 
-	if (!ev_dnsbase)
-		ev_dnsbase = evdns_base_new(ev_base, 1);
-	if (!ev_dnsbase)
+	if (!tmate_session.ev_dnsbase)
+		tmate_session.ev_dnsbase = evdns_base_new(tmate_session.ev_base, 1);
+	if (!tmate_session.ev_dnsbase)
 		tmate_fatal("Cannot initialize the DNS lookup service");
 
 	memset(&hints, 0, sizeof(hints));
@@ -93,21 +92,23 @@ static void lookup_and_connect(void)
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
 
-	tmate_server_host = options_get_string(&global_s_options,
+	tmate_server_host = options_get_string(global_s_options,
 					       "tmate-server-host");
 	tmate_info("Looking up %s...", tmate_server_host);
-	(void)evdns_getaddrinfo(ev_dnsbase, tmate_server_host, NULL,
-				&hints, dns_cb, tmate_server_host);
+	(void)evdns_getaddrinfo(tmate_session.ev_dnsbase, tmate_server_host, NULL,
+				&hints, dns_cb, (void *)tmate_server_host);
 }
 
 static void ssh_log_function(int priority, const char *function,
-			     const char *buffer, void *userdata)
+			     const char *buffer, __unused void *userdata)
 {
 	tmate_debug("[%d] [%s] %s", priority, function, buffer);
 }
 
-void tmate_session_init(void)
+void tmate_session_init(struct event_base *base)
 {
+	tmate_session.ev_base = base;
+
 	ssh_set_log_callback(ssh_log_function);
 	tmate_catch_sigsegv();
 

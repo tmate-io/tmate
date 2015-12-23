@@ -9,10 +9,10 @@
 
 #include "tmux.h"
 
-#define tmate_debug(...) log_debug("[tmate] " __VA_ARGS__)
-#define tmate_warn(...)   log_warn("[tmate] " __VA_ARGS__)
-#define tmate_info(...)   log_info("[tmate] " __VA_ARGS__)
-#define tmate_fatal(...) log_fatal("[tmate] " __VA_ARGS__)
+#define tmate_debug(...) log_debug("[tmate] D " __VA_ARGS__)
+#define tmate_warn(...)  log_debug("[tmate] W " __VA_ARGS__)
+#define tmate_info(...)  log_debug("[tmate] I " __VA_ARGS__)
+#define tmate_fatal(...)     fatal("[tmate]" __VA_ARGS__)
 
 /* tmate-encoder.c */
 
@@ -124,6 +124,10 @@ extern struct tmate_ssh_client *tmate_ssh_client_alloc(struct tmate_session *ses
 /* tmate-session.c */
 
 struct tmate_session {
+	struct event_base *ev_base;
+	struct evdns_base *ev_dnsbase;
+	struct event ev_dns_retry;
+
 	struct tmate_encoder encoder;
 	struct tmate_decoder decoder;
 
@@ -138,7 +142,7 @@ struct tmate_session {
 };
 
 extern struct tmate_session tmate_session;
-extern void tmate_session_init(void);
+extern void tmate_session_init(struct event_base *base);
 extern void tmate_session_start(void);
 
 /* tmate-debug.c */
@@ -148,7 +152,7 @@ extern void tmate_catch_sigsegv(void);
 /* tmate-msg.c */
 
 extern void __tmate_status_message(const char *fmt, va_list ap);
-extern void printflike1 tmate_status_message(const char *fmt, ...);
+extern void printflike(1, 2) tmate_status_message(const char *fmt, ...);
 
 /* tmate-env.c */
 

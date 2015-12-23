@@ -9,45 +9,48 @@ static void tmate_status_message_client(struct client *c, const char *message)
 {
 	struct timeval		 tv;
 	struct session		*s = c->session;
-	struct message_entry	*msg;
+	struct message_entry	*msg, *msg1;
 	int			 delay;
-	u_int			 i, limit;
+	u_int			 first, limit;
 
 	status_prompt_clear(c);
 	status_message_clear(c);
 
 	xasprintf(&c->message_string, "[tmate] %s", message);
 
-	ARRAY_EXPAND(&c->message_log, 1);
-	msg = &ARRAY_LAST(&c->message_log);
+	msg = xcalloc(1, sizeof *msg);
 	msg->msg_time = time(NULL);
+	msg->msg_num = c->message_next++;
 	msg->msg = xstrdup(c->message_string);
+	TAILQ_INSERT_TAIL(&c->message_log, msg, entry);
 
 	if (s) {
-		limit = options_get_number(&s->options, "message-limit");
-		delay = options_get_number(&s->options, "tmate-display-time");
+		limit = options_get_number(s->options, "message-limit");
+		delay = options_get_number(s->options, "tmate-display-time");
 	} else {
 		/* Very early in the connection process we won't have a session */
-		limit = options_get_number(&global_s_options, "message-limit");
-		delay = options_get_number(&global_s_options, "tmate-display-time");
+		limit = options_get_number(global_s_options, "message-limit");
+		delay = options_get_number(global_s_options, "tmate-display-time");
 	}
 
-	if (ARRAY_LENGTH(&c->message_log) > limit) {
-		limit = ARRAY_LENGTH(&c->message_log) - limit;
-		for (i = 0; i < limit; i++) {
-			msg = &ARRAY_FIRST(&c->message_log);
-			free(msg->msg);
-			ARRAY_REMOVE(&c->message_log, 0);
-		}
+	first = c->message_next - limit;
+	TAILQ_FOREACH_SAFE(msg, &c->message_log, entry, msg1) {
+		if (msg->msg_num >= first)
+			continue;
+		free(msg->msg);
+		TAILQ_REMOVE(&c->message_log, msg, entry);
+		free(msg);
 	}
 
-	tv.tv_sec = delay / 1000;
-	tv.tv_usec = (delay % 1000) * 1000L;
+	if (delay > 0) {
+		tv.tv_sec = delay / 1000;
+		tv.tv_usec = (delay % 1000) * 1000L;
 
-	if (event_initialized (&c->message_timer))
-		evtimer_del(&c->message_timer);
-	evtimer_set(&c->message_timer, status_message_callback, c);
-	evtimer_add(&c->message_timer, &tv);
+		if (event_initialized(&c->message_timer))
+			evtimer_del(&c->message_timer);
+		evtimer_set(&c->message_timer, status_message_callback, c);
+		evtimer_add(&c->message_timer, &tv);
+	}
 
 	c->flags |= CLIENT_STATUS | CLIENT_FORCE_STATUS;
 
@@ -57,14 +60,12 @@ static void tmate_status_message_client(struct client *c, const char *message)
 void __tmate_status_message(const char *fmt, va_list ap)
 {
 	struct client *c;
-	unsigned int i;
 	char *message;
 
 	xvasprintf(&message, fmt, ap);
 	tmate_debug("%s", message);
 
-	for (i = 0; i < ARRAY_LENGTH(&clients); i++) {
-		c = ARRAY_ITEM(&clients, i);
+	TAILQ_FOREACH(c, &clients, entry) {
 		if (c && !(c->flags & CLIENT_READONLY))
 			tmate_status_message_client(c, message);
 	}
@@ -72,7 +73,7 @@ void __tmate_status_message(const char *fmt, va_list ap)
 	free(message);
 }
 
-void printflike1 tmate_status_message(const char *fmt, ...)
+void printflike(1, 2) tmate_status_message(const char *fmt, ...)
 {
 	va_list ap;
 

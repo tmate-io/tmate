@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $OpenBSD$ */
 
 /*
  * Copyright (c) 2007 Nicholas Marriott <nicm@users.sourceforge.net>
@@ -18,7 +18,11 @@
 
 #include <sys/types.h>
 
+#include <errno.h>
+#include <fcntl.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "tmux.h"
 
@@ -29,82 +33,122 @@
 enum cmd_retval	cmd_attach_session_exec(struct cmd *, struct cmd_q *);
 
 const struct cmd_entry cmd_attach_session_entry = {
-	"attach-session", "attach",
-	"drt:", 0, 0,
-	"[-dr] " CMD_TARGET_SESSION_USAGE,
-	CMD_CANTNEST|CMD_STARTSERVER|CMD_SENDENVIRON,
-	NULL,
-	NULL,
-	cmd_attach_session_exec
+	.name = "attach-session",
+	.alias = "attach",
+
+	.args = { "c:dErt:", 0, 0 },
+	.usage = "[-dEr] [-c working-directory] " CMD_TARGET_SESSION_USAGE,
+
+	.tflag = CMD_SESSION_WITHPANE,
+
+	.flags = CMD_STARTSERVER,
+	.exec = cmd_attach_session_exec
 };
 
 enum cmd_retval
-cmd_attach_session(struct cmd_q *cmdq, const char* tflag, int dflag, int rflag)
+cmd_attach_session(struct cmd_q *cmdq, int dflag, int rflag, const char *cflag,
+    int Eflag)
 {
-	struct session	*s;
-	struct client	*c;
-	const char	*update;
-	char		*cause;
-	u_int		 i;
+	struct session		*s = cmdq->state.tflag.s;
+	struct client		*c = cmdq->client, *c_loop;
+	struct winlink		*wl = cmdq->state.tflag.wl;
+	struct window_pane	*wp = cmdq->state.tflag.wp;
+	const char		*update;
+	char			*cause, *cwd;
+	struct format_tree	*ft;
 
 	if (RB_EMPTY(&sessions)) {
 		cmdq_error(cmdq, "no sessions");
 		return (CMD_RETURN_ERROR);
 	}
 
-	if ((s = cmd_find_session(cmdq, tflag, 1)) == NULL)
-		return (CMD_RETURN_ERROR);
-
-	if (cmdq->client == NULL)
+	if (c == NULL)
 		return (CMD_RETURN_NORMAL);
+	if (server_client_check_nested(c)) {
+		cmdq_error(cmdq, "sessions should be nested with care, "
+		    "unset $TMUX to force");
+		return (CMD_RETURN_ERROR);
+	}
 
-	if (cmdq->client->session != NULL) {
+	if (wl != NULL) {
+		if (wp != NULL)
+			window_set_active_pane(wp->window, wp);
+		session_set_current(s, wl);
+	}
+
+	if (cflag != NULL) {
+		ft = format_create(cmdq, 0);
+		format_defaults(ft, c, s, wl, wp);
+		cwd = format_expand(ft, cflag);
+		format_free(ft);
+
+		free((void *)s->cwd);
+		s->cwd = cwd;
+	}
+
+	if (c->session != NULL) {
 		if (dflag) {
-			/*
-			 * Can't use server_write_session in case attaching to
-			 * the same session as currently attached to.
-			 */
-			for (i = 0; i < ARRAY_LENGTH(&clients); i++) {
-				c = ARRAY_ITEM(&clients, i);
-				if (c == NULL || c->session != s)
+			TAILQ_FOREACH(c_loop, &clients, entry) {
+				if (c_loop->session != s || c == c_loop)
 					continue;
-				if (c == cmdq->client)
-					continue;
-				server_write_client(c, MSG_DETACH, NULL, 0);
+				server_client_detach(c_loop, MSG_DETACH);
 			}
 		}
 
-		cmdq->client->session = s;
-		notify_attached_session_changed(cmdq->client);
-		session_update_activity(s);
-		server_redraw_client(cmdq->client);
+		if (!Eflag) {
+			update = options_get_string(s->options,
+			    "update-environment");
+			environ_update(update, c->environ, s->environ);
+		}
+
+		c->session = s;
+		server_client_set_key_table(c, NULL);
+		status_timer_start(c);
+		notify_attached_session_changed(c);
+		session_update_activity(s, NULL);
+		gettimeofday(&s->last_attached_time, NULL);
+		server_redraw_client(c);
 		s->curw->flags &= ~WINLINK_ALERTFLAGS;
 	} else {
-		if (server_client_open(cmdq->client, s, &cause) != 0) {
+		if (server_client_open(c, &cause) != 0) {
 			cmdq_error(cmdq, "open terminal failed: %s", cause);
 			free(cause);
 			return (CMD_RETURN_ERROR);
 		}
 
 		if (rflag)
-			cmdq->client->flags |= CLIENT_READONLY;
+			c->flags |= CLIENT_READONLY;
 
-		if (dflag)
-			server_write_session(s, MSG_DETACH, NULL, 0);
+		if (dflag) {
+			TAILQ_FOREACH(c_loop, &clients, entry) {
+				if (c_loop->session != s || c == c_loop)
+					continue;
+				server_client_detach(c_loop, MSG_DETACH);
+			}
+		}
 
-		update = options_get_string(&s->options, "update-environment");
-		environ_update(update, &cmdq->client->environ, &s->environ);
+		if (!Eflag) {
+			update = options_get_string(s->options,
+			    "update-environment");
+			environ_update(update, c->environ, s->environ);
+		}
 
-		cmdq->client->session = s;
-		notify_attached_session_changed(cmdq->client);
-		session_update_activity(s);
-		server_redraw_client(cmdq->client);
+		c->session = s;
+		server_client_set_key_table(c, NULL);
+		status_timer_start(c);
+		notify_attached_session_changed(c);
+		session_update_activity(s, NULL);
+		gettimeofday(&s->last_attached_time, NULL);
+		server_redraw_client(c);
 		s->curw->flags &= ~WINLINK_ALERTFLAGS;
 
-		server_write_ready(cmdq->client);
+		if (~c->flags & CLIENT_CONTROL)
+			proc_send(c->peer, MSG_READY, -1, NULL, 0);
+		hooks_run(c->session->hooks, c, NULL, "client-attached");
 		cmdq->client_exit = 0;
 	}
 	recalculate_sizes();
+	alerts_check_session(s);
 	server_update_socket();
 
 	return (CMD_RETURN_NORMAL);
@@ -115,6 +159,6 @@ cmd_attach_session_exec(struct cmd *self, struct cmd_q *cmdq)
 {
 	struct args	*args = self->args;
 
-	return (cmd_attach_session(cmdq, args_get(args, 't'),
-	    args_has(args, 'd'), args_has(args, 'r')));
+	return (cmd_attach_session(cmdq, args_has(args, 'd'),
+	    args_has(args, 'r'), args_get(args, 'c'), args_has(args, 'E')));
 }

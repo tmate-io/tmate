@@ -1,3 +1,179 @@
+CHANGES FROM 2.0 to 2.1 18 October 2015
+
+Incompatible Changes
+====================
+
+* Mouse-mode has been rewritten.  There's now no longer options for:
+	- mouse-resize-pane
+	- mouse-select-pane
+	- mouse-select-window
+	- mode-mouse
+
+  Instead there is just one option:  'mouse' which turns on mouse support
+  entirely.
+* 'default-terminal' is now a session option.  Furthermore, if this is set
+  to 'screen-*' then emulate what screen does.  If italics are wanted, this
+  can be set to 'tmux' but this is still new and not necessarily supported
+  on all platforms with older ncurses installs.
+* The c0-* options for rate-limiting have been removed.  Instead, a backoff
+  approach is used.
+
+Normal Changes
+==============
+
+* New formats:
+	- session_activity
+	- window_linked
+	- window_activity_format
+	- session_alerts
+	- session_last_attached
+	- client_pid
+	- pid
+* 'copy-selection', 'append-selection', 'start-named-buffer' now understand
+  an '-x' flag to prevent it exiting copying mode.
+* 'select-pane' now understands '-P' to set window/pane background colours.
+* 'renumber-windows' now understands windows which are unlinked.
+* 'bind' now understands multiple key tables.  Allows for key-chaining.
+* 'select-layout' understands '-o' to undo the last layout change.
+* The environment is updated when switching sessions as well as attaching.
+* 'select-pane' now understands '-M' for marking a pane.  This marked pane
+  can then be used with commands which understand src-pane specifiers
+  automatically.
+* If a session/window target is prefixed with '=' then only an exact match
+  is considered.
+* 'move-window' understands '-a'.
+* 'update-environment' understands '-E' when attach-session is used on an
+  already attached client.
+* 'show-environment' understands '-s' to output Bourne-compatible commands.
+* New option: 'history-file' to save/restore command prompt history.
+* Copy mode is exited if the history is cleared whilst in copy-mode.
+* 'copy-mode' learned '-e' to exit copy-mode when scrolling to end.
+
+CHANGES FROM 1.9a to 2.0 6 March 2015
+
+Incompatible Changes
+====================
+
+* The choose-list command has been removed.
+* 'terminal-overrides' is now a server option, not a session option.
+* 'message-limit' is now a server option, not a session option.
+* 'monitor-content' option has been removed.
+* 'pane_start_path' option has been removed.
+* The "info" mechanism which used to (for some commands) provide feedback
+  has been removed, and like other commands, they now produce nothing on
+  success.
+
+Normal Changes
+==============
+
+* tmux can now write an entry to utmp if the library 'utempter' is present
+  at compile time.
+* set-buffer learned append mode (-a), and a corresponding
+  'append-selection' command has been added to copy-mode.
+* choose-mode now has the following commands which can be bound:
+	- start-of-list
+	- end-of-list
+	- top-line
+	- bottom-line
+
+* choose-buffer now understands UTF-8.
+* Pane navigation has changed:
+	- The old way of always using the top or left if the choice is ambiguous.
+	- The new way of remembering the last used pane is annoying if the
+	  layout is balanced and the leftmost is obvious to the user (because
+	  clearly if we go right from the top-left in a tiled set of four we want
+	  to end up in top-right, even if we were last using the bottom-right).
+
+      So instead, use a combination of both: if there is only one possible
+      pane alongside the current pane, move to it, otherwise choose the most
+      recently used of the choice.
+* 'set-buffer' can now be told to give names to buffers.
+* The 'new-session', 'new-window', 'split-window', and 'respawn-pane' commands
+  now understand multiple arguments and handle quoting problems correctly.
+* 'capture-pane' understands '-S-' to mean the start of the pane, and '-E-' to
+  mean the end of the pane.
+* Support for function keys beyond F12 has changed.  The following explains:
+	- F13-F24 are S-F1 to S-F12
+	- F25-F36 are C-F1 to C-F12
+	- F37-F48 are C-S-F1 to C-S-F12
+	- F49-F60 are M-F1 to M-F12
+	- F61-F63 are M-S-F1 to M-S-F3
+
+ Therefore, F13 becomes a binding of S-F1, etc.
+* Support using pane id as part of session or window specifier (so % means
+  session-of-%1 or window-of-%1) and window id as part of session
+  (so @1 means session-of-@1).
+* 'copy-pipe' command now understands formats via -F
+* 'if-shell'  command now understands formats via -F
+* 'split-window' and 'join-window' understand -b to create the pane to the left
+  or above the target pane.
+
+CHANGES FROM 1.9 to 1.9a 22 February 2014
+
+NOTE:  This is a bug-fix release to address some important bugs which just
+missed the 1.9 deadline, but were found afterwards.
+
+Normal Changes
+==============
+
+* Fix crash due to uninitialized lastwp member of layout_cell
+* Fix -fg/-bg/-style with 256 colour terminals.  
+
+CHANGES FROM 1.8 to 1.9, 20 February 2014
+
+NOTE:  This release has bumped the tmux protocol version.  It is therefore
+advised that the prior tmux server is restarted when this version of tmux is
+installed, to avoid protocol mismatch errors for newer clients trying to
+talk to an older running tmux server.
+
+Incompatible Changes
+====================
+
+* 88 colour support has been removed.
+* 'default-path' has been removed.  The new-window command accepts '-c' to
+  cater for this.  The previous value of "." can be replaced with: 'neww -c
+  $PWD', the previous value of '' which meant current path of the pane can
+  be specified as:  'neww -c "#{pane_current_path}"'
+
+Deprecated Changes
+==================
+
+* The single format specifiers:  #A -> #Z (where defined) have been
+  deprecated and replaced with longer-named equivalents, as listed in the
+  FORMATS section of the tmux manpage.
+* The various foo-{fg,bg,attr} commands have been deprecated and replaced
+  with equivalent foo-style option instead.  Currently this is still
+  backwards-compatible, but will be removed over time.
+
+Normal Changes
+==============
+
+* A new environment variable TMUX_TMPDIR is now honoured, allowing the
+  socket directory to be set outside of TMPDIR (/tmp/ if not set).
+* If -s not given to swap-pane the current pane is assumed.
+* A #{pane_syncronized} format specifier has been added to be a conditional
+  format if a pane is in a syncronised mode (c.f. syncronize-panes)
+* Tmux now runs under Cygwin natively.
+* Formats can now be nested within each other and expanded accordingly.
+* Added 'automatic-rename-format' option to allow the automatic rename
+  mechanism to use something other than the default of
+  #{pane_current_command}.
+* new-session learnt '-c' to specify the starting directory for that session
+  and all subsequent windows therein.
+* The session name is now shown in the message printed to the terminal when
+  a session is detached.
+* Lots more format specifiers have been added.
+* Server race conditions have been fixed; in particular commands are not run
+  until after the configuration file is read completely.
+* Case insensitive searching in tmux's copy-mode is now possible.
+* attach-session and switch-client learnt the '-t' option to accept a window
+  and/or a pane to use.
+* Copy-mode is only exited if no selection is in progress.
+* Paste key in copy-mode is now possible to enter text from the clipboard.
+* status-interval set to '0' now works as intended.
+* tmux now supports 256 colours running under fbterm.
+* Many bug fixes!
+
 CHANGES FROM 1.7 to 1.8, 26 March 2013
 
 Incompatible Changes
@@ -17,7 +193,7 @@ Normal Changes
 * run-shell learnt '-t' to specify the pane to use when displaying output.
 * Support for middle-click pasting.
 * choose-tree learns '-u' to start uncollapsed.
-* select-window learnt '-T; to toggle to the last window if it's already
+* select-window learnt '-T' to toggle to the last window if it's already
   current.
 * New session option 'assume-paste-time' for pasting text versus key-binding
   actions.
@@ -37,9 +213,9 @@ Normal Changes
   the 'source-file' command.
 * 'copy-pipe' mode command to copy selection and pipe the selection to a
   command.
-* Changes panes can now emit focus notifications for certain applications
+* Panes can now emit focus notifications for certain applications
   which use those.
-* run-shell and if-shell now accept format placeholders.
+* run-shell and if-shell now accept formats.
 * resize-pane learnt '-Z' for zooming a pane temporarily.
 * new-session learnt '-A' to make it behave like attach-session.
 * set-option learnt '-o' to prevent setting an option which is already set.
@@ -1799,10 +1975,3 @@ The list of older changes is below.
   emacs) that don't require scrolling regions (ESC[r) mostly work fine
   (including mutt, emacs). No status bar yet and no key remapping or other
   customisation.
-
-$Id$
-
- LocalWords:  showw utf UTF fulvio ciriaco joshe OSC APC gettime abc DEF OA clr
- LocalWords:  rivo nurges lscm Erdely eol smysession mysession ek dstname RB ms
- LocalWords:  dstidx srcname srcidx winlink lsw nabc sabc Exp Tiago Cunha dch
- LocalWords:  setw Chisnall renamew merdely eg Maier newname selectw neww Gass

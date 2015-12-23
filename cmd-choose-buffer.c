@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $OpenBSD$ */
 
 /*
  * Copyright (c) 2010 Nicholas Marriott <nicm@users.sourceforge.net>
@@ -27,31 +27,37 @@
  * Enter choice mode to choose a buffer.
  */
 
+#define CHOOSE_BUFFER_TEMPLATE						\
+	"#{buffer_name}: #{buffer_size} bytes: #{buffer_sample}"
+
 enum cmd_retval	 cmd_choose_buffer_exec(struct cmd *, struct cmd_q *);
 
 const struct cmd_entry cmd_choose_buffer_entry = {
-	"choose-buffer", NULL,
-	"F:t:", 0, 1,
-	CMD_TARGET_WINDOW_USAGE " [-F format] [template]",
-	0,
-	NULL,
-	NULL,
-	cmd_choose_buffer_exec
+	.name = "choose-buffer",
+	.alias = NULL,
+
+	.args = { "F:t:", 0, 1 },
+	.usage = CMD_TARGET_WINDOW_USAGE " [-F format] [template]",
+
+	.tflag = CMD_WINDOW,
+
+	.flags = 0,
+	.exec = cmd_choose_buffer_exec
 };
 
 enum cmd_retval
 cmd_choose_buffer_exec(struct cmd *self, struct cmd_q *cmdq)
 {
 	struct args			*args = self->args;
-	struct client			*c;
+	struct client			*c = cmdq->state.c;
+	struct winlink			*wl = cmdq->state.tflag.wl;
 	struct window_choose_data	*cdata;
-	struct winlink			*wl;
 	struct paste_buffer		*pb;
 	char				*action, *action_data;
 	const char			*template;
 	u_int				 idx;
 
-	if ((c = cmd_current_client(cmdq)) == NULL) {
+	if (c == NULL) {
 		cmdq_error(cmdq, "no client available");
 		return (CMD_RETURN_ERROR);
 	}
@@ -59,10 +65,7 @@ cmd_choose_buffer_exec(struct cmd *self, struct cmd_q *cmdq)
 	if ((template = args_get(args, 'F')) == NULL)
 		template = CHOOSE_BUFFER_TEMPLATE;
 
-	if ((wl = cmd_find_window(cmdq, args_get(args, 't'), NULL)) == NULL)
-		return (CMD_RETURN_ERROR);
-
-	if (paste_get_top(&global_buffers) == NULL)
+	if (paste_get_top(NULL) == NULL)
 		return (CMD_RETURN_NORMAL);
 
 	if (window_pane_set_mode(wl->window->active, &window_choose_mode) != 0)
@@ -74,19 +77,20 @@ cmd_choose_buffer_exec(struct cmd *self, struct cmd_q *cmdq)
 		action = xstrdup("paste-buffer -b '%%'");
 
 	idx = 0;
-	while ((pb = paste_walk_stack(&global_buffers, &idx)) != NULL) {
+	pb = NULL;
+	while ((pb = paste_walk(pb)) != NULL) {
 		cdata = window_choose_data_create(TREE_OTHER, c, c->session);
-		cdata->idx = idx - 1;
+		cdata->idx = idx;
 
 		cdata->ft_template = xstrdup(template);
-		format_add(cdata->ft, "line", "%u", idx - 1);
-		format_paste_buffer(cdata->ft, pb);
+		format_defaults_paste_buffer(cdata->ft, pb);
 
-		xasprintf(&action_data, "%u", idx - 1);
+		xasprintf(&action_data, "%s", paste_buffer_name(pb));
 		cdata->command = cmd_template_replace(action, action_data, 1);
 		free(action_data);
 
 		window_choose_add(wl->window->active, cdata);
+		idx++;
 	}
 	free(action);
 

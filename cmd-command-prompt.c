@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $OpenBSD$ */
 
 /*
  * Copyright (c) 2008 Nicholas Marriott <nicm@users.sourceforge.net>
@@ -29,21 +29,23 @@
  * Prompt for command in client.
  */
 
-void	cmd_command_prompt_key_binding(struct cmd *, int);
-int	cmd_command_prompt_check(struct args *);
 enum cmd_retval	cmd_command_prompt_exec(struct cmd *, struct cmd_q *);
 
 int	cmd_command_prompt_callback(void *, const char *);
 void	cmd_command_prompt_free(void *);
 
 const struct cmd_entry cmd_command_prompt_entry = {
-	"command-prompt", NULL,
-	"I:p:t:", 0, 1,
-	"[-I inputs] [-p prompts] " CMD_TARGET_CLIENT_USAGE " [template]",
-	0,
-	cmd_command_prompt_key_binding,
-	NULL,
-	cmd_command_prompt_exec
+	.name = "command-prompt",
+	.alias = NULL,
+
+	.args = { "I:p:t:", 0, 1 },
+	.usage = "[-I inputs] [-p prompts] " CMD_TARGET_CLIENT_USAGE " "
+		 "[template]",
+
+	.tflag = CMD_CLIENT,
+
+	.flags = 0,
+	.exec = cmd_command_prompt_exec
 };
 
 struct cmd_command_prompt_cdata {
@@ -56,46 +58,15 @@ struct cmd_command_prompt_cdata {
 	int		 idx;
 };
 
-void
-cmd_command_prompt_key_binding(struct cmd *self, int key)
-{
-	switch (key) {
-	case '$':
-		self->args = args_create(1, "rename-session '%%'");
-		args_set(self->args, 'I', "#S");
-		break;
-	case ',':
-		self->args = args_create(1, "rename-window '%%'");
-		args_set(self->args, 'I', "#W");
-		break;
-	case '.':
-		self->args = args_create(1, "move-window -t '%%'");
-		break;
-	case 'f':
-		self->args = args_create(1, "find-window '%%'");
-		break;
-	case '\'':
-		self->args = args_create(1, "select-window -t ':%%'");
-		args_set(self->args, 'p', "index");
-		break;
-	default:
-		self->args = args_create(0);
-		break;
-	}
-}
-
 enum cmd_retval
 cmd_command_prompt_exec(struct cmd *self, struct cmd_q *cmdq)
 {
 	struct args			*args = self->args;
 	const char			*inputs, *prompts;
 	struct cmd_command_prompt_cdata	*cdata;
-	struct client			*c;
+	struct client			*c = cmdq->state.c;
 	char				*prompt, *ptr, *input = NULL;
 	size_t				 n;
-
-	if ((c = cmd_find_client(cmdq, args_get(args, 't'), 0)) == NULL)
-		return (CMD_RETURN_ERROR);
 
 	if (c->prompt_string != NULL)
 		return (CMD_RETURN_NORMAL);
@@ -183,7 +154,7 @@ cmd_command_prompt_callback(void *data, const char *s)
 		return (0);
 	}
 
-	cmdq_run(c->cmdq, cmdlist);
+	cmdq_run(c->cmdq, cmdlist, NULL);
 	cmd_list_free(cmdlist);
 
 	if (c->prompt_callbackfn != (void *) &cmd_command_prompt_callback)

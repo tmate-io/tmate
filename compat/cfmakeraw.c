@@ -1,7 +1,6 @@
-/* $OpenBSD$ */
-
 /*
- * Copyright (c) 2012 Nicholas Marriott <nicm@users.sourceforge.net>
+ * Copyright (c) 2013 Dagobert Michelsen
+ * Copyright (c) 2013 Nicholas Marriott <nicm@users.sourceforge.net>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,40 +15,16 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-
 #include <string.h>
 
 #include "tmux.h"
 
-/* Get cell width. */
-u_int
-grid_cell_width(const struct grid_cell *gc)
-{
-	return (gc->xstate >> 4);
-}
-
-/* Get cell data. */
 void
-grid_cell_get(const struct grid_cell *gc, struct utf8_data *ud)
+cfmakeraw(struct termios *tio)
 {
-	ud->size = gc->xstate & 0xf;
-	ud->width = gc->xstate >> 4;
-	memcpy(ud->data, gc->xdata, ud->size);
-}
-
-/* Set cell data. */
-void
-grid_cell_set(struct grid_cell *gc, const struct utf8_data *ud)
-{
-	memcpy(gc->xdata, ud->data, ud->size);
-	gc->xstate = (ud->width << 4) | ud->size;
-}
-
-/* Set a single character as cell data. */
-void
-grid_cell_one(struct grid_cell *gc, u_char ch)
-{
-	*gc->xdata = ch;
-	gc->xstate = (1 << 4) | 1;
+	tio->c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL|IXON);
+	tio->c_oflag &= ~OPOST;
+	tio->c_lflag &= ~(ECHO|ECHONL|ICANON|ISIG|IEXTEN);
+	tio->c_cflag &= ~(CSIZE|PARENB);
+	tio->c_cflag |= CS8;
 }

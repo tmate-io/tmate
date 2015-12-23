@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $OpenBSD$ */
 
 /*
  * Copyright (c) 2009 Nicholas Marriott <nicm@users.sourceforge.net>
@@ -27,25 +27,22 @@
 enum cmd_retval	 cmd_display_panes_exec(struct cmd *, struct cmd_q *);
 
 const struct cmd_entry cmd_display_panes_entry = {
-	"display-panes", "displayp",
-	"t:", 0, 0,
-	CMD_TARGET_CLIENT_USAGE,
-	0,
-	NULL,
-	NULL,
-	cmd_display_panes_exec
+	.name = "display-panes",
+	.alias = "displayp",
+
+	.args = { "t:", 0, 0 },
+	.usage = CMD_TARGET_CLIENT_USAGE,
+
+	.tflag = CMD_CLIENT,
+
+	.flags = 0,
+	.exec = cmd_display_panes_exec
 };
 
 enum cmd_retval
-cmd_display_panes_exec(struct cmd *self, struct cmd_q *cmdq)
+cmd_display_panes_exec(__unused struct cmd *self, struct cmd_q *cmdq)
 {
-	struct args	*args = self->args;
-	struct client	*c;
-
-	if ((c = cmd_find_client(cmdq, args_get(args, 't'), 0)) == NULL)
-		return (CMD_RETURN_ERROR);
-
-	server_set_identify(c);
+	server_set_identify(cmdq->state.c);
 
 	return (CMD_RETURN_NORMAL);
 }

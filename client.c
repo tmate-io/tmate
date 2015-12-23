@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $OpenBSD$ */
 
 /*
  * Copyright (c) 2007 Nicholas Marriott <nicm@users.sourceforge.net>
@@ -26,16 +26,17 @@
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
-#include <pwd.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "tmux.h"
 
-struct imsgbuf	client_ibuf;
-struct event	client_event;
-struct event	client_stdin;
+struct tmuxproc	*client_proc;
+struct tmuxpeer	*client_peer;
+int		 client_flags;
+struct event	 client_stdin;
 enum {
 	CLIENT_EXIT_NONE,
 	CLIENT_EXIT_DETACHED,
@@ -46,56 +47,62 @@ enum {
 	CLIENT_EXIT_EXITED,
 	CLIENT_EXIT_SERVER_EXITED,
 } client_exitreason = CLIENT_EXIT_NONE;
-int		client_exitval;
-enum msgtype	client_exittype;
-int		client_attached;
+int		 client_exitval;
+enum msgtype	 client_exittype;
+const char	*client_exitsession;
+int		 client_attached;
 
+__dead void	client_exec(const char *,const char *);
 int		client_get_lock(char *);
-int		client_connect(char *, int);
-void		client_send_identify(int);
-void		client_send_environ(void);
-void		client_write_server(enum msgtype, void *, size_t);
-void		client_update_event(void);
-void		client_signal(int, short, void *);
+int		client_connect(struct event_base *, const char *, int);
+void		client_send_identify(const char *, const char *);
 void		client_stdin_callback(int, short, void *);
 void		client_write(int, const char *, size_t);
-void		client_callback(int, short, void *);
-int		client_dispatch_attached(void);
-int		client_dispatch_wait(void *);
+void		client_signal(int);
+void		client_dispatch(struct imsg *, void *);
+void		client_dispatch_attached(struct imsg *);
+void		client_dispatch_wait(struct imsg *, const char *);
 const char     *client_exit_message(void);
 
 /*
  * Get server create lock. If already held then server start is happening in
- * another client, so block until the lock is released and return -1 to
- * retry. Ignore other errors - just continue and start the server without the
- * lock.
+ * another client, so block until the lock is released and return -2 to
+ * retry. Return -1 on failure to continue and start the server anyway.
  */
 int
 client_get_lock(char *lockfile)
 {
 	int lockfd;
 
-	if ((lockfd = open(lockfile, O_WRONLY|O_CREAT, 0600)) == -1)
-		fatal("open failed");
+	log_debug("lock file is %s", lockfile);
 
-	if (flock(lockfd, LOCK_EX|LOCK_NB) == -1 && errno == EWOULDBLOCK) {
+	if ((lockfd = open(lockfile, O_WRONLY|O_CREAT, 0600)) == -1) {
+		log_debug("open failed: %s", strerror(errno));
+		return (-1);
+	}
+
+	if (flock(lockfd, LOCK_EX|LOCK_NB) == -1) {
+		log_debug("flock failed: %s", strerror(errno));
+		if (errno != EAGAIN)
+			return (lockfd);
 		while (flock(lockfd, LOCK_EX) == -1 && errno == EINTR)
 			/* nothing */;
 		close(lockfd);
-		return (-1);
+		return (-2);
 	}
+	log_debug("flock succeeded");
 
 	return (lockfd);
 }
 
 /* Connect client to server. */
 int
-client_connect(char *path, int start_server)
+client_connect(struct event_base *base, const char *path, int start_server)
 {
 	struct sockaddr_un	sa;
 	size_t			size;
-	int			fd, lockfd;
-	char		       *lockfile;
+	int			fd, lockfd = -1, locked = 0;
+	char		       *lockfile = NULL;
 
 	memset(&sa, 0, sizeof sa);
 	sa.sun_family = AF_UNIX;
@@ -104,32 +111,64 @@ client_connect(char *path, int start_server)
 		errno = ENAMETOOLONG;
 		return (-1);
 	}
+	log_debug("socket is %s", path);
 
 retry:
 	if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
-		fatal("socket failed");
+		return (-1);
 
-	if (connect(fd, (struct sockaddr *) &sa, SUN_LEN(&sa)) == -1) {
+	log_debug("trying connect");
+	if (connect(fd, (struct sockaddr *)&sa, sizeof sa) == -1) {
+		log_debug("connect failed: %s", strerror(errno));
 		if (errno != ECONNREFUSED && errno != ENOENT)
 			goto failed;
 		if (!start_server)
 			goto failed;
 		close(fd);
 
-		xasprintf(&lockfile, "%s.lock", path);
-		if ((lockfd = client_get_lock(lockfile)) == -1)
+		if (!locked) {
+			xasprintf(&lockfile, "%s.lock", path);
+			if ((lockfd = client_get_lock(lockfile)) < 0) {
+				log_debug("didn't get lock (%d)", lockfd);
+
+				free(lockfile);
+				lockfile = NULL;
+
+				if (lockfd == -2)
+					goto retry;
+			}
+			log_debug("got lock (%d)", lockfd);
+
+			/*
+			 * Always retry at least once, even if we got the lock,
+			 * because another client could have taken the lock,
+			 * started the server and released the lock between our
+			 * connect() and flock().
+			 */
+			locked = 1;
 			goto retry;
-		if (unlink(path) != 0 && errno != ENOENT)
+		}
+
+		if (lockfd >= 0 && unlink(path) != 0 && errno != ENOENT) {
+			free(lockfile);
+			close(lockfd);
 			return (-1);
-		fd = server_start(lockfd, lockfile);
+		}
+		fd = server_start(base, lockfd, lockfile);
+	}
+
+	if (locked && lockfd >= 0) {
 		free(lockfile);
 		close(lockfd);
 	}
-
 	setblocking(fd, 0);
 	return (fd);
 
 failed:
+	if (locked) {
+		free(lockfile);
+		close(lockfd);
+	}
 	close(fd);
 	return (-1);
 }
@@ -138,12 +177,24 @@ failed:
 const char *
 client_exit_message(void)
 {
+	static char msg[256];
+
 	switch (client_exitreason) {
 	case CLIENT_EXIT_NONE:
 		break;
 	case CLIENT_EXIT_DETACHED:
+		if (client_exitsession != NULL) {
+			xsnprintf(msg, sizeof msg, "detached "
+			    "(from session %s)", client_exitsession);
+			return (msg);
+		}
 		return ("detached");
 	case CLIENT_EXIT_DETACHED_HUP:
+		if (client_exitsession != NULL) {
+			xsnprintf(msg, sizeof msg, "detached and SIGHUP "
+			    "(from session %s)", client_exitsession);
+			return (msg);
+		}
 		return ("detached and SIGHUP");
 	case CLIENT_EXIT_LOST_TTY:
 		return ("lost tty");
@@ -161,25 +212,34 @@ client_exit_message(void)
 
 /* Client main loop. */
 int
-client_main(int argc, char **argv, int flags)
+client_main(struct event_base *base, int argc, char **argv, int flags,
+    const char *shellcmd)
 {
 	struct cmd		*cmd;
 	struct cmd_list		*cmdlist;
-	struct msg_command_data	 cmddata;
-	int			 cmdflags, fd;
+	struct msg_command_data	*data;
+	int			 cmdflags, fd, i;
+	const char		*ttynam, *cwd;
 	pid_t			 ppid;
 	enum msgtype		 msg;
-	char			*cause;
+	char			*cause, path[PATH_MAX];
 	struct termios		 tio, saved_tio;
+	size_t			 size;
+
+	/* Ignore SIGCHLD now or daemon() in the server will leave a zombie. */
+	signal(SIGCHLD, SIG_IGN);
+
+	/* Save the flags. */
+	client_flags = flags;
 
 	/* Set up the initial command. */
 	cmdflags = 0;
-	if (shell_cmd != NULL) {
+	if (shellcmd != NULL) {
 		msg = MSG_SHELL;
 		cmdflags = CMD_STARTSERVER;
 	} else if (argc == 0) {
 		msg = MSG_COMMAND;
-		cmdflags = CMD_STARTSERVER|CMD_SENDENVIRON|CMD_CANTNEST;
+		cmdflags = CMD_STARTSERVER;
 	} else {
 		msg = MSG_COMMAND;
 
@@ -197,53 +257,63 @@ client_main(int argc, char **argv, int flags)
 		TAILQ_FOREACH(cmd, &cmdlist->list, qentry) {
 			if (cmd->entry->flags & CMD_STARTSERVER)
 				cmdflags |= CMD_STARTSERVER;
-			if (cmd->entry->flags & CMD_SENDENVIRON)
-				cmdflags |= CMD_SENDENVIRON;
-			if (cmd->entry->flags & CMD_CANTNEST)
-				cmdflags |= CMD_CANTNEST;
 		}
 		cmd_list_free(cmdlist);
 	}
 
-	/*
-	 * Check if this could be a nested session, if the command can't nest:
-	 * if the socket path matches $TMUX, this is probably the same server.
-	 */
-	if (shell_cmd == NULL && environ_path != NULL &&
-	    (cmdflags & CMD_CANTNEST) &&
-	    strcmp(socket_path, environ_path) == 0) {
-		fprintf(stderr, "sessions should be nested with care, "
-		    "unset $TMUX to force\n");
-		return (1);
-	}
+	/* Create client process structure (starts logging). */
+	client_proc = proc_start("client", base, 0, client_signal);
 
-	/* Initialise the client socket and start the server. */
-	fd = client_connect(socket_path, cmdflags & CMD_STARTSERVER);
+	/* Initialize the client socket and start the server. */
+	fd = client_connect(base, socket_path, cmdflags & CMD_STARTSERVER);
 	if (fd == -1) {
-		fprintf(stderr, "failed to connect to server\n");
+		if (errno == ECONNREFUSED) {
+			fprintf(stderr, "no server running on %s\n",
+			    socket_path);
+		} else {
+			fprintf(stderr, "error connecting to %s (%s)\n",
+			    socket_path, strerror(errno));
+		}
 		return (1);
 	}
+	client_peer = proc_add_peer(client_proc, fd, client_dispatch,
+	    (void *)shellcmd);
 
-	/* Set process title, log and signals now this is the client. */
-#ifdef HAVE_SETPROCTITLE
-	setproctitle("client (%s)", socket_path);
+	/* Save these before pledge(). */
+	if ((cwd = getcwd(path, sizeof path)) == NULL) {
+		if ((cwd = find_home()) == NULL)
+			cwd = "/";
+	}
+	if ((ttynam = ttyname(STDIN_FILENO)) == NULL)
+		ttynam = "";
+
+#ifdef __OpenBSD__
+	/*
+	 * Drop privileges for client. "proc exec" is needed for -c and for
+	 * locking (which uses system(3)).
+	 *
+	 * "tty" is needed to restore termios(4) and also for some reason -CC
+	 * does not work properly without it (input is not recognised).
+	 *
+	 * "sendfd" is dropped later in client_dispatch_wait().
+	 */
+	if (pledge("stdio unix sendfd proc exec tty", NULL) != 0)
+		fatal("pledge failed");
 #endif
-	logfile("client");
 
-	/* Create imsg. */
-	imsg_init(&client_ibuf, fd);
-	event_set(&client_event, fd, EV_READ, client_callback, shell_cmd);
+	/* Free stuff that is not used in the client. */
+	options_free(global_options);
+	options_free(global_s_options);
+	options_free(global_w_options);
+	environ_free(global_environ);
 
 	/* Create stdin handler. */
 	setblocking(STDIN_FILENO, 0);
 	event_set(&client_stdin, STDIN_FILENO, EV_READ|EV_PERSIST,
 	    client_stdin_callback, NULL);
-	if (flags & IDENTIFY_TERMIOS) {
-		if (tcgetattr(STDIN_FILENO, &saved_tio) != 0) {
-			fprintf(stderr, "tcgetattr failed: %s\n",
-			    strerror(errno));
-			return (1);
-		}
+	if (client_flags & CLIENT_CONTROLCONTROL) {
+		if (tcgetattr(STDIN_FILENO, &saved_tio) != 0)
+			fatal("tcgetattr failed");
 		cfmakeraw(&tio);
 		tio.c_iflag = ICRNL|IXANY;
 		tio.c_oflag = OPOST|ONLCR;
@@ -258,203 +328,101 @@ client_main(int argc, char **argv, int flags)
 		tcsetattr(STDIN_FILENO, TCSANOW, &tio);
 	}
 
-	/* Establish signal handlers. */
-	set_signals(client_signal);
-
-	/* Send initial environment. */
-	if (cmdflags & CMD_SENDENVIRON)
-		client_send_environ();
-	client_send_identify(flags);
+	/* Send identify messages. */
+	client_send_identify(ttynam, cwd);
 
 	/* Send first command. */
 	if (msg == MSG_COMMAND) {
-		/* Fill in command line arguments. */
-		cmddata.pid = environ_pid;
-		cmddata.session_id = environ_session_id;
+		/* How big is the command? */
+		size = 0;
+		for (i = 0; i < argc; i++)
+			size += strlen(argv[i]) + 1;
+		data = xmalloc((sizeof *data) + size);
 
 		/* Prepare command for server. */
-		cmddata.argc = argc;
-		if (cmd_pack_argv(
-		    argc, argv, cmddata.argv, sizeof cmddata.argv) != 0) {
+		data->argc = argc;
+		if (cmd_pack_argv(argc, argv, (char *)(data + 1), size) != 0) {
 			fprintf(stderr, "command too long\n");
+			free(data);
 			return (1);
 		}
+		size += sizeof *data;
 
-		client_write_server(msg, &cmddata, sizeof cmddata);
+		/* Send the command. */
+		if (proc_send(client_peer, msg, -1, data, size) != 0) {
+			fprintf(stderr, "failed to send command\n");
+			free(data);
+			return (1);
+		}
+		free(data);
 	} else if (msg == MSG_SHELL)
-		client_write_server(msg, NULL, 0);
+		proc_send(client_peer, msg, -1, NULL, 0);
 
-	/* Set the event and dispatch. */
-	client_update_event();
-	event_dispatch();
+	/* Start main loop. */
+	proc_loop(client_proc, NULL);
 
 	/* Print the exit message, if any, and exit. */
 	if (client_attached) {
-		if (client_exitreason != CLIENT_EXIT_NONE && !login_shell)
+		if (client_exitreason != CLIENT_EXIT_NONE)
 			printf("[%s]\n", client_exit_message());
 
 		ppid = getppid();
 		if (client_exittype == MSG_DETACHKILL && ppid > 1)
 			kill(ppid, SIGHUP);
-	} else if (flags & IDENTIFY_TERMIOS) {
-		if (flags & IDENTIFY_CONTROL) {
-			if (client_exitreason != CLIENT_EXIT_NONE)
-			    printf("%%exit %s\n", client_exit_message());
-			else
-			    printf("%%exit\n");
-			printf("\033\\");
-		}
+	} else if (client_flags & CLIENT_CONTROLCONTROL) {
+		if (client_exitreason != CLIENT_EXIT_NONE)
+			printf("%%exit %s\n", client_exit_message());
+		else
+			printf("%%exit\n");
+		printf("\033\\");
 		tcsetattr(STDOUT_FILENO, TCSAFLUSH, &saved_tio);
-	}
+	} else if (client_exitreason != CLIENT_EXIT_NONE)
+		fprintf(stderr, "%s\n", client_exit_message());
 	setblocking(STDIN_FILENO, 1);
 	return (client_exitval);
 }
 
-/* Send identify message to server with the file descriptors. */
+/* Send identify messages to server. */
 void
-client_send_identify(int flags)
+client_send_identify(const char *ttynam, const char *cwd)
 {
-	struct msg_identify_data	data;
-	char			       *term;
-	int				fd;
+	const char	 *s;
+	char		**ss;
+	size_t		  sslen;
+	int		  fd, flags = client_flags;
+	pid_t		  pid;
 
-	data.flags = flags;
+	proc_send(client_peer, MSG_IDENTIFY_FLAGS, -1, &flags, sizeof flags);
 
-	if (getcwd(data.cwd, sizeof data.cwd) == NULL)
-		*data.cwd = '\0';
+	if ((s = getenv("TERM")) == NULL)
+		s = "";
+	proc_send(client_peer, MSG_IDENTIFY_TERM, -1, s, strlen(s) + 1);
 
-	term = getenv("TERM");
-	if (term == NULL ||
-	    strlcpy(data.term, term, sizeof data.term) >= sizeof data.term)
-		*data.term = '\0';
+	proc_send(client_peer, MSG_IDENTIFY_TTYNAME, -1, ttynam,
+	    strlen(ttynam) + 1);
+	proc_send(client_peer, MSG_IDENTIFY_CWD, -1, cwd, strlen(cwd) + 1);
 
 	if ((fd = dup(STDIN_FILENO)) == -1)
 		fatal("dup failed");
-	imsg_compose(&client_ibuf,
-	    MSG_IDENTIFY, PROTOCOL_VERSION, -1, fd, &data, sizeof data);
-	client_update_event();
-}
+	proc_send(client_peer, MSG_IDENTIFY_STDIN, fd, NULL, 0);
 
-/* Forward entire environment to server. */
-void
-client_send_environ(void)
-{
-	struct msg_environ_data	data;
-	char		      **var;
+	pid = getpid();
+	proc_send(client_peer, MSG_IDENTIFY_CLIENTPID, -1, &pid, sizeof pid);
 
-	for (var = environ; *var != NULL; var++) {
-		if (strlcpy(data.var, *var, sizeof data.var) >= sizeof data.var)
+	for (ss = environ; *ss != NULL; ss++) {
+		sslen = strlen(*ss) + 1;
+		if (sslen > MAX_IMSGSIZE - IMSG_HEADER_SIZE)
 			continue;
-		client_write_server(MSG_ENVIRON, &data, sizeof data);
-	}
-}
-
-/* Write a message to the server without a file descriptor. */
-void
-client_write_server(enum msgtype type, void *buf, size_t len)
-{
-	imsg_compose(&client_ibuf, type, PROTOCOL_VERSION, -1, -1, buf, len);
-	client_update_event();
-}
-
-/* Update client event based on whether it needs to read or read and write. */
-void
-client_update_event(void)
-{
-	short	events;
-
-	event_del(&client_event);
-	events = EV_READ;
-	if (client_ibuf.w.queued > 0)
-		events |= EV_WRITE;
-	event_set(
-	    &client_event, client_ibuf.fd, events, client_callback, shell_cmd);
-	event_add(&client_event, NULL);
-}
-
-/* Callback to handle signals in the client. */
-void
-client_signal(int sig, unused short events, unused void *data)
-{
-	struct sigaction sigact;
-	int		 status;
-
-	if (!client_attached) {
-		switch (sig) {
-		case SIGCHLD:
-			waitpid(WAIT_ANY, &status, WNOHANG);
-			break;
-		case SIGTERM:
-			event_loopexit(NULL);
-			break;
-		}
-	} else {
-		switch (sig) {
-		case SIGHUP:
-			client_exitreason = CLIENT_EXIT_LOST_TTY;
-			client_exitval = 1;
-			client_write_server(MSG_EXITING, NULL, 0);
-			break;
-		case SIGTERM:
-			client_exitreason = CLIENT_EXIT_TERMINATED;
-			client_exitval = 1;
-			client_write_server(MSG_EXITING, NULL, 0);
-			break;
-		case SIGWINCH:
-			client_write_server(MSG_RESIZE, NULL, 0);
-			break;
-		case SIGCONT:
-			memset(&sigact, 0, sizeof sigact);
-			sigemptyset(&sigact.sa_mask);
-			sigact.sa_flags = SA_RESTART;
-			sigact.sa_handler = SIG_IGN;
-			if (sigaction(SIGTSTP, &sigact, NULL) != 0)
-				fatal("sigaction failed");
-			client_write_server(MSG_WAKEUP, NULL, 0);
-			break;
-		}
+		proc_send(client_peer, MSG_IDENTIFY_ENVIRON, -1, *ss, sslen);
 	}
 
-	client_update_event();
-}
-
-/* Callback for client imsg read events. */
-void
-client_callback(unused int fd, short events, void *data)
-{
-	ssize_t	n;
-	int	retval;
-
-	if (events & EV_READ) {
-		if ((n = imsg_read(&client_ibuf)) == -1 || n == 0)
-			goto lost_server;
-		if (client_attached)
-			retval = client_dispatch_attached();
-		else
-			retval = client_dispatch_wait(data);
-		if (retval != 0) {
-			event_loopexit(NULL);
-			return;
-		}
-	}
-
-	if (events & EV_WRITE) {
-		if (msgbuf_write(&client_ibuf.w) < 0)
-			goto lost_server;
-	}
-
-	client_update_event();
-	return;
-
-lost_server:
-	client_exitreason = CLIENT_EXIT_LOST_SERVER;
-	client_exitval = 1;
-	event_loopexit(NULL);
+	proc_send(client_peer, MSG_IDENTIFY_DONE, -1, NULL, 0);
 }
 
 /* Callback for client stdin read events. */
 void
-client_stdin_callback(unused int fd, unused short events, unused void *data1)
+client_stdin_callback(__unused int fd, __unused short events,
+    __unused void *arg)
 {
 	struct msg_stdin_data	data;
 
@@ -462,10 +430,9 @@ client_stdin_callback(unused int fd, unused short events, unused void *data1)
 	if (data.size < 0 && (errno == EINTR || errno == EAGAIN))
 		return;
 
-	client_write_server(MSG_STDIN, &data, sizeof data);
+	proc_send(client_peer, MSG_STDIN, -1, &data, sizeof data);
 	if (data.size <= 0)
 		event_del(&client_stdin);
-	client_update_event();
 }
 
 /* Force write to file descriptor. */
@@ -486,178 +453,252 @@ client_write(int fd, const char *data, size_t size)
 	}
 }
 
-/* Dispatch imsgs when in wait state (before MSG_READY). */
-int
-client_dispatch_wait(void *data)
+/* Run command in shell; used for -c. */
+__dead void
+client_exec(const char *shell, const char *shellcmd)
 {
-	struct imsg		imsg;
-	ssize_t			n, datalen;
-	struct msg_shell_data	shelldata;
-	struct msg_exit_data	exitdata;
-	struct msg_stdout_data	stdoutdata;
-	struct msg_stderr_data	stderrdata;
-	const char             *shellcmd = data;
+	const char	*name, *ptr;
+	char		*argv0;
 
-	for (;;) {
-		if ((n = imsg_get(&client_ibuf, &imsg)) == -1)
-			fatalx("imsg_get failed");
-		if (n == 0)
-			return (0);
-		datalen = imsg.hdr.len - IMSG_HEADER_SIZE;
+	log_debug("shell %s, command %s", shell, shellcmd);
 
-		log_debug("got %d from server", imsg.hdr.type);
-		switch (imsg.hdr.type) {
-		case MSG_EXIT:
-		case MSG_SHUTDOWN:
-			if (datalen != sizeof exitdata) {
-				if (datalen != 0)
-					fatalx("bad MSG_EXIT size");
-			} else {
-				memcpy(&exitdata, imsg.data, sizeof exitdata);
-				client_exitval = exitdata.retcode;
-			}
-			imsg_free(&imsg);
-			return (-1);
-		case MSG_READY:
-			if (datalen != 0)
-				fatalx("bad MSG_READY size");
+	ptr = strrchr(shell, '/');
+	if (ptr != NULL && *(ptr + 1) != '\0')
+		name = ptr + 1;
+	else
+		name = shell;
+	if (client_flags & CLIENT_LOGIN)
+		xasprintf(&argv0, "-%s", name);
+	else
+		xasprintf(&argv0, "%s", name);
+	setenv("SHELL", shell, 1);
 
-			event_del(&client_stdin);
-			client_attached = 1;
-			client_write_server(MSG_RESIZE, NULL, 0);
-			break;
-		case MSG_STDIN:
-			if (datalen != 0)
-				fatalx("bad MSG_STDIN size");
+	setblocking(STDIN_FILENO, 1);
+	setblocking(STDOUT_FILENO, 1);
+	setblocking(STDERR_FILENO, 1);
+	closefrom(STDERR_FILENO + 1);
 
-			event_add(&client_stdin, NULL);
-			break;
-		case MSG_STDOUT:
-			if (datalen != sizeof stdoutdata)
-				fatalx("bad MSG_STDOUT");
-			memcpy(&stdoutdata, imsg.data, sizeof stdoutdata);
+	execl(shell, argv0, "-c", shellcmd, (char *) NULL);
+	fatal("execl failed");
+}
 
-			client_write(STDOUT_FILENO, stdoutdata.data, stdoutdata.size);
-			break;
-		case MSG_STDERR:
-			if (datalen != sizeof stderrdata)
-				fatalx("bad MSG_STDERR");
-			memcpy(&stderrdata, imsg.data, sizeof stderrdata);
+/* Callback to handle signals in the client. */
+void
+client_signal(int sig)
+{
+	struct sigaction sigact;
+	int		 status;
 
-			client_write(STDERR_FILENO, stderrdata.data, stderrdata.size);
-			break;
-		case MSG_VERSION:
-			if (datalen != 0)
-				fatalx("bad MSG_VERSION size");
-
-			fprintf(stderr, "protocol version mismatch "
-			    "(client %u, server %u)\n", PROTOCOL_VERSION,
-			    imsg.hdr.peerid);
+	if (sig == SIGCHLD)
+		waitpid(WAIT_ANY, &status, WNOHANG);
+	else if (!client_attached) {
+		if (sig == SIGTERM)
+			proc_exit(client_proc);
+	} else {
+		switch (sig) {
+		case SIGHUP:
+			client_exitreason = CLIENT_EXIT_LOST_TTY;
 			client_exitval = 1;
-
-			imsg_free(&imsg);
-			return (-1);
-		case MSG_SHELL:
-			if (datalen != sizeof shelldata)
-				fatalx("bad MSG_SHELL size");
-			memcpy(&shelldata, imsg.data, sizeof shelldata);
-			shelldata.shell[(sizeof shelldata.shell) - 1] = '\0';
-
-			clear_signals(0);
-
-			shell_exec(shelldata.shell, shellcmd);
-			/* NOTREACHED */
-		case MSG_DETACH:
-			client_write_server(MSG_EXITING, NULL, 0);
+			proc_send(client_peer, MSG_EXITING, -1, NULL, 0);
 			break;
-		case MSG_EXITED:
-			imsg_free(&imsg);
-			return (-1);
-		default:
-			fatalx("unexpected message");
+		case SIGTERM:
+			client_exitreason = CLIENT_EXIT_TERMINATED;
+			client_exitval = 1;
+			proc_send(client_peer, MSG_EXITING, -1, NULL, 0);
+			break;
+		case SIGWINCH:
+			proc_send(client_peer, MSG_RESIZE, -1, NULL, 0);
+			break;
+		case SIGCONT:
+			memset(&sigact, 0, sizeof sigact);
+			sigemptyset(&sigact.sa_mask);
+			sigact.sa_flags = SA_RESTART;
+			sigact.sa_handler = SIG_IGN;
+			if (sigaction(SIGTSTP, &sigact, NULL) != 0)
+				fatal("sigaction failed");
+			proc_send(client_peer, MSG_WAKEUP, -1, NULL, 0);
+			break;
 		}
+	}
+}
 
-		imsg_free(&imsg);
+/* Callback for client read events. */
+void
+client_dispatch(struct imsg *imsg, void *arg)
+{
+	if (imsg == NULL) {
+		client_exitreason = CLIENT_EXIT_LOST_SERVER;
+		client_exitval = 1;
+		proc_exit(client_proc);
+		return;
+	}
+
+	if (client_attached)
+		client_dispatch_attached(imsg);
+	else
+		client_dispatch_wait(imsg, arg);
+}
+
+/* Dispatch imsgs when in wait state (before MSG_READY). */
+void
+client_dispatch_wait(struct imsg *imsg, const char *shellcmd)
+{
+	char			*data;
+	ssize_t			 datalen;
+	struct msg_stdout_data	 stdoutdata;
+	struct msg_stderr_data	 stderrdata;
+	int			 retval;
+#ifdef __OpenBSD__
+	static int		 pledge_applied;
+
+	/*
+	 * "sendfd" is no longer required once all of the identify messages
+	 * have been sent. We know the server won't send us anything until that
+	 * point (because we don't ask it to), so we can drop "sendfd" once we
+	 * get the first message from the server.
+	 */
+	if (!pledge_applied) {
+		if (pledge("stdio unix proc exec tty", NULL) != 0)
+			fatal("pledge failed");
+		pledge_applied = 1;
+	};
+#endif
+
+	data = imsg->data;
+	datalen = imsg->hdr.len - IMSG_HEADER_SIZE;
+
+	switch (imsg->hdr.type) {
+	case MSG_EXIT:
+	case MSG_SHUTDOWN:
+		if (datalen != sizeof retval && datalen != 0)
+			fatalx("bad MSG_EXIT size");
+		if (datalen == sizeof retval) {
+			memcpy(&retval, data, sizeof retval);
+			client_exitval = retval;
+		}
+		proc_exit(client_proc);
+		break;
+	case MSG_READY:
+		if (datalen != 0)
+			fatalx("bad MSG_READY size");
+
+		event_del(&client_stdin);
+		client_attached = 1;
+		proc_send(client_peer, MSG_RESIZE, -1, NULL, 0);
+		break;
+	case MSG_STDIN:
+		if (datalen != 0)
+			fatalx("bad MSG_STDIN size");
+
+		event_add(&client_stdin, NULL);
+		break;
+	case MSG_STDOUT:
+		if (datalen != sizeof stdoutdata)
+			fatalx("bad MSG_STDOUT size");
+		memcpy(&stdoutdata, data, sizeof stdoutdata);
+
+		client_write(STDOUT_FILENO, stdoutdata.data,
+		    stdoutdata.size);
+		break;
+	case MSG_STDERR:
+		if (datalen != sizeof stderrdata)
+			fatalx("bad MSG_STDERR size");
+		memcpy(&stderrdata, data, sizeof stderrdata);
+
+		client_write(STDERR_FILENO, stderrdata.data,
+		    stderrdata.size);
+		break;
+	case MSG_VERSION:
+		if (datalen != 0)
+			fatalx("bad MSG_VERSION size");
+
+		fprintf(stderr, "protocol version mismatch "
+		    "(client %d, server %u)\n", PROTOCOL_VERSION,
+		    imsg->hdr.peerid & 0xff);
+		client_exitval = 1;
+		proc_exit(client_proc);
+		break;
+	case MSG_SHELL:
+		if (datalen == 0 || data[datalen - 1] != '\0')
+			fatalx("bad MSG_SHELL string");
+
+		clear_signals(0);
+		client_exec(data, shellcmd);
+		/* NOTREACHED */
+	case MSG_DETACH:
+	case MSG_DETACHKILL:
+		proc_send(client_peer, MSG_EXITING, -1, NULL, 0);
+		break;
+	case MSG_EXITED:
+		proc_exit(client_proc);
+		break;
 	}
 }
 
 /* Dispatch imsgs in attached state (after MSG_READY). */
-int
-client_dispatch_attached(void)
+void
+client_dispatch_attached(struct imsg *imsg)
 {
-	struct imsg		imsg;
-	struct msg_lock_data	lockdata;
-	struct sigaction	sigact;
-	ssize_t			n, datalen;
+	struct sigaction	 sigact;
+	char			*data;
+	ssize_t			 datalen;
 
-	for (;;) {
-		if ((n = imsg_get(&client_ibuf, &imsg)) == -1)
-			fatalx("imsg_get failed");
-		if (n == 0)
-			return (0);
-		datalen = imsg.hdr.len - IMSG_HEADER_SIZE;
+	data = imsg->data;
+	datalen = imsg->hdr.len - IMSG_HEADER_SIZE;
 
-		log_debug("got %d from server", imsg.hdr.type);
-		switch (imsg.hdr.type) {
-		case MSG_DETACHKILL:
-		case MSG_DETACH:
-			if (datalen != 0)
-				fatalx("bad MSG_DETACH size");
+	switch (imsg->hdr.type) {
+	case MSG_DETACH:
+	case MSG_DETACHKILL:
+		if (datalen == 0 || data[datalen - 1] != '\0')
+			fatalx("bad MSG_DETACH string");
 
-			client_exittype = imsg.hdr.type;
-			if (imsg.hdr.type == MSG_DETACHKILL)
-				client_exitreason = CLIENT_EXIT_DETACHED_HUP;
-			else
-				client_exitreason = CLIENT_EXIT_DETACHED;
-			client_write_server(MSG_EXITING, NULL, 0);
-			break;
-		case MSG_EXIT:
-			if (datalen != 0 &&
-			    datalen != sizeof (struct msg_exit_data))
-				fatalx("bad MSG_EXIT size");
+		client_exitsession = xstrdup(data);
+		client_exittype = imsg->hdr.type;
+		if (imsg->hdr.type == MSG_DETACHKILL)
+			client_exitreason = CLIENT_EXIT_DETACHED_HUP;
+		else
+			client_exitreason = CLIENT_EXIT_DETACHED;
+		proc_send(client_peer, MSG_EXITING, -1, NULL, 0);
+		break;
+	case MSG_EXIT:
+		if (datalen != 0 && datalen != sizeof (int))
+			fatalx("bad MSG_EXIT size");
 
-			client_write_server(MSG_EXITING, NULL, 0);
-			client_exitreason = CLIENT_EXIT_EXITED;
-			break;
-		case MSG_EXITED:
-			if (datalen != 0)
-				fatalx("bad MSG_EXITED size");
+		proc_send(client_peer, MSG_EXITING, -1, NULL, 0);
+		client_exitreason = CLIENT_EXIT_EXITED;
+		break;
+	case MSG_EXITED:
+		if (datalen != 0)
+			fatalx("bad MSG_EXITED size");
 
-			imsg_free(&imsg);
-			return (-1);
-		case MSG_SHUTDOWN:
-			if (datalen != 0)
-				fatalx("bad MSG_SHUTDOWN size");
+		proc_exit(client_proc);
+		break;
+	case MSG_SHUTDOWN:
+		if (datalen != 0)
+			fatalx("bad MSG_SHUTDOWN size");
 
-			client_write_server(MSG_EXITING, NULL, 0);
-			client_exitreason = CLIENT_EXIT_SERVER_EXITED;
-			client_exitval = 1;
-			break;
-		case MSG_SUSPEND:
-			if (datalen != 0)
-				fatalx("bad MSG_SUSPEND size");
+		proc_send(client_peer, MSG_EXITING, -1, NULL, 0);
+		client_exitreason = CLIENT_EXIT_SERVER_EXITED;
+		client_exitval = 1;
+		break;
+	case MSG_SUSPEND:
+		if (datalen != 0)
+			fatalx("bad MSG_SUSPEND size");
 
-			memset(&sigact, 0, sizeof sigact);
-			sigemptyset(&sigact.sa_mask);
-			sigact.sa_flags = SA_RESTART;
-			sigact.sa_handler = SIG_DFL;
-			if (sigaction(SIGTSTP, &sigact, NULL) != 0)
-				fatal("sigaction failed");
-			kill(getpid(), SIGTSTP);
-			break;
-		case MSG_LOCK:
-			if (datalen != sizeof lockdata)
-				fatalx("bad MSG_LOCK size");
-			memcpy(&lockdata, imsg.data, sizeof lockdata);
+		memset(&sigact, 0, sizeof sigact);
+		sigemptyset(&sigact.sa_mask);
+		sigact.sa_flags = SA_RESTART;
+		sigact.sa_handler = SIG_DFL;
+		if (sigaction(SIGTSTP, &sigact, NULL) != 0)
+			fatal("sigaction failed");
+		kill(getpid(), SIGTSTP);
+		break;
+	case MSG_LOCK:
+		if (datalen == 0 || data[datalen - 1] != '\0')
+			fatalx("bad MSG_LOCK string");
 
-			lockdata.cmd[(sizeof lockdata.cmd) - 1] = '\0';
-			system(lockdata.cmd);
-			client_write_server(MSG_UNLOCK, NULL, 0);
-			break;
-		default:
-			fatalx("unexpected message");
-		}
-
-		imsg_free(&imsg);
+		system(data);
+		proc_send(client_peer, MSG_UNLOCK, -1, NULL, 0);
+		break;
 	}
 }

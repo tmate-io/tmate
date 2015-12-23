@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $OpenBSD$ */
 
 /*
  * Copyright (c) 2009 Nicholas Marriott <nicm@users.sourceforge.net>
@@ -85,9 +85,9 @@ layout_print_cell(struct layout_cell *lc, const char *hdr, u_int n)
 {
 	struct layout_cell	*lcchild;
 
-	log_debug(
-	    "%s:%*s%p type %u [parent %p] wp=%p [%u,%u %ux%u]", hdr, n, " ", lc,
-	    lc->type, lc->parent, lc->wp, lc->xoff, lc->yoff, lc->sx, lc->sy);
+	log_debug("%s:%*s%p type %u [parent %p] wp=%p [%u,%u %ux%u]", hdr, n,
+	    " ", lc, lc->type, lc->parent, lc->wp, lc->xoff, lc->yoff, lc->sx,
+	    lc->sy);
 	switch (lc->type) {
 	case LAYOUT_LEFTRIGHT:
 	case LAYOUT_TOPBOTTOM:
@@ -100,8 +100,8 @@ layout_print_cell(struct layout_cell *lc, const char *hdr, u_int n)
 }
 
 void
-layout_set_size(
-    struct layout_cell *lc, u_int sx, u_int sy, u_int xoff, u_int yoff)
+layout_set_size(struct layout_cell *lc, u_int sx, u_int sy, u_int xoff,
+    u_int yoff)
 {
 	lc->sx = sx;
 	lc->sy = sy;
@@ -519,59 +519,10 @@ layout_resize_pane(struct window_pane *wp, enum layout_type type, int change)
 	notify_window_layout_changed(wp->window);
 }
 
-/* Resize pane based on mouse events. */
-void
-layout_resize_pane_mouse(struct client *c)
-{
-	struct window		*w;
-	struct window_pane	*wp;
-	struct mouse_event	*m = &c->tty.mouse;
-	int		      	 pane_border;
-
-	w = c->session->curw->window;
-
-	pane_border = 0;
-	if (m->event & MOUSE_EVENT_DRAG && m->flags & MOUSE_RESIZE_PANE) {
-		TAILQ_FOREACH(wp, &w->panes, entry) {
-			if (wp->xoff + wp->sx == m->lx &&
-			    wp->yoff <= 1 + m->ly &&
-			    wp->yoff + wp->sy >= m->ly) {
-				layout_resize_pane(wp, LAYOUT_LEFTRIGHT,
-				    m->x - m->lx);
-				pane_border = 1;
-			}
-			if (wp->yoff + wp->sy == m->ly &&
-			    wp->xoff <= 1 + m->lx &&
-			    wp->xoff + wp->sx >= m->lx) {
-				layout_resize_pane(wp, LAYOUT_TOPBOTTOM,
-				    m->y - m->ly);
-				pane_border = 1;
-			}
-		}
-		if (pane_border)
-			server_redraw_window(w);
-	} else if (~m->event & MOUSE_EVENT_UP) {
-		TAILQ_FOREACH(wp, &w->panes, entry) {
-			if ((wp->xoff + wp->sx == m->x &&
-			    wp->yoff <= 1 + m->y &&
-			    wp->yoff + wp->sy >= m->y) ||
-			    (wp->yoff + wp->sy == m->y &&
-			    wp->xoff <= 1 + m->x &&
-			    wp->xoff + wp->sx >= m->x)) {
-				pane_border = 1;
-			}
-		}
-	}
-	if (pane_border)
-		m->flags |= MOUSE_RESIZE_PANE;
-	else
-		m->flags &= ~MOUSE_RESIZE_PANE;
-}
-
 /* Helper function to grow pane. */
 int
-layout_resize_pane_grow(
-    struct layout_cell *lc, enum layout_type type, int needed)
+layout_resize_pane_grow(struct layout_cell *lc, enum layout_type type,
+    int needed)
 {
 	struct layout_cell	*lcadd, *lcremove;
 	u_int			 size;
@@ -611,8 +562,8 @@ layout_resize_pane_grow(
 
 /* Helper function to shrink pane. */
 int
-layout_resize_pane_shrink(
-    struct layout_cell *lc, enum layout_type type, int needed)
+layout_resize_pane_shrink(struct layout_cell *lc, enum layout_type type,
+    int needed)
 {
 	struct layout_cell	*lcadd, *lcremove;
 	u_int			 size;
@@ -654,8 +605,8 @@ layout_assign_pane(struct layout_cell *lc, struct window_pane *wp)
  * split. This must be followed by layout_assign_pane before much else happens!
  **/
 struct layout_cell *
-layout_split_pane(
-    struct window_pane *wp, enum layout_type type, int size, int insert_before)
+layout_split_pane(struct window_pane *wp, enum layout_type type, int size,
+    int insert_before)
 {
 	struct layout_cell     *lc, *lcparent, *lcnew, *lc1, *lc2;
 	u_int			sx, sy, xoff, yoff, size1, size2;
@@ -735,6 +686,8 @@ layout_split_pane(
 	case LAYOUT_LEFTRIGHT:
 		if (size < 0)
 			size2 = ((sx + 1) / 2) - 1;
+		else if (insert_before)
+			size2 = sx - size - 1;
 		else
 			size2 = size;
 		if (size2 < PANE_MINIMUM)
@@ -748,6 +701,8 @@ layout_split_pane(
 	case LAYOUT_TOPBOTTOM:
 		if (size < 0)
 			size2 = ((sy + 1) / 2) - 1;
+		else if (insert_before)
+			size2 = sy - size - 1;
 		else
 			size2 = size;
 		if (size2 < PANE_MINIMUM)

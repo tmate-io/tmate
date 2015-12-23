@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $OpenBSD$ */
 
 /*
  * Copyright (c) 2009 Nicholas Marriott <nicm@users.sourceforge.net>
@@ -23,8 +23,8 @@
 #include "tmux.h"
 
 /*
- * Set window layouts - predefined methods to arrange windows. These are one-off
- * and generate a layout tree.
+ * Set window layouts - predefined methods to arrange windows. These are
+ * one-off and generate a layout tree.
  */
 
 void	layout_set_even_h(struct window *);
@@ -43,12 +43,6 @@ const struct {
 	{ "main-vertical", layout_set_main_v },
 	{ "tiled", layout_set_tiled },
 };
-
-const char *
-layout_set_name(u_int layout)
-{
-	return (layout_sets[layout].name);
-}
 
 int
 layout_set_lookup(const char *name)
@@ -251,10 +245,10 @@ layout_set_main_h(struct window *w)
 	width = (w->sx - (n - 1)) / columns;
 
 	/* Get the main pane height and add one for separator line. */
-	mainheight = options_get_number(&w->options, "main-pane-height") + 1;
+	mainheight = options_get_number(w->options, "main-pane-height") + 1;
 
 	/* Get the optional other pane height and add one for separator line. */
-	otherheight = options_get_number(&w->options, "other-pane-height") + 1;
+	otherheight = options_get_number(w->options, "other-pane-height") + 1;
 
 	/*
 	 * If an other pane height was specified, honour it so long as it
@@ -372,10 +366,10 @@ layout_set_main_v(struct window *w)
 	height = (w->sy - (n - 1)) / rows;
 
 	/* Get the main pane width and add one for separator line. */
-	mainwidth = options_get_number(&w->options, "main-pane-width") + 1;
+	mainwidth = options_get_number(w->options, "main-pane-width") + 1;
 
 	/* Get the optional other pane width and add one for separator line. */
-	otherwidth = options_get_number(&w->options, "other-pane-width") + 1;
+	otherwidth = options_get_number(w->options, "other-pane-width") + 1;
 
 	/*
 	 * If an other pane width was specified, honour it so long as it

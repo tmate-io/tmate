@@ -5,15 +5,16 @@
 #include <assert.h>
 
 #include "tmate.h"
+#include "window-copy.h"
 
 static void consume_channel(struct tmate_ssh_client *client);
 static void flush_input_stream(struct tmate_ssh_client *client);
 static void __flush_input_stream(evutil_socket_t fd, short what, void *arg);
 static void __on_session_event(evutil_socket_t fd, short what, void *arg);
-static void printflike2 kill_session(struct tmate_ssh_client *client,
-				     const char *fmt, ...);
-static void printflike2 reconnect_session(struct tmate_ssh_client *client,
+static void printflike(2, 3) kill_session(struct tmate_ssh_client *client,
 					  const char *fmt, ...);
+static void printflike(2, 3) reconnect_session(struct tmate_ssh_client *client,
+					       const char *fmt, ...);
 static void on_session_event(struct tmate_ssh_client *client);
 
 static void register_session_fd_event(struct tmate_ssh_client *client)
@@ -23,7 +24,8 @@ static void register_session_fd_event(struct tmate_ssh_client *client)
 		setsockopt(ssh_get_fd(client->session), IPPROTO_TCP,
 			   TCP_NODELAY, &flag, sizeof(flag));
 
-		event_assign(&client->ev_ssh, ev_base, ssh_get_fd(client->session),
+		event_assign(&client->ev_ssh, client->tmate_session->ev_base,
+			     ssh_get_fd(client->session),
 			     EV_READ | EV_PERSIST, __on_session_event, client);
 		event_add(&client->ev_ssh, NULL);
 	}
@@ -34,7 +36,7 @@ static void register_input_stream_event(struct tmate_ssh_client *client)
 	struct tmate_encoder *encoder = &client->tmate_session->encoder;
 
 	if (!event_initialized(&encoder->ev_readable)) {
-		event_assign(&encoder->ev_readable, ev_base, -1,
+		event_assign(&encoder->ev_readable, client->tmate_session->ev_base, -1,
 			     EV_READ | EV_PERSIST, __flush_input_stream, client);
 		event_add(&encoder->ev_readable, NULL);
 		client->has_encoder = 1;
@@ -81,7 +83,7 @@ static char *get_identity(void)
 {
 	char *identity;
 
-	identity = options_get_string(&global_s_options, "tmate-identity");
+	identity = options_get_string(global_s_options, "tmate-identity");
 	if (!strlen(identity))
 		return NULL;
 
@@ -93,8 +95,8 @@ static char *get_identity(void)
 	return identity;
 }
 
-static int passphrase_callback(const char *prompt, char *buf, size_t len,
-			       int echo, int verify, void *userdata)
+static int passphrase_callback(__unused const char *prompt, char *buf, size_t len,
+			       __unused int echo, __unused int verify, void *userdata)
 {
 	struct tmate_ssh_client *client = userdata;
 
@@ -138,7 +140,7 @@ static void request_passphrase(struct tmate_ssh_client *client)
 	}
 
 	window_pane_set_mode(wp, &window_copy_mode);
-	window_copy_init_from_pane(wp);
+	window_copy_init_from_pane(wp, 0);
 	data = wp->modedata;
 
 	data->inputtype = WINDOW_COPY_PASSWORD;
@@ -146,7 +148,7 @@ static void request_passphrase(struct tmate_ssh_client *client)
 
 	mode_key_init(&data->mdata, &mode_key_tree_vi_edit);
 
-	window_copy_update_selection(wp);
+	window_copy_update_selection(wp, 1);
 	window_copy_redraw_screen(wp);
 
 	data->password_cb = on_passphrase_read;
@@ -161,11 +163,11 @@ static void on_session_event(struct tmate_ssh_client *client)
 	unsigned char *hash;
 	ssize_t hash_len;
 	char *hash_str;
-	char *server_hash_str;
+	const char *server_hash_str;
 	int match;
 
-	int verbosity = SSH_LOG_NOLOG + debug_level;
-	int port = options_get_number(&global_s_options, "tmate-server-port");
+	int verbosity = SSH_LOG_NOLOG + log_get_level();
+	int port = options_get_number(global_s_options, "tmate-server-port");
 
 	ssh_session session = client->session;
 	ssh_channel channel = client->channel;
@@ -238,16 +240,12 @@ static void on_session_event(struct tmate_ssh_client *client)
 		key_type = ssh_key_type(pubkey);
 
 		switch (key_type) {
-		case SSH_KEYTYPE_DSS:
-			server_hash_str = options_get_string(&global_s_options,
-						"tmate-server-dsa-fingerprint");
-			break;
 		case SSH_KEYTYPE_RSA:
-			server_hash_str = options_get_string(&global_s_options,
+			server_hash_str = options_get_string(global_s_options,
 						"tmate-server-rsa-fingerprint");
 			break;
 		case SSH_KEYTYPE_ECDSA:
-			server_hash_str = options_get_string(&global_s_options,
+			server_hash_str = options_get_string(global_s_options,
 						"tmate-server-ecdsa-fingerprint");
 			break;
 		default:
@@ -372,12 +370,12 @@ static void flush_input_stream(struct tmate_ssh_client *client)
 	}
 }
 
-static void __flush_input_stream(evutil_socket_t fd, short what, void *arg)
+static void __flush_input_stream(__unused evutil_socket_t fd, __unused short what, void *arg)
 {
 	flush_input_stream(arg);
 }
 
-static void __on_session_event(evutil_socket_t fd, short what, void *arg)
+static void __on_session_event(__unused evutil_socket_t fd, __unused short what, void *arg)
 {
 	on_session_event(arg);
 }
@@ -414,8 +412,8 @@ static void __kill_session(struct tmate_ssh_client *client,
 	client->state = SSH_NONE;
 }
 
-static void printflike2 kill_session(struct tmate_ssh_client *client,
-				     const char *fmt, ...)
+static void printflike(2, 3) kill_session(struct tmate_ssh_client *client,
+					  const char *fmt, ...)
 {
 	va_list ap;
 
@@ -437,15 +435,15 @@ static void connect_session(struct tmate_ssh_client *client)
 	}
 }
 
-static void on_reconnect_timer(evutil_socket_t fd, short what, void *arg)
+static void on_reconnect_timer(__unused evutil_socket_t fd, __unused short what, void *arg)
 {
 	connect_session(arg);
 }
 
-static void printflike2 reconnect_session(struct tmate_ssh_client *client,
-					  const char *fmt, ...)
+static void printflike(2, 3) reconnect_session(struct tmate_ssh_client *client,
+					       const char *fmt, ...)
 {
-	struct timeval tv;
+	/* struct timeval tv; */
 	va_list ap;
 
 #if 1
@@ -486,7 +484,7 @@ struct tmate_ssh_client *tmate_ssh_client_alloc(struct tmate_session *session,
 
 	client->ev_ssh.ev_flags = 0;
 
-	evtimer_assign(&client->ev_ssh_reconnect, ev_base,
+	evtimer_assign(&client->ev_ssh_reconnect, session->ev_base,
 		       on_reconnect_timer, client);
 
 	connect_session(client);

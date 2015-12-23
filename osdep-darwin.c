@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $OpenBSD$ */
 
 /*
  * Copyright (c) 2009 Joshua Elsasser <josh@elsasser.org>
@@ -28,22 +28,22 @@ char			*osdep_get_name(int, char *);
 char			*osdep_get_cwd(int);
 struct event_base	*osdep_event_init(void);
 
-#define unused __attribute__ ((unused))
+#define __unused __attribute__ ((__unused__))
 
 char *
-osdep_get_name(int fd, unused char *tty)
+osdep_get_name(int fd, __unused char *tty)
 {
-	struct proc_bsdshortinfo	bsdinfo;
+	struct proc_bsdinfo		bsdinfo;
 	pid_t				pgrp;
 	int				ret;
 
 	if ((pgrp = tcgetpgrp(fd)) == -1)
 		return (NULL);
 
-	ret = proc_pidinfo(pgrp, PROC_PIDT_SHORTBSDINFO, 0,
+	ret = proc_pidinfo(pgrp, PROC_PIDTBSDINFO, 0,
 	    &bsdinfo, sizeof bsdinfo);
-	if (ret == sizeof bsdinfo && *bsdinfo.pbsi_comm != '\0')
-		return (strdup(bsdinfo.pbsi_comm));
+	if (ret == sizeof bsdinfo && *bsdinfo.pbi_comm != '\0')
+		return (strdup(bsdinfo.pbi_comm));
 	return (NULL);
 }
 

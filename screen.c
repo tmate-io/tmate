@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $OpenBSD$ */
 
 /*
  * Copyright (c) 2007 Nicholas Marriott <nicm@users.sourceforge.net>
@@ -18,7 +18,6 @@
 
 #include <sys/types.h>
 
-#include <netdb.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -32,14 +31,8 @@ void	screen_resize_y(struct screen *, u_int);
 void
 screen_init(struct screen *s, u_int sx, u_int sy, u_int hlimit)
 {
-	char hn[MAXHOSTNAMELEN];
-
 	s->grid = grid_create(sx, sy, hlimit);
-
-	if (gethostname(hn, MAXHOSTNAMELEN) == 0)
-		s->title = xstrdup(hn);
-	else
-		s->title = xstrdup("");
+	s->title = xstrdup("");
 
 	s->cstyle = 0;
 	s->ccolour = xstrdup("");
@@ -111,12 +104,8 @@ screen_set_cursor_colour(struct screen *s, const char *colour_string)
 void
 screen_set_title(struct screen *s, const char *title)
 {
-	char	tmp[BUFSIZ];
-
-	strlcpy(tmp, title, sizeof tmp);
-
 	free(s->title);
-	s->title = xstrdup(tmp);
+	s->title = xstrdup(title);
 }
 
 /* Resize screen. */
@@ -205,8 +194,6 @@ screen_resize_y(struct screen *s, u_int sy)
 		 * Now just increase the history size, if possible, to take
 		 * over the lines which are left. If history is off, delete
 		 * lines from the top.
-		 *
-		 * XXX Should apply history limit?
 		 */
 		available = s->cy;
 		if (gd->flags & GRID_HISTORY)
@@ -220,8 +207,8 @@ screen_resize_y(struct screen *s, u_int sy)
 	}
 
 	/* Resize line arrays. */
-	gd->linedata = xrealloc(
-	    gd->linedata, gd->hsize + sy, sizeof *gd->linedata);
+	gd->linedata = xreallocarray(gd->linedata, gd->hsize + sy,
+	    sizeof *gd->linedata);
 
 	/* Size increasing. */
 	if (sy > oldy) {
@@ -274,6 +261,7 @@ screen_clear_selection(struct screen *s)
 	struct screen_sel	*sel = &s->sel;
 
 	sel->flag = 0;
+	sel->lineflag = LINE_SEL_NONE;
 }
 
 /* Check if cell in selection. */
@@ -281,6 +269,7 @@ int
 screen_check_selection(struct screen *s, u_int px, u_int py)
 {
 	struct screen_sel	*sel = &s->sel;
+	u_int			 xx;
 
 	if (!sel->flag)
 		return (0);
@@ -330,16 +319,24 @@ screen_check_selection(struct screen *s, u_int px, u_int py)
 			if (py < sel->sy || py > sel->ey)
 				return (0);
 
-			if ((py == sel->sy && px < sel->sx)
-			    || (py == sel->ey && px > sel->ex))
+			if (py == sel->sy && px < sel->sx)
+				return (0);
+
+			if (py == sel->ey && px > sel->ex)
 				return (0);
 		} else if (sel->sy > sel->ey) {
 			/* starting line > ending line -- upward selection. */
 			if (py > sel->sy || py < sel->ey)
 				return (0);
 
-			if ((py == sel->sy && px >= sel->sx)
-			    || (py == sel->ey && px < sel->ex))
+			if (py == sel->ey && px < sel->ex)
+				return (0);
+
+			if (sel->modekeys == MODEKEY_EMACS)
+				xx = sel->sx - 1;
+			else
+				xx = sel->sx;
+			if (py == sel->sy && px > xx)
 				return (0);
 		} else {
 			/* starting line == ending line. */
@@ -348,7 +345,11 @@ screen_check_selection(struct screen *s, u_int px, u_int py)
 
 			if (sel->ex < sel->sx) {
 				/* cursor (ex) is on the left */
-				if (px > sel->sx || px < sel->ex)
+				if (sel->modekeys == MODEKEY_EMACS)
+					xx = sel->sx - 1;
+				else
+					xx = sel->sx;
+				if (px > xx || px < sel->ex)
 					return (0);
 			} else {
 				/* selection start (sx) is on the left */
@@ -366,7 +367,13 @@ void
 screen_reflow(struct screen *s, u_int new_x)
 {
 	struct grid	*old = s->grid;
+	u_int		 change;
 
 	s->grid = grid_create(old->sx, old->sy, old->hlimit);
-	s->cy -= grid_reflow(s->grid, old, new_x);
+
+	change = grid_reflow(s->grid, old, new_x);
+	if (change < s->cy)
+		s->cy -= change;
+	else
+		s->cy = 0;
 }

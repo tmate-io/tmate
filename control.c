@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $OpenBSD$ */
 
 /*
  * Copyright (c) 2012 Nicholas Marriott <nicm@users.sourceforge.net>
@@ -27,7 +27,7 @@
 #include "tmux.h"
 
 /* Write a line. */
-void printflike2
+void
 control_write(struct client *c, const char *fmt, ...)
 {
 	va_list		 ap;
@@ -37,7 +37,7 @@ control_write(struct client *c, const char *fmt, ...)
 	va_end(ap);
 
 	evbuffer_add(c->stdout_data, "\n", 1);
-	server_push_stdout(c);
+	server_client_push_stdout(c);
 }
 
 /* Write a buffer, adding a terminal newline. Empties buffer. */
@@ -46,15 +46,16 @@ control_write_buffer(struct client *c, struct evbuffer *buffer)
 {
 	evbuffer_add_buffer(c->stdout_data, buffer);
 	evbuffer_add(c->stdout_data, "\n", 1);
-	server_push_stdout(c);
+	server_client_push_stdout(c);
 }
 
 /* Control input callback. Read lines and fire commands. */
 void
-control_callback(struct client *c, int closed, unused void *data)
+control_callback(struct client *c, int closed, __unused void *data)
 {
 	char		*line, *cause;
 	struct cmd_list	*cmdlist;
+	struct cmd	*cmd;
 
 	if (closed)
 		c->flags |= CLIENT_EXIT;
@@ -72,13 +73,15 @@ control_callback(struct client *c, int closed, unused void *data)
 			c->cmdq->time = time(NULL);
 			c->cmdq->number++;
 
-			cmdq_guard(c->cmdq, "begin");
+			cmdq_guard(c->cmdq, "begin", 1);
 			control_write(c, "parse error: %s", cause);
-			cmdq_guard(c->cmdq, "error");
+			cmdq_guard(c->cmdq, "error", 1);
 
 			free(cause);
 		} else {
-			cmdq_run(c->cmdq, cmdlist);
+			TAILQ_FOREACH(cmd, &cmdlist->list, qentry)
+				cmd->flags |= CMD_CONTROL;
+			cmdq_run(c->cmdq, cmdlist, NULL);
 			cmd_list_free(cmdlist);
 		}
 

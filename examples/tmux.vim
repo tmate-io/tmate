@@ -31,71 +31,257 @@ syn keyword tmuxAction	any current none
 syn keyword tmuxBoolean	off on
 
 syn keyword tmuxCmds
-	\ attach[-session] detach[-client] has[-session] kill-server
-	\ kill-session lsc list-clients lscm list-commands ls list-sessions
-	\ lockc lock-client locks lock-session new[-session] refresh[-client]
-	\ rename[-session] showmsgs show-messages source[-file] start[-server]
-	\ suspendc suspend-client switchc switch-client
+	\ attach
+	\ attach-session
+	\ bind
+	\ bind-key
+	\ break-pane
+	\ breakp
+	\ capture-pane
+	\ capturep
+	\ choose-buffer
+	\ choose-client
+	\ choose-session
+	\ choose-tree
+	\ choose-window
+	\ clear-history
+	\ clearhist
+	\ clock-mode
+	\ command-prompt
+	\ confirm
+	\ confirm-before
 	\ copy-mode
-	\ breakp break-pane capturep capture-pane choose-client choose-session
-	\ choose-tree choose-window displayp display-panes findw find-window
-	\ joinp join-pane killp kill-pane killw kill-window lastp last-pane
-	\ last[-window] linkw link-window lsp list-panes lsw list-windows movep
-	\ move-pane movew move-window neww new-window nextl next-layout
-	\ next[-window] pipep pipe-pane prevl previous-layout prev[ious-window]
-	\ renamew rename-window resizep resize-pane respawnp respawn-pane
-	\ respawnw respawn-window rotatew rotate-window selectl select-layout
-	\ selectp select-pane selectw select-window splitw split-window swapp
-	\ swap-pane swapw swap-window unlinkw unlink-window
-	\ bind[-key] lsk list-keys send[-keys] send-prefix unbind[-key]
-	\ set[-option] setw set-window-option show[-options] showw
+	\ delete-buffer
+	\ deleteb
+	\ detach
+	\ detach-client
+	\ display
+	\ display-message
+	\ display-panes
+	\ displayp
+	\ find-window
+	\ findw
+	\ has
+	\ has-session
+	\ if
+	\ if-shell
+	\ info
+	\ join-pane
+	\ joinp
+	\ kill-pane
+	\ kill-server
+	\ kill-session
+	\ kill-window
+	\ killp
+	\ killw
+	\ last
+	\ last-pane
+	\ last-window
+	\ lastp
+	\ link-window
+	\ linkw
+	\ list-buffers
+	\ list-clients
+	\ list-commands
+	\ list-keys
+	\ list-panes
+	\ list-sessions
+	\ list-windows
+	\ load-buffer
+	\ loadb
+	\ lock
+	\ lock-client
+	\ lock-server
+	\ lock-session
+	\ lockc
+	\ locks
+	\ ls
+	\ lsb
+	\ lsc
+	\ lscm
+	\ lsk
+	\ lsp
+	\ lsw
+	\ move-pane
+	\ move-window
+	\ movep
+	\ movew
+	\ new
+	\ new-session
+	\ new-window
+	\ neww
+	\ next
+	\ next-layout
+	\ next-window
+	\ nextl
+	\ paste-buffer
+	\ pasteb
+	\ path
+	\ pipe-pane
+	\ pipep
+	\ prev
+	\ previous-layout
+	\ previous-window
+	\ prevl
+	\ refresh
+	\ refresh-client
+	\ rename
+	\ rename-session
+	\ rename-window
+	\ renamew
+	\ resize-pane
+	\ resizep
+	\ respawn-pane
+	\ respawn-window
+	\ respawnp
+	\ respawnw
+	\ rotate-window
+	\ rotatew
+	\ run
+	\ run-shell
+	\ save-buffer
+	\ saveb
+	\ select-layout
+	\ select-pane
+	\ select-window
+	\ selectl
+	\ selectp
+	\ selectw
+	\ send
+	\ send-keys
+	\ send-prefix
+	\ server-info
+	\ set
+	\ set-buffer
+	\ set-environment
+	\ set-option
+	\ set-window-option
+	\ setb
+	\ setenv
+	\ setw
+	\ show
+	\ show-buffer
+	\ show-environment
+	\ show-messages
+	\ show-options
 	\ show-window-options
-	\ setenv set-environment showenv show-environment
-	\ command-prompt confirm[-before] display[-message]
-	\ choose-buffer clearhist clear-history deleteb delete-buffer lsb
-	\ list-buffers loadb load-buffer pasteb paste-buffer saveb save-buffer
-	\ setb set-buffer showb show-buffer
-	\ clock-mode if[-shell] lock[-server] run[-shell] server-info info
-	\ choose-list
+	\ showb
+	\ showenv
+	\ showmsgs
+	\ showw
+	\ source
+	\ source-file
+	\ split-window
+	\ splitw
+	\ start
+	\ start-server
+	\ suspend-client
+	\ suspendc
+	\ swap-pane
+	\ swap-window
+	\ swapp
+	\ swapw
+	\ switch-client
+	\ switchc
+	\ unbind
+	\ unbind-key
+	\ unlink-window
+	\ unlinkw
+	\ wait
+	\ wait-for
 
 syn keyword tmuxOptsSet
-	\ buffer-limit escape-time exit-unattached exit-unattached quiet
+	\ assume-paste-time
+	\ base-index
+	\ bell-action
+	\ bell-on-alert
+	\ buffer-limit
+	\ default-command
+	\ default-shell
+	\ default-terminal
+	\ destroy-unattached
+	\ detach-on-destroy
+	\ display-panes-active-colour
+	\ display-panes-colour
+	\ display-panes-time
+	\ display-time
+	\ escape-time
+	\ exit-unattached
+	\ focus-events
+	\ history-file
+	\ history-limit
+	\ lock-after-time
+	\ lock-command
+	\ message-command-style
+	\ message-limit
+	\ message-style
+	\ mouse
+	\ mouse-utf8
+	\ prefix
+	\ prefix2
+	\ quiet
+	\ renumber-windows
+	\ repeat-time
 	\ set-clipboard
-	\ base-index bell-action bell-on-alert default-command default-path
-	\ default-shell default-terminal destroy-unattached detach-on-destroy
-	\ display-panes-active-colour display-panes-colour display-panes-time
-	\ display-time history-limit
-	\ lock-after-time lock-command lock-server
-	\ message-command-attr message-attr message-command-bg message-bg
-	\ message-command-fg message-fg message-limit
-	\ mouse-resize-pane mouse-select-pane mouse-select-window mouse-utf8
-	\ pane-active-border-bg pane-border-bg pane-active-border-fg
-	\ pane-border-fg prefix prefix2
-	\ renumber-windows repeat-time set-remain-on-exit set-titles
-	\ set-titles-string status status-attr status-bg status-fg
-	\ status-interval status-justify status-keys status-left
-	\ status-left-attr status-left-bg status-left-fg status-left-length
-	\ status-position status-right status-right-attr status-right-bg
-	\ status-right-fg status-right-length status-utf8 terminal-overrides
-	\ update-environment visual-activity visual-bell visual-content
-	\ visual-silence word-separators
+	\ set-remain-on-exit
+	\ set-titles
+	\ set-titles-string
+	\ status
+	\ status-interval
+	\ status-justify
+	\ status-keys
+	\ status-left
+	\ status-left-length
+	\ status-left-style
+	\ status-position
+	\ status-right
+	\ status-right-length
+	\ status-right-style
+	\ status-style
+	\ status-utf8
+	\ terminal-overrides
+	\ update-environment
+	\ visual-activity
+	\ visual-bell
+	\ visual-silence
+	\ word-separators
 
 syn keyword tmuxOptsSetw
-	\ aggressive-resize alternate-screen automatic-rename
-	\ c0-change-interval c0-change-trigger clock-mode-colour
-	\ clock-mode-style force-height force-width layout-history-limit
-	\ main-pane-height main-pane-width mode-attr mode-bg mode-fg move-keys
-	\ mode-mouse monitor-activity monitor-content monitor-silence
-	\ other-pane-height other-pane-width pane-base-index remain-on-exit
-	\ synchronize-panes utf8 window-status-bell-attr window-status-bell-bg
-	\ window-status-bell-fg window-status-content-attr
-	\ window-status-content-bg window-status-content-fg
-	\ window-status-activity-attr window-status-activity-bg
-	\ window-status-activity-fg window-status-attr
-	\ window-status-current-attr window-status-attr window-status-current-bg
-	\ window-status-bg window-status-current-fg window-status-fg
-	\ window-status-current-format window-status-format
-	\ window-status-separator xterm-keys wrap-search
+	\ aggressive-resize
+	\ allow-rename
+	\ alternate-screen
+	\ automatic-rename
+	\ automatic-rename-format
+	\ clock-mode-colour
+	\ clock-mode-style
+	\ force-height
+	\ force-width
+	\ main-pane-height
+	\ main-pane-width
+	\ mode-keys
+	\ mode-style
+	\ monitor-activity
+	\ monitor-silence
+	\ other-pane-height
+	\ other-pane-width
+	\ pane-active-border-style
+	\ pane-base-index
+	\ pane-border-style
+	\ remain-on-exit
+	\ synchronize-panes
+	\ utf8
+	\ window-active-style
+	\ window-status-activity-style
+	\ window-status-bell-style
+	\ window-status-current-format
+	\ window-status-current-style
+	\ window-status-format
+	\ window-status-last-style
+	\ window-status-separator
+	\ window-status-style
+	\ window-style
+	\ wrap-search
+	\ xterm-keys
 
 syn keyword tmuxTodo FIXME NOTE TODO XXX contained
 
@@ -105,7 +291,9 @@ syn match tmuxOptions		/\s-\a\+/		display
 syn match tmuxVariable		/\w\+=/			display
 syn match tmuxVariableExpansion	/\${\=\w\+}\=/		display
 
-syn region tmuxComment	start=/#/ end=/$/ contains=tmuxTodo display oneline
+" Comments can span multiple lines, when the newline is escaped
+" (with a single) backslash at the end.
+syn region tmuxComment  start=/#/ skip=/\\\@<!\\$/ end=/$/ contains=tmuxTodo
 syn region tmuxString	start=/"/ end=/"/ display oneline
 syn region tmuxString	start=/'/ end=/'/ display oneline
 

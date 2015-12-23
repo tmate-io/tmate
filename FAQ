@@ -95,9 +95,6 @@ aware of are (bearing in mind I haven't used screen for a few years now):
 - screen has builtin serial and telnet support; this is bloat and is unlikely
   to be added to tmux.
 
-- screen has support for updating utmp. Nobody has really come up with a clean,
-  portable way to do this without making tmux setuid or setgid yet.
-
 - Environment handling is different.
 
 - tmux tends to be more demanding on the terminal so tends to show up terminal
@@ -107,8 +104,12 @@ aware of are (bearing in mind I haven't used screen for a few years now):
 
 * I found a bug! What do I do?
 
-Please send bug reports by email to nicm@users.sourceforge.net or
-tmux-users@lists.sourceforge.net. Please include as much of the following
+Check the latest version of tmux from Git to see if the problem is still
+reproducible.  Sometimes the length of time between releases means a lot of
+fixes can be sitting in Git and the problem might already be fixed.
+
+Please send bug reports by email to nicholas.marriott@gmail.com or
+tmux-users@googlegroups.com. Please include as much of the following
 information as possible:
 
 - the version of tmux you are running;
@@ -122,7 +123,7 @@ information as possible:
 
 * Why doesn't tmux do $x?
 
-Please send feature requests by email to nicm@users.sourceforge.net.
+Please send feature requests by email to tmux-users@googlegroups.com.
 
 * Why do you use the screen terminal description inside tmux? It sucks.
 
@@ -238,6 +239,31 @@ would be welcome.
 
 vim users may also want to set the "ttyfast" option inside tmux.
 
+* How do I make ctrl and shift arrow keys work in emacs?
+
+The terminal-init-screen function in term/screen.el is called for new frames,
+but it doesn't configure any function keys.
+
+If the tmux xterm-keys option is on, it is enough to define the same keys as
+xterm. Add the following to init.el or .emacs to do this:
+
+(defadvice terminal-init-screen
+  ;; The advice is named `tmux', and is run before `terminal-init-screen' runs.
+  (before tmux activate)
+  ;; Docstring.  This describes the advice and is made available inside emacs;
+  ;; for example when doing C-h f terminal-init-screen RET
+  "Apply xterm keymap, allowing use of keys passed through tmux."
+  ;; This is the elisp code that is run before `terminal-init-screen'.
+  (if (getenv "TMUX")
+    (let ((map (copy-keymap xterm-function-map)))
+    (set-keymap-parent map (keymap-parent input-decode-map))
+    (set-keymap-parent input-decode-map map))))
+
+And ensure .tmux.conf contains "set -g xterm-keys on".
+
+Alternatively, the screen.el file can be copied to the load path and
+customized.
+
 * Why doesn't elinks set the window title inside tmux?
 
 There isn't a way to detect if a terminal supports setting the window title, so
@@ -326,42 +352,33 @@ lock(1) or vlock(1)) by using the following:
 
 bind x set lock-command '/usr/bin/vlock' \; lock-client \; set lock-command 'tput civis && read -s -n1'
 
-* vim displays reverse video instead of italics, while less displays italics
-  (or just regular text) instead of reverse. What's wrong?
+* I don't see italics! Or less and vim show italics and reverse the wrong way round!
 
-Screen's terminfo description lacks italics mode and has standout mode in its
-place, but using the same escape sequence that urxvt uses for italics. This
-means applications (like vim) looking for italics will not find it and might
-turn to reverse in its place, while applications (like less) asking for
-standout will end up with italics instead of reverse. To make applications
-aware that tmux supports italics and to use a proper escape sequence for
-standout, you'll need to create a new terminfo file with modified sgr, smso,
-rmso, sitm and ritm entries:
+GNU screen does not support italics and the "screen" terminfo description uses
+the italics escape sequence incorrectly.
 
-	$ mkdir $HOME/.terminfo/
-	$ screen_terminfo="screen"
-	$ infocmp "$screen_terminfo" | sed \
-	  -e 's/^screen[^|]*|[^,]*,/screen-it|screen with italics support,/' \
-	  -e 's/%?%p1%t;3%/%?%p1%t;7%/' \
-	  -e 's/smso=[^,]*,/smso=\\E[7m,/' \
-	  -e 's/rmso=[^,]*,/rmso=\\E[27m,/' \
-	  -e '$s/$/ sitm=\\E[3m, ritm=\\E[23m,/' > /tmp/screen.terminfo
-	$ tic /tmp/screen.terminfo
+As of tmux 2.1, if default-terminal is set to "screen" or matches "screen-*",
+tmux will behave like screen and italics will be disabled.
+
+To enable italics, create a new terminfo entry called "tmux" (some platforms
+may already have this, you can check with "infocmp tmux"):
+
+	$ cat <<EOF|tic -x -
+	tmux|tmux terminal multiplexer,
+		ritm=\E[23m, rmso=\E[27m, sitm=\E[3m, smso=\E[7m, Ms@,
+		use=xterm+tmux, use=screen,
+
+	tmux-256color|tmux with 256 colors,
+		use=xterm+256setaf, use=tmux,
+	EOF
+	$
 
 And tell tmux to use it in ~/.tmux.conf:
 	
-	set -g default-terminal "screen-it"
+	set -g default-terminal "tmux"
 
-If your terminal supports 256 colors, use:
-
-	$ screen_terminfo="screen-256color"
-
-instead of "screen". See the FAQ entry about 256 colors support for more info.
-Also note that tmux will still display reverse video on terminals that do not
-support italics.
-
-If your urxvt cannot display italics at all, make sure you have an italics
-capable font enabled, for example, add to ~/.Xdefaults:
+If using urxvt, make sure you have an italics capable font enabled. for
+example, add to ~/.Xdefaults:
 
 	urxvt.italicFont: xft:Bitstream Vera Sans Mono:italic:autohint=true
 
@@ -377,7 +394,7 @@ always (or ever) be added to the scrollback.
 You can make tmux use the normal screen by telling it that your terminal does
 not have an alternate screen. Put the following in ~/.tmux.conf:
 
-        set -g terminal-overrides 'xterm*:smcup@:rmcup@'
+        set -ga terminal-overrides ',xterm*:smcup@:rmcup@'
 
 Adjust if your $TERM does not start with xterm.
 
@@ -396,5 +413,42 @@ configuration file:
 Or the default window options:
 
         $ tmux -Lfoo -f/dev/null start\; show -gw
+
+* How do I copy a selection from tmux to the system's clipboard?
+
+When running in xterm(1), tmux can automatically send copied text to the
+clipboard. This is controlled by the set-clipboard option and also needs this
+X resource to be set:
+
+	XTerm*disallowedWindowOps: 20,21,SetXprop
+
+For rxvt-unicode (urxvt), there is an unofficial Perl extension here:
+
+        http://anti.teamidiot.de/static/nei/*/Code/urxvt/
+
+Otherwise a key binding for copy mode using xclip (or xsel) works:
+
+	bind -temacs-copy C-y copy-pipe "xclip -i >/dev/null"
+
+Or for inside and outside copy mode with the prefix key:
+
+        bind C-y run -b "tmux save-buffer - | xclip -i"
+
+On OS X, reattach-to-usernamespace lets pbcopy/pbpaste work:
+
+        https://github.com/ChrisJohnsen/tmux-MacOSX-pasteboard
  
-$Id$
+* Why do I see dots around a session when I attach to it?
+
+tmux limits the size of the window to the smallest attached session. If
+it didn't do this then it would be impossible to see the entire window.
+The dots mark the size of the window tmux can display.
+
+To avoid this, detach all other clients when attaching:
+
+	$ tmux attach -d
+
+Or from inside tmux by detaching individual clients with C-b D or all
+using:
+
+	C-b : attach -d

@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $OpenBSD$ */
 
 /*
  * Copyright (c) 2009 Nicholas Marriott <nicm@users.sourceforge.net>
@@ -23,13 +23,13 @@
 #include "tmux.h"
 
 char *
-osdep_get_name(unused int fd, unused char *tty)
+osdep_get_name(__unused int fd, __unused char *tty)
 {
 	return (NULL);
 }
 
 char *
-osdep_get_cwd(unused int fd)
+osdep_get_cwd(__unused int fd)
 {
 	return (NULL);
 }

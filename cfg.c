@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $OpenBSD$ */
 
 /*
  * Copyright (c) 2008 Nicholas Marriott <nicm@users.sourceforge.net>
@@ -17,29 +17,95 @@
  */
 
 #include <sys/types.h>
-#include <sys/stat.h>
 
 #include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "tmux.h"
 #include "tmate.h"
 
-struct cmd_q		*cfg_cmd_q;
-int			 cfg_finished;
-int			 cfg_references;
-struct causelist	 cfg_causes;
+char		 *cfg_file;
+#ifdef TMATE
+char		 *tmate_cfg_file;
+#endif
+struct cmd_q	 *cfg_cmd_q;
+int		  cfg_finished;
+int		  cfg_references;
+char		**cfg_causes;
+u_int		  cfg_ncauses;
+struct client	 *cfg_client;
+
+void	cfg_default_done(struct cmd_q *);
+
+void
+set_cfg_file(const char *path)
+{
+	free(cfg_file);
+	cfg_file = xstrdup(path);
+}
+
+void
+start_cfg(void)
+{
+	char		*cause = NULL;
+	const char	*home;
+
+	cfg_cmd_q = cmdq_new(NULL);
+	cfg_cmd_q->emptyfn = cfg_default_done;
+
+	cfg_finished = 0;
+	cfg_references = 1;
+
+	cfg_client = TAILQ_FIRST(&clients);
+	if (cfg_client != NULL)
+		cfg_client->references++;
+
+	if (access(TMUX_CONF, R_OK) == 0) {
+		if (load_cfg(TMUX_CONF, cfg_cmd_q, &cause) == -1)
+			cfg_add_cause("%s: %s", TMUX_CONF, cause);
+	} else if (errno != ENOENT)
+		cfg_add_cause("%s: %s", TMUX_CONF, strerror(errno));
+
+	if (cfg_file == NULL && (home = find_home()) != NULL) {
+		xasprintf(&cfg_file, "%s/.tmux.conf", home);
+		if (access(cfg_file, R_OK) != 0 && errno == ENOENT) {
+			free(cfg_file);
+			cfg_file = NULL;
+		}
+	}
+	if (cfg_file != NULL && load_cfg(cfg_file, cfg_cmd_q, &cause) == -1)
+		cfg_add_cause("%s: %s", cfg_file, cause);
+	free(cause);
+
+#ifdef TMATE
+	cause = NULL;
+	if ((home = find_home()) != NULL) {
+		xasprintf(&tmate_cfg_file, "%s/.tmate.conf", home);
+		if (access(tmate_cfg_file, R_OK) != 0 && errno == ENOENT) {
+			free(tmate_cfg_file);
+			tmate_cfg_file = NULL;
+		}
+	}
+	if (tmate_cfg_file != NULL && load_cfg(tmate_cfg_file, cfg_cmd_q, &cause) == -1)
+		cfg_add_cause("%s: %s", cfg_file, cause);
+	free(cause);
+#endif
+
+	cmdq_continue(cfg_cmd_q);
+}
 
 int
 load_cfg(const char *path, struct cmd_q *cmdq, char **cause)
 {
 	FILE		*f;
-	u_int		 n, found;
-	char		*buf, *copy, *line, *cause1, *msg;
-	size_t		 len, oldlen;
+	char		 delim[3] = { '\\', '\\', '\0' };
+	u_int		 found;
+	size_t		 line = 0;
+	char		*buf, *cause1, *p;
 	struct cmd_list	*cmdlist;
 
 	log_debug("loading %s", path);
@@ -48,107 +114,121 @@ load_cfg(const char *path, struct cmd_q *cmdq, char **cause)
 		return (-1);
 	}
 
-	n = found = 0;
-	line = NULL;
-	while ((buf = fgetln(f, &len))) {
-		/* Trim \n. */
-		if (buf[len - 1] == '\n')
-			len--;
-		log_debug("%s: %.*s", path, (int)len, buf);
-
-		/* Current line is the continuation of the previous one. */
-		if (line != NULL) {
-			oldlen = strlen(line);
-			line = xrealloc(line, 1, oldlen + len + 1);
-		} else {
-			oldlen = 0;
-			line = xmalloc(len + 1);
-		}
-
-		/* Append current line to the previous. */
-		memcpy(line + oldlen, buf, len);
-		line[oldlen + len] = '\0';
-		n++;
-
-		/* Continuation: get next line? */
-		len = strlen(line);
-		if (len > 0 && line[len - 1] == '\\') {
-			line[len - 1] = '\0';
-
-			/* Ignore escaped backslash at EOL. */
-			if (len > 1 && line[len - 2] != '\\')
-				continue;
-		}
-		copy = line;
-		line = NULL;
+	found = 0;
+	while ((buf = fparseln(f, NULL, &line, delim, 0)) != NULL) {
+		log_debug("%s: %s", path, buf);
 
 		/* Skip empty lines. */
-		buf = copy;
-		while (isspace((u_char)*buf))
-			buf++;
-		if (*buf == '\0') {
-			free(copy);
+		p = buf;
+		while (isspace((u_char) *p))
+			p++;
+		if (*p == '\0') {
+			free(buf);
 			continue;
 		}
 
 		/* Parse and run the command. */
-		if (cmd_string_parse(buf, &cmdlist, path, n, &cause1) != 0) {
-			free(copy);
+		if (cmd_string_parse(p, &cmdlist, path, line, &cause1) != 0) {
+			free(buf);
 			if (cause1 == NULL)
 				continue;
-			xasprintf(&msg, "%s:%u: %s", path, n, cause1);
-			ARRAY_ADD(&cfg_causes, msg);
+			cfg_add_cause("%s:%zu: %s", path, line, cause1);
 			free(cause1);
 			continue;
 		}
-		free(copy);
+		free(buf);
 
 		if (cmdlist == NULL)
 			continue;
-		cmdq_append(cmdq, cmdlist);
+		cmdq_append(cmdq, cmdlist, NULL);
 		cmd_list_free(cmdlist);
 		found++;
 	}
-	if (line != NULL)
-		free(line);
 	fclose(f);
 
 	return (found);
 }
 
 void
-cfg_default_done(unused struct cmd_q *cmdq)
+cfg_default_done(__unused struct cmd_q *cmdq)
 {
 	if (--cfg_references != 0)
 		return;
 	cfg_finished = 1;
 
+#ifdef TMATE
 	tmate_session_start();
+#endif
 
 	if (!RB_EMPTY(&sessions))
 		cfg_show_causes(RB_MIN(sessions, &sessions));
 
 	cmdq_free(cfg_cmd_q);
 	cfg_cmd_q = NULL;
+
+	if (cfg_client != NULL) {
+		/*
+		 * The client command queue starts with client_exit set to 1 so
+		 * only continue if not empty (that is, we have been delayed
+		 * during configuration parsing for long enough that the
+		 * MSG_COMMAND has arrived), else the client will exit before
+		 * the MSG_COMMAND which might tell it not to.
+		 */
+		if (!TAILQ_EMPTY(&cfg_client->cmdq->queue))
+			cmdq_continue(cfg_client->cmdq);
+		server_client_unref(cfg_client);
+		cfg_client = NULL;
+	}
+}
+
+void
+cfg_add_cause(const char *fmt, ...)
+{
+	va_list	 ap;
+	char	*msg;
+
+	va_start(ap, fmt);
+	xvasprintf(&msg, fmt, ap);
+	va_end(ap);
+
+	cfg_ncauses++;
+	cfg_causes = xreallocarray(cfg_causes, cfg_ncauses, sizeof *cfg_causes);
+	cfg_causes[cfg_ncauses - 1] = msg;
+}
+
+void
+cfg_print_causes(struct cmd_q *cmdq)
+{
+	u_int	 i;
+
+	for (i = 0; i < cfg_ncauses; i++) {
+		cmdq_print(cmdq, "%s", cfg_causes[i]);
+		free(cfg_causes[i]);
+	}
+
+	free(cfg_causes);
+	cfg_causes = NULL;
+	cfg_ncauses = 0;
 }
 
 void
 cfg_show_causes(struct session *s)
 {
 	struct window_pane	*wp;
-	char			*cause;
 	u_int			 i;
 
-	if (s == NULL || ARRAY_EMPTY(&cfg_causes))
+	if (s == NULL || cfg_ncauses == 0)
 		return;
 	wp = s->curw->window->active;
 
 	window_pane_set_mode(wp, &window_copy_mode);
 	window_copy_init_for_output(wp);
-	for (i = 0; i < ARRAY_LENGTH(&cfg_causes); i++) {
-		cause = ARRAY_ITEM(&cfg_causes, i);
-		window_copy_add(wp, "%s", cause);
-		free(cause);
+	for (i = 0; i < cfg_ncauses; i++) {
+		window_copy_add(wp, "%s", cfg_causes[i]);
+		free(cfg_causes[i]);
 	}
-	ARRAY_FREE(&cfg_causes);
+
+	free(cfg_causes);
+	cfg_causes = NULL;
+	cfg_ncauses = 0;
 }

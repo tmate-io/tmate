@@ -1,5 +1,3 @@
-/* $Id$ */
-
 /*
  * Copyright (c) 2008 Nicholas Marriott <nicm@users.sourceforge.net>
  *
@@ -21,6 +19,7 @@
 
 #include <fcntl.h>
 #include <stdlib.h>
+#include <strings.h>
 #include <stropts.h>
 #include <unistd.h>
 
@@ -29,7 +28,7 @@
 pid_t
 forkpty(int *master, char *name, struct termios *tio, struct winsize *ws)
 {
-	int	slave;
+	int	slave = -1;
 	char   *path;
 	pid_t	pid;
 

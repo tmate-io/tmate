@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $OpenBSD$ */
 
 /*
  * Copyright (c) 2009 Nicholas Marriott <nicm@users.sourceforge.net>
@@ -30,20 +30,22 @@
 enum cmd_retval	 cmd_set_environment_exec(struct cmd *, struct cmd_q *);
 
 const struct cmd_entry cmd_set_environment_entry = {
-	"set-environment", "setenv",
-	"grt:u", 1, 2,
-	"[-gru] " CMD_TARGET_SESSION_USAGE " name [value]",
-	0,
-	NULL,
-	NULL,
-	cmd_set_environment_exec
+	.name = "set-environment",
+	.alias = "setenv",
+
+	.args = { "grt:u", 1, 2 },
+	.usage = "[-gru] " CMD_TARGET_SESSION_USAGE " name [value]",
+
+	.tflag = CMD_SESSION_CANFAIL,
+
+	.flags = 0,
+	.exec = cmd_set_environment_exec
 };
 
 enum cmd_retval
 cmd_set_environment_exec(struct cmd *self, struct cmd_q *cmdq)
 {
 	struct args	*args = self->args;
-	struct session	*s;
 	struct environ	*env;
 	const char	*name, *value;
 
@@ -62,13 +64,10 @@ cmd_set_environment_exec(struct cmd *self, struct cmd_q *cmdq)
 	else
 		value = args->argv[1];
 
-	if (args_has(self->args, 'g'))
-		env = &global_environ;
-	else {
-		if ((s = cmd_find_session(cmdq, args_get(args, 't'), 0)) == NULL)
-			return (CMD_RETURN_ERROR);
-		env = &s->environ;
-	}
+	if (args_has(self->args, 'g') || cmdq->state.tflag.s == NULL)
+		env = global_environ;
+	else
+		env = cmdq->state.tflag.s->environ;
 
 	if (args_has(self->args, 'u')) {
 		if (value != NULL) {
@@ -81,13 +80,13 @@ cmd_set_environment_exec(struct cmd *self, struct cmd_q *cmdq)
 			cmdq_error(cmdq, "can't specify a value with -r");
 			return (CMD_RETURN_ERROR);
 		}
-		environ_set(env, name, NULL);
+		environ_clear(env, name);
 	} else {
 		if (value == NULL) {
 			cmdq_error(cmdq, "no value specified");
 			return (CMD_RETURN_ERROR);
 		}
-		environ_set(env, name, value);
+		environ_set(env, name, "%s", value);
 	}
 
 	return (CMD_RETURN_NORMAL);

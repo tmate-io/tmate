@@ -1,19 +1,19 @@
-# $Id$
+# Makefile.am
 
 # Obvious program stuff.
 bin_PROGRAMS = tmate
-dist_man1_MANS = tmate.1
+CLEANFILES = tmate.1.mdoc tmate.1.man
 
 # Distribution tarball options.
 EXTRA_DIST = \
-	CHANGES FAQ README TODO examples compat \
-	array.h compat.h tmux.h osdep-*.c
+	CHANGES FAQ README TODO COPYING examples compat/*.[ch] \
+	array.h compat.h tmux.h tmate.h osdep-*.c mdoc2man.awk tmate.1
 dist-hook:
+	make clean
 	grep "^#found_debug=" configure
-	find $(distdir) -name .svn -type d|xargs rm -Rf
 
 # Preprocessor flags.
-CPPFLAGS += @XOPEN_DEFINES@
+CPPFLAGS += @XOPEN_DEFINES@ -DTMUX_CONF="\"$(sysconfdir)/tmux.conf\""
 
 # glibc as usual does things ass-backwards and hides useful things by default,
 # so everyone has to add this.
@@ -21,36 +21,36 @@ if IS_GLIBC
 CFLAGS += -D_GNU_SOURCE
 endif
 
-CFLAGS += -Wno-unused-parameter -Wno-unused-variable
-
-# Set flags for gcc. gcc4 whines abouts silly stuff so it needs slightly
-# different flags.
-if IS_GCC
+if IS_LINUX
 CFLAGS += -rdynamic # for stack traces
-CFLAGS += -std=gnu99
+endif
+
+# Set flags for gcc.
+if IS_GCC
+CFLAGS += -std=gnu99 -O2
 if IS_DEBUG
-CFLAGS += -O0 -g
+CFLAGS += -g
 CFLAGS += -Wno-long-long -Wall -W -Wnested-externs -Wformat=2
 CFLAGS += -Wmissing-prototypes -Wstrict-prototypes -Wmissing-declarations
 CFLAGS += -Wwrite-strings -Wshadow -Wpointer-arith -Wsign-compare
-CFLAGS += -Wbad-function-cast -Winline -Wcast-align
+CFLAGS += -Wundef -Wbad-function-cast -Winline -Wcast-align
+CFLAGS += -Wdeclaration-after-statement -Wno-pointer-sign -Wno-attributes
 CPPFLAGS += -DDEBUG
-else
-CFLAGS += -O2
 endif
-if IS_GCC4
-CPPFLAGS += -iquote. -I/usr/local/include
-if IS_DEBUG
-CFLAGS += -Wno-pointer-sign
+if IS_COVERAGE
+CFLAGS += -g -O0 --coverage
+LDFLAGS += --coverage
 endif
-else
-CPPFLAGS += -I. -I- -I/usr/local/include
-endif
+CPPFLAGS += -iquote.
 endif
 
 # Set flags for Solaris.
 if IS_SUNOS
+if IS_GCC
+CPPFLAGS += -D_XPG6 -D__EXTENSIONS__ -D_POSIX_PTHREAD_SEMANTICS
+else
 CPPFLAGS += -D_XPG4_2 -D__EXTENSIONS__ -D_POSIX_PTHREAD_SEMANTICS
+endif
 endif
 
 # Set flags for Sun CC.
@@ -58,42 +58,42 @@ if IS_SUNCC
 CFLAGS += -erroff=E_EMPTY_DECLARATION
 endif
 
+# Set _LINUX_SOURCE_COMPAT for AIX for mallocing 0 bytes
+if IS_AIX
+DEFS += -D_LINUX_SOURCE_COMPAT=1
+endif
+
 # List of sources.
 dist_tmate_SOURCES = \
+	alerts.c \
 	arguments.c \
 	attributes.c \
 	cfg.c \
 	client.c \
-	clock.c \
 	cmd-attach-session.c \
 	cmd-bind-key.c \
 	cmd-break-pane.c \
 	cmd-capture-pane.c \
 	cmd-choose-buffer.c \
 	cmd-choose-client.c \
-	cmd-choose-list.c \
 	cmd-choose-tree.c \
 	cmd-clear-history.c \
-	cmd-clock-mode.c \
 	cmd-command-prompt.c \
 	cmd-confirm-before.c \
 	cmd-copy-mode.c \
-	cmd-delete-buffer.c \
 	cmd-detach-client.c \
 	cmd-display-message.c \
 	cmd-display-panes.c \
+	cmd-find.c \
 	cmd-find-window.c \
-	cmd-has-session.c \
 	cmd-if-shell.c \
 	cmd-join-pane.c \
 	cmd-kill-pane.c \
 	cmd-kill-server.c \
 	cmd-kill-session.c \
 	cmd-kill-window.c \
-	cmd-link-window.c \
 	cmd-list-buffers.c \
 	cmd-list-clients.c \
-	cmd-list-commands.c \
 	cmd-list-keys.c \
 	cmd-list-panes.c \
 	cmd-list-sessions.c \
@@ -120,23 +120,20 @@ dist_tmate_SOURCES = \
 	cmd-select-pane.c \
 	cmd-select-window.c \
 	cmd-send-keys.c \
-	cmd-server-info.c \
 	cmd-set-buffer.c \
 	cmd-set-environment.c \
+	cmd-set-hook.c \
 	cmd-set-option.c \
 	cmd-show-environment.c \
 	cmd-show-messages.c \
 	cmd-show-options.c \
 	cmd-source-file.c \
 	cmd-split-window.c \
-	cmd-start-server.c \
 	cmd-string.c \
-	cmd-suspend-client.c \
 	cmd-swap-pane.c \
 	cmd-swap-window.c \
 	cmd-switch-client.c \
 	cmd-unbind-key.c \
-	cmd-unlink-window.c \
 	cmd-wait-for.c \
 	cmd.c \
 	colour.c \
@@ -144,9 +141,9 @@ dist_tmate_SOURCES = \
 	control-notify.c \
 	environ.c \
 	format.c \
-	grid-cell.c \
 	grid-view.c \
 	grid.c \
+	hooks.c \
 	input-keys.c \
 	input.c \
 	job.c \
@@ -162,17 +159,18 @@ dist_tmate_SOURCES = \
 	options-table.c \
 	options.c \
 	paste.c \
+	proc.c \
 	resize.c \
 	screen-redraw.c \
 	screen-write.c \
 	screen.c \
 	server-client.c \
 	server-fn.c \
-	server-window.c \
 	server.c \
 	session.c \
 	signal.c \
 	status.c \
+	style.c \
 	tmate-debug.c \
 	tmate-ssh-client.c \
 	tmate-encoder.c \
@@ -222,6 +220,9 @@ endif
 if NO_FGETLN
 nodist_tmate_SOURCES += compat/fgetln.c
 endif
+if NO_FPARSELN
+nodist_tmate_SOURCES += compat/fparseln.c
+endif
 if NO_GETOPT
 nodist_tmate_SOURCES += compat/getopt.c
 endif
@@ -240,3 +241,25 @@ endif
 if NO_B64_NTOP
 nodist_tmate_SOURCES += compat/b64_ntop.c
 endif
+if NO_CFMAKERAW
+nodist_tmate_SOURCES += compat/cfmakeraw.c
+endif
+if NO_OPENAT
+nodist_tmate_SOURCES += compat/openat.c
+endif
+if NO_REALLOCARRAY
+nodist_tmate_SOURCES += compat/reallocarray.c
+endif
+
+# Install tmate.1 in the right format.
+install-exec-hook:
+	if test x@MANFORMAT@ = xmdoc; then \
+		sed -e "s|@SYSCONFDIR@|$(sysconfdir)|g" $(srcdir)/tmate.1 \
+			>$(srcdir)/tmate.1.mdoc; \
+	else \
+		sed -e "s|@SYSCONFDIR@|$(sysconfdir)|g" $(srcdir)/tmate.1| \
+			$(AWK) -f$(srcdir)/mdoc2man.awk >$(srcdir)/tmate.1.man; \
+	fi
+	$(mkdir_p) $(DESTDIR)$(mandir)/man1
+	$(INSTALL_DATA) $(srcdir)/tmate.1.@MANFORMAT@ \
+		$(DESTDIR)$(mandir)/man1/tmate.1

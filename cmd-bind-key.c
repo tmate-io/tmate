@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $OpenBSD$ */
 
 /*
  * Copyright (c) 2007 Nicholas Marriott <nicm@users.sourceforge.net>
@@ -27,33 +27,22 @@
  * Bind a key to a command, this recurses through cmd_*.
  */
 
-enum cmd_retval	 cmd_bind_key_check(struct args *);
 enum cmd_retval	 cmd_bind_key_exec(struct cmd *, struct cmd_q *);
 
-enum cmd_retval	 cmd_bind_key_table(struct cmd *, struct cmd_q *, int);
+enum cmd_retval	 cmd_bind_key_mode_table(struct cmd *, struct cmd_q *,
+		     key_code);
 
 const struct cmd_entry cmd_bind_key_entry = {
-	"bind-key", "bind",
-	"cnrt:", 1, -1,
-	"[-cnr] [-t key-table] key command [arguments]",
-	0,
-	NULL,
-	cmd_bind_key_check,
-	cmd_bind_key_exec
-};
+	.name = "bind-key",
+	.alias = "bind",
 
-enum cmd_retval
-cmd_bind_key_check(struct args *args)
-{
-	if (args_has(args, 't')) {
-		if (args->argc != 2 && args->argc != 3)
-			return (CMD_RETURN_ERROR);
-	} else {
-		if (args->argc < 2)
-			return (CMD_RETURN_ERROR);
-	}
-	return (CMD_RETURN_NORMAL);
-}
+	.args = { "cnrt:T:", 1, -1 },
+	.usage = "[-cnr] [-t mode-table] [-T key-table] key command "
+		 "[arguments]",
+
+	.flags = 0,
+	.exec = cmd_bind_key_exec
+};
 
 enum cmd_retval
 cmd_bind_key_exec(struct cmd *self, struct cmd_q *cmdq)
@@ -61,16 +50,36 @@ cmd_bind_key_exec(struct cmd *self, struct cmd_q *cmdq)
 	struct args	*args = self->args;
 	char		*cause;
 	struct cmd_list	*cmdlist;
-	int		 key;
+	key_code	 key;
+	const char	*tablename;
+
+	if (args_has(args, 't')) {
+		if (args->argc != 2 && args->argc != 3) {
+			cmdq_error(cmdq, "not enough arguments");
+			return (CMD_RETURN_ERROR);
+		}
+	} else {
+		if (args->argc < 2) {
+			cmdq_error(cmdq, "not enough arguments");
+			return (CMD_RETURN_ERROR);
+		}
+	}
 
 	key = key_string_lookup_string(args->argv[0]);
-	if (key == KEYC_NONE) {
+	if (key == KEYC_NONE || key == KEYC_UNKNOWN) {
 		cmdq_error(cmdq, "unknown key: %s", args->argv[0]);
 		return (CMD_RETURN_ERROR);
 	}
 
 	if (args_has(args, 't'))
-		return (cmd_bind_key_table(self, cmdq, key));
+		return (cmd_bind_key_mode_table(self, cmdq, key));
+
+	if (args_has(args, 'T'))
+		tablename = args_get(args, 'T');
+	else if (args_has(args, 'n'))
+		tablename = "root";
+	else
+		tablename = "prefix";
 
 	cmdlist = cmd_list_parse(args->argc - 1, args->argv + 1, NULL, 0,
 	    &cause);
@@ -80,14 +89,12 @@ cmd_bind_key_exec(struct cmd *self, struct cmd_q *cmdq)
 		return (CMD_RETURN_ERROR);
 	}
 
-	if (!args_has(args, 'n'))
-	    key |= KEYC_PREFIX;
-	key_bindings_add(key, args_has(args, 'r'), cmdlist);
+	key_bindings_add(tablename, key, args_has(args, 'r'), cmdlist);
 	return (CMD_RETURN_NORMAL);
 }
 
 enum cmd_retval
-cmd_bind_key_table(struct cmd *self, struct cmd_q *cmdq, int key)
+cmd_bind_key_mode_table(struct cmd *self, struct cmd_q *cmdq, key_code key)
 {
 	struct args			*args = self->args;
 	const char			*tablename;
@@ -108,18 +115,34 @@ cmd_bind_key_table(struct cmd *self, struct cmd_q *cmdq, int key)
 		return (CMD_RETURN_ERROR);
 	}
 
-	if (cmd != MODEKEYCOPY_COPYPIPE) {
-		if (args->argc != 2) {
-			cmdq_error(cmdq, "no argument allowed");
-			return (CMD_RETURN_ERROR);
+	switch (cmd) {
+	case MODEKEYCOPY_APPENDSELECTION:
+	case MODEKEYCOPY_COPYSELECTION:
+	case MODEKEYCOPY_STARTNAMEDBUFFER:
+		if (args->argc == 2)
+			arg = NULL;
+		else {
+			arg = args->argv[2];
+			if (strcmp(arg, "-x") != 0) {
+				cmdq_error(cmdq, "unknown argument");
+				return (CMD_RETURN_ERROR);
+			}
 		}
-		arg = NULL;
-	} else {
+		break;
+	case MODEKEYCOPY_COPYPIPE:
 		if (args->argc != 3) {
 			cmdq_error(cmdq, "no argument given");
 			return (CMD_RETURN_ERROR);
 		}
 		arg = args->argv[2];
+		break;
+	default:
+		if (args->argc != 2) {
+			cmdq_error(cmdq, "no argument allowed");
+			return (CMD_RETURN_ERROR);
+		}
+		arg = NULL;
+		break;
 	}
 
 	mtmp.key = key;

@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $OpenBSD$ */
 
 /*
  * Copyright (c) 2009 Nicholas Marriott <nicm@users.sourceforge.net>
@@ -27,28 +27,29 @@
 enum cmd_retval	 cmd_clear_history_exec(struct cmd *, struct cmd_q *);
 
 const struct cmd_entry cmd_clear_history_entry = {
-	"clear-history", "clearhist",
-	"t:", 0, 0,
-	CMD_TARGET_PANE_USAGE,
-	0,
-	NULL,
-	NULL,
-	cmd_clear_history_exec
+	.name = "clear-history",
+	.alias = "clearhist",
+
+	.args = { "t:", 0, 0 },
+	.usage = CMD_TARGET_PANE_USAGE,
+
+	.tflag = CMD_PANE,
+
+	.flags = 0,
+	.exec = cmd_clear_history_exec
 };
 
 enum cmd_retval
-cmd_clear_history_exec(struct cmd *self, struct cmd_q *cmdq)
+cmd_clear_history_exec(__unused struct cmd *self, struct cmd_q *cmdq)
 {
-	struct args		*args = self->args;
-	struct window_pane	*wp;
+	struct window_pane	*wp = cmdq->state.tflag.wp;
 	struct grid		*gd;
 
-	if (cmd_find_pane(cmdq, args_get(args, 't'), NULL, &wp) == NULL)
-		return (CMD_RETURN_ERROR);
-	gd = wp->base.grid;
+	gd = cmdq->state.tflag.wp->base.grid;
 
-	grid_move_lines(gd, 0, gd->hsize, gd->sy);
-	gd->hsize = 0;
+	if (wp->mode == &window_copy_mode)
+		window_pane_reset_mode(wp);
+	grid_clear_history(gd);
 
 	return (CMD_RETURN_NORMAL);
 }

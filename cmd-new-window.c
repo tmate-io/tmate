@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $OpenBSD$ */
 
 /*
  * Copyright (c) 2007 Nicholas Marriott <nicm@users.sourceforge.net>
@@ -18,7 +18,11 @@
 
 #include <sys/types.h>
 
+#include <errno.h>
+#include <fcntl.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "tmux.h"
 
@@ -26,58 +30,78 @@
  * Create a new window.
  */
 
+#define NEW_WINDOW_TEMPLATE "#{session_name}:#{window_index}.#{pane_index}"
+
 enum cmd_retval	cmd_new_window_exec(struct cmd *, struct cmd_q *);
 
 const struct cmd_entry cmd_new_window_entry = {
-	"new-window", "neww",
-	"ac:dF:kn:Pt:", 0, 1,
-	"[-adkP] [-c start-directory] [-F format] [-n window-name] "
-	CMD_TARGET_WINDOW_USAGE " [command]",
-	0,
-	NULL,
-	NULL,
-	cmd_new_window_exec
+	.name = "new-window",
+	.alias = "neww",
+
+	.args = { "ac:dF:kn:Pt:", 0, -1 },
+	.usage = "[-adkP] [-c start-directory] [-F format] [-n window-name] "
+		 CMD_TARGET_WINDOW_USAGE " [command]",
+
+	.tflag = CMD_WINDOW_INDEX,
+
+	.flags = 0,
+	.exec = cmd_new_window_exec
 };
 
 enum cmd_retval
 cmd_new_window_exec(struct cmd *self, struct cmd_q *cmdq)
 {
 	struct args		*args = self->args;
-	struct session		*s;
-	struct winlink		*wl;
-	struct client		*c;
-	const char		*cmd, *cwd, *template;
-	char			*cause, *cp;
-	int			 idx, last, detached;
+	struct session		*s = cmdq->state.tflag.s;
+	struct winlink		*wl = cmdq->state.tflag.wl;
+	struct client		*c = cmdq->state.c;
+	int			 idx = cmdq->state.tflag.idx;
+	const char		*cmd, *path, *template, *cwd, *to_free;
+	char		       **argv, *cause, *cp;
+	int			 argc, detached;
 	struct format_tree	*ft;
+	struct environ_entry	*envent;
 
 	if (args_has(args, 'a')) {
-		wl = cmd_find_window(cmdq, args_get(args, 't'), &s);
-		if (wl == NULL)
-			return (CMD_RETURN_ERROR);
-		idx = wl->idx + 1;
-
-		/* Find the next free index. */
-		for (last = idx; last < INT_MAX; last++) {
-			if (winlink_find_by_index(&s->windows, last) == NULL)
-				break;
-		}
-		if (last == INT_MAX) {
+		if ((idx = winlink_shuffle_up(s, wl)) == -1) {
 			cmdq_error(cmdq, "no free window indexes");
 			return (CMD_RETURN_ERROR);
 		}
-
-		/* Move everything from last - 1 to idx up a bit. */
-		for (; last > idx; last--) {
-			wl = winlink_find_by_index(&s->windows, last - 1);
-			server_link_window(s, wl, s, last, 0, 0, NULL);
-			server_unlink_window(s, wl);
-		}
-	} else {
-		if ((idx = cmd_find_index(cmdq, args_get(args, 't'), &s)) == -2)
-			return (CMD_RETURN_ERROR);
 	}
 	detached = args_has(args, 'd');
+
+	if (args->argc == 0) {
+		cmd = options_get_string(s->options, "default-command");
+		if (cmd != NULL && *cmd != '\0') {
+			argc = 1;
+			argv = (char **)&cmd;
+		} else {
+			argc = 0;
+			argv = NULL;
+		}
+	} else {
+		argc = args->argc;
+		argv = args->argv;
+	}
+
+	path = NULL;
+	if (cmdq->client != NULL && cmdq->client->session == NULL)
+		envent = environ_find(cmdq->client->environ, "PATH");
+	else
+		envent = environ_find(s->environ, "PATH");
+	if (envent != NULL)
+		path = envent->value;
+
+	to_free = NULL;
+	if (args_has(args, 'c')) {
+		ft = format_create(cmdq, 0);
+		format_defaults(ft, c, s, NULL, NULL);
+		cwd = to_free = format_expand(ft, args_get(args, 'c'));
+		format_free(ft);
+	} else if (cmdq->client != NULL && cmdq->client->session == NULL)
+		cwd = cmdq->client->cwd;
+	else
+		cwd = s->cwd;
 
 	wl = NULL;
 	if (idx != -1)
@@ -99,19 +123,14 @@ cmd_new_window_exec(struct cmd *self, struct cmd_q *cmdq)
 		}
 	}
 
-	if (args->argc == 0)
-		cmd = options_get_string(&s->options, "default-command");
-	else
-		cmd = args->argv[0];
-	cwd = cmd_get_default_path(cmdq, args_get(args, 'c'));
-
 	if (idx == -1)
-		idx = -1 - options_get_number(&s->options, "base-index");
-	wl = session_new(s, args_get(args, 'n'), cmd, cwd, idx, &cause);
+		idx = -1 - options_get_number(s->options, "base-index");
+	wl = session_new(s, args_get(args, 'n'), argc, argv, path, cwd, idx,
+		&cause);
 	if (wl == NULL) {
 		cmdq_error(cmdq, "create window failed: %s", cause);
 		free(cause);
-		return (CMD_RETURN_ERROR);
+		goto error;
 	}
 	if (!detached) {
 		session_select(s, wl->idx);
@@ -123,12 +142,8 @@ cmd_new_window_exec(struct cmd *self, struct cmd_q *cmdq)
 		if ((template = args_get(args, 'F')) == NULL)
 			template = NEW_WINDOW_TEMPLATE;
 
-		ft = format_create();
-		if ((c = cmd_find_client(cmdq, NULL, 1)) != NULL)
-			format_client(ft, c);
-		format_session(ft, s);
-		format_winlink(ft, s, wl);
-		format_window_pane(ft, wl->window->active);
+		ft = format_create(cmdq, 0);
+		format_defaults(ft, c, s, wl, NULL);
 
 		cp = format_expand(ft, template);
 		cmdq_print(cmdq, "%s", cp);
@@ -137,5 +152,12 @@ cmd_new_window_exec(struct cmd *self, struct cmd_q *cmdq)
 		format_free(ft);
 	}
 
+	if (to_free != NULL)
+		free((void *)to_free);
 	return (CMD_RETURN_NORMAL);
+
+error:
+	if (to_free != NULL)
+		free((void *)to_free);
+	return (CMD_RETURN_ERROR);
 }

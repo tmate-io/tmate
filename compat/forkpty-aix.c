@@ -1,5 +1,3 @@
-/* $Id$ */
-
 /*
  * Copyright (c) 2009 Nicholas Marriott <nicm@users.sourceforge.net>
  *
@@ -23,21 +21,29 @@
 #include <stdlib.h>
 #include <stropts.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include "tmux.h"
 
 pid_t
 forkpty(int *master, unused char *name, struct termios *tio, struct winsize *ws)
 {
-	int	slave, fd;
-	char   *path;
+	int	slave = -1, fd, pipe_fd[2];
+	char   *path, dummy;
 	pid_t	pid;
 
-	if ((*master = open("/dev/ptc", O_RDWR|O_NOCTTY)) == -1)
+	if (pipe(pipe_fd) == -1)
 		return (-1);
+
+	if ((*master = open("/dev/ptc", O_RDWR|O_NOCTTY)) == -1)
+		goto out;
 
 	if ((path = ttyname(*master)) == NULL)
 		goto out;
+
+	if (name != NULL)
+		strlcpy(name, path, TTY_NAME_MAX);
+
 	if ((slave = open(path, O_RDWR|O_NOCTTY)) == -1)
 		goto out;
 
@@ -46,6 +52,13 @@ forkpty(int *master, unused char *name, struct termios *tio, struct winsize *ws)
 		goto out;
 	case 0:
 		close(*master);
+
+		close(pipe_fd[1]);
+		while (read(pipe_fd[0], &dummy, 1) == -1) {
+			if (errno != EINTR)
+				break;
+		}
+		close(pipe_fd[0]);
 
 		fd = open(_PATH_TTY, O_RDWR|O_NOCTTY);
 		if (fd >= 0) {
@@ -80,10 +93,14 @@ forkpty(int *master, unused char *name, struct termios *tio, struct winsize *ws)
 		dup2(slave, 2);
 		if (slave > 2)
 			close(slave);
+
 		return (0);
 	}
 
 	close(slave);
+
+	close(pipe_fd[0]);
+	close(pipe_fd[1]);
 	return (pid);
 
 out:
@@ -91,5 +108,8 @@ out:
 		close(*master);
 	if (slave != -1)
 		close(slave);
+
+	close(pipe_fd[0]);
+	close(pipe_fd[1]);
 	return (-1);
 }

@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $OpenBSD$ */
 
 /*
  * Copyright (c) 2007 Nicholas Marriott <nicm@users.sourceforge.net>
@@ -27,36 +27,46 @@
  * List windows on given session.
  */
 
+#define LIST_WINDOWS_TEMPLATE					\
+	"#{window_index}: #{window_name}#{window_flags} "	\
+	"(#{window_panes} panes) "				\
+	"[#{window_width}x#{window_height}] "			\
+	"[layout #{window_layout}] #{window_id}"		\
+	"#{?window_active, (active),}";
+#define LIST_WINDOWS_WITH_SESSION_TEMPLATE			\
+	"#{session_name}:"					\
+	"#{window_index}: #{window_name}#{window_flags} "	\
+	"(#{window_panes} panes) "				\
+	"[#{window_width}x#{window_height}] "
+
 enum cmd_retval	 cmd_list_windows_exec(struct cmd *, struct cmd_q *);
 
 void	cmd_list_windows_server(struct cmd *, struct cmd_q *);
-void	cmd_list_windows_session(
-	    struct cmd *, struct session *, struct cmd_q *, int);
+void	cmd_list_windows_session(struct cmd *, struct session *,
+	    struct cmd_q *, int);
 
 const struct cmd_entry cmd_list_windows_entry = {
-	"list-windows", "lsw",
-	"F:at:", 0, 0,
-	"[-a] [-F format] " CMD_TARGET_SESSION_USAGE,
-	0,
-	NULL,
-	NULL,
-	cmd_list_windows_exec
+	.name = "list-windows",
+	.alias = "lsw",
+
+	.args = { "F:at:", 0, 0 },
+	.usage = "[-a] [-F format] " CMD_TARGET_SESSION_USAGE,
+
+	.tflag = CMD_SESSION,
+
+	.flags = 0,
+	.exec = cmd_list_windows_exec
 };
 
 enum cmd_retval
 cmd_list_windows_exec(struct cmd *self, struct cmd_q *cmdq)
 {
 	struct args	*args = self->args;
-	struct session	*s;
 
 	if (args_has(args, 'a'))
 		cmd_list_windows_server(self, cmdq);
-	else {
-		s = cmd_find_session(cmdq, args_get(args, 't'), 0);
-		if (s == NULL)
-			return (CMD_RETURN_ERROR);
-		cmd_list_windows_session(self, s, cmdq, 0);
-	}
+	else
+		cmd_list_windows_session(self, cmdq->state.tflag.s, cmdq, 0);
 
 	return (CMD_RETURN_NORMAL);
 }
@@ -71,8 +81,8 @@ cmd_list_windows_server(struct cmd *self, struct cmd_q *cmdq)
 }
 
 void
-cmd_list_windows_session(
-    struct cmd *self, struct session *s, struct cmd_q *cmdq, int type)
+cmd_list_windows_session(struct cmd *self, struct session *s,
+    struct cmd_q *cmdq, int type)
 {
 	struct args		*args = self->args;
 	struct winlink		*wl;
@@ -95,11 +105,9 @@ cmd_list_windows_session(
 
 	n = 0;
 	RB_FOREACH(wl, winlinks, &s->windows) {
-		ft = format_create();
+		ft = format_create(cmdq, 0);
 		format_add(ft, "line", "%u", n);
-		format_session(ft, s);
-		format_winlink(ft, s, wl);
-		format_window_pane(ft, wl->window->active);
+		format_defaults(ft, NULL, s, wl, NULL);
 
 		line = format_expand(ft, template);
 		cmdq_print(cmdq, "%s", line);

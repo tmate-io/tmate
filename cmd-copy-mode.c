@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $OpenBSD$ */
 
 /*
  * Copyright (c) 2007 Nicholas Marriott <nicm@users.sourceforge.net>
@@ -21,42 +21,65 @@
 #include "tmux.h"
 
 /*
- * Enter copy mode.
+ * Enter copy or clock mode.
  */
 
-void		 cmd_copy_mode_key_binding(struct cmd *, int);
 enum cmd_retval	 cmd_copy_mode_exec(struct cmd *, struct cmd_q *);
 
 const struct cmd_entry cmd_copy_mode_entry = {
-	"copy-mode", NULL,
-	"t:u", 0, 0,
-	"[-u] " CMD_TARGET_PANE_USAGE,
-	0,
-	cmd_copy_mode_key_binding,
-	NULL,
-	cmd_copy_mode_exec
+	.name = "copy-mode",
+	.alias = NULL,
+
+	.args = { "Met:u", 0, 0 },
+	.usage = "[-Mu] " CMD_TARGET_PANE_USAGE,
+
+	.tflag = CMD_PANE,
+
+	.flags = 0,
+	.exec = cmd_copy_mode_exec
 };
 
-void
-cmd_copy_mode_key_binding(struct cmd *self, int key)
-{
-	self->args = args_create(0);
-	if (key == KEYC_PPAGE)
-		args_set(self->args, 'u', NULL);
-}
+const struct cmd_entry cmd_clock_mode_entry = {
+	.name = "clock-mode",
+	.alias = NULL,
+
+	.args = { "t:", 0, 0 },
+	.usage = CMD_TARGET_PANE_USAGE,
+
+	.flags = 0,
+	.exec = cmd_copy_mode_exec
+};
 
 enum cmd_retval
 cmd_copy_mode_exec(struct cmd *self, struct cmd_q *cmdq)
 {
 	struct args		*args = self->args;
-	struct window_pane	*wp;
+	struct client		*c = cmdq->client;
+	struct session		*s;
+	struct window_pane	*wp = cmdq->state.tflag.wp;
 
-	if (cmd_find_pane(cmdq, args_get(args, 't'), NULL, &wp) == NULL)
-		return (CMD_RETURN_ERROR);
+	if (args_has(args, 'M')) {
+		if ((wp = cmd_mouse_pane(&cmdq->item->mouse, &s, NULL)) == NULL)
+			return (CMD_RETURN_NORMAL);
+		if (c == NULL || c->session != s)
+			return (CMD_RETURN_NORMAL);
+	}
 
-	if (window_pane_set_mode(wp, &window_copy_mode) != 0)
+	if (self->entry == &cmd_clock_mode_entry) {
+		window_pane_set_mode(wp, &window_clock_mode);
 		return (CMD_RETURN_NORMAL);
-	window_copy_init_from_pane(wp);
+	}
+
+	if (wp->mode != &window_copy_mode) {
+		if (window_pane_set_mode(wp, &window_copy_mode) != 0)
+			return (CMD_RETURN_NORMAL);
+		window_copy_init_from_pane(wp, args_has(self->args, 'e'));
+	}
+	if (args_has(args, 'M')) {
+		if (wp->mode != NULL && wp->mode != &window_copy_mode)
+			return (CMD_RETURN_NORMAL);
+		window_copy_start_drag(c, &cmdq->item->mouse);
+	}
 	if (wp->mode == &window_copy_mode && args_has(self->args, 'u'))
 		window_copy_pageup(wp);
 

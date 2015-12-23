@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $OpenBSD$ */
 
 /*
  * Copyright (c) 2009 Nicholas Marriott <nicm@users.sourceforge.net>
@@ -26,62 +26,51 @@
  * Swap two panes.
  */
 
-void		 cmd_swap_pane_key_binding(struct cmd *, int);
 enum cmd_retval	 cmd_swap_pane_exec(struct cmd *, struct cmd_q *);
 
 const struct cmd_entry cmd_swap_pane_entry = {
-	"swap-pane", "swapp",
-	"dDs:t:U", 0, 0,
-	"[-dDU] " CMD_SRCDST_PANE_USAGE,
-	0,
-	cmd_swap_pane_key_binding,
-	NULL,
-	cmd_swap_pane_exec
-};
+	.name = "swap-pane",
+	.alias = "swapp",
 
-void
-cmd_swap_pane_key_binding(struct cmd *self, int key)
-{
-	self->args = args_create(0);
-	if (key == '{')
-		args_set(self->args, 'U', NULL);
-	else if (key == '}')
-		args_set(self->args, 'D', NULL);
-}
+	.args = { "dDs:t:U", 0, 0 },
+	.usage = "[-dDU] " CMD_SRCDST_PANE_USAGE,
+
+	.sflag = CMD_PANE_MARKED,
+	.tflag = CMD_PANE,
+
+	.flags = 0,
+	.exec = cmd_swap_pane_exec
+};
 
 enum cmd_retval
 cmd_swap_pane_exec(struct cmd *self, struct cmd_q *cmdq)
 {
-	struct args		*args = self->args;
-	struct winlink		*src_wl, *dst_wl;
+	struct winlink          *src_wl, *dst_wl;
 	struct window		*src_w, *dst_w;
 	struct window_pane	*tmp_wp, *src_wp, *dst_wp;
 	struct layout_cell	*src_lc, *dst_lc;
 	u_int			 sx, sy, xoff, yoff;
 
-	dst_wl = cmd_find_pane(cmdq, args_get(args, 't'), NULL, &dst_wp);
-	if (dst_wl == NULL)
-		return (CMD_RETURN_ERROR);
+	dst_wl = cmdq->state.tflag.wl;
 	dst_w = dst_wl->window;
+	dst_wp = cmdq->state.tflag.wp;
+	src_wl = cmdq->state.sflag.wl;
+	src_w = src_wl->window;
+	src_wp = cmdq->state.sflag.wp;
 	server_unzoom_window(dst_w);
 
-	if (!args_has(args, 's')) {
+	if (args_has(self->args, 'D')) {
+		src_wl = dst_wl;
 		src_w = dst_w;
-		if (args_has(self->args, 'D')) {
-			src_wp = TAILQ_NEXT(dst_wp, entry);
-			if (src_wp == NULL)
-				src_wp = TAILQ_FIRST(&dst_w->panes);
-		} else if (args_has(self->args, 'U')) {
-			src_wp = TAILQ_PREV(dst_wp, window_panes, entry);
-			if (src_wp == NULL)
-				src_wp = TAILQ_LAST(&dst_w->panes, window_panes);
-		} else
-			return (CMD_RETURN_NORMAL);
-	} else {
-		src_wl = cmd_find_pane(cmdq, args_get(args, 's'), NULL, &src_wp);
-		if (src_wl == NULL)
-			return (CMD_RETURN_ERROR);
-		src_w = src_wl->window;
+		src_wp = TAILQ_NEXT(dst_wp, entry);
+		if (src_wp == NULL)
+			src_wp = TAILQ_FIRST(&dst_w->panes);
+	} else if (args_has(self->args, 'U')) {
+		src_wl = dst_wl;
+		src_w = dst_w;
+		src_wp = TAILQ_PREV(dst_wp, window_panes, entry);
+		if (src_wp == NULL)
+			src_wp = TAILQ_LAST(&dst_w->panes, window_panes);
 	}
 	server_unzoom_window(src_w);
 

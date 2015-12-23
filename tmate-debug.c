@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <regex.h>
+#include <signal.h>
 #include "tmate.h"
 
 #if DEBUG
@@ -75,7 +76,7 @@ void tmate_print_trace(void)
 }
 
 
-static void handle_sigsegv(int sig)
+static void handle_sigsegv(__unused int sig)
 {
 	/* TODO send stack trace to server */
 	tmate_info("CRASH, printing stack trace");

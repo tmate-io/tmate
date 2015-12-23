@@ -1,4 +1,5 @@
 #include "tmate.h"
+#include "window-copy.h"
 
 #define DEFAULT_ENCODER (&tmate_session.encoder)
 
@@ -114,6 +115,8 @@ void tmate_sync_layout(void)
 	pack(int, active_window_idx);
 }
 
+/* TODO add a buffer for pty_data ? */
+
 void tmate_pty_data(struct window_pane *wp, const char *buf, size_t len)
 {
 	size_t max_write, to_write;
@@ -132,6 +135,11 @@ void tmate_pty_data(struct window_pane *wp, const char *buf, size_t len)
 		len -= to_write;
 	}
 }
+
+extern const struct cmd_entry cmd_bind_key_entry;
+extern const struct cmd_entry cmd_unbind_key_entry;
+extern const struct cmd_entry cmd_set_option_entry;
+extern const struct cmd_entry cmd_set_window_option_entry;
 
 static const struct cmd_entry *replicated_cmds[] = {
 	&cmd_bind_key_entry,

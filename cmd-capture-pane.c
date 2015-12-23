@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $OpenBSD$ */
 
 /*
  * Copyright (c) 2009 Jonathan Alvarado <radobobo@users.sourceforge.net>
@@ -36,20 +36,23 @@ char		*cmd_capture_pane_history(struct args *, struct cmd_q *,
 		     struct window_pane *, size_t *);
 
 const struct cmd_entry cmd_capture_pane_entry = {
-	"capture-pane", "capturep",
-	"ab:CeE:JpPqS:t:", 0, 0,
-	"[-aCeJpPq] [-b buffer-index] [-E end-line] [-S start-line]"
-	CMD_TARGET_PANE_USAGE,
-	0,
-	NULL,
-	NULL,
-	cmd_capture_pane_exec
+	.name = "capture-pane",
+	.alias = "capturep",
+
+	.args = { "ab:CeE:JpPqS:t:", 0, 0 },
+	.usage = "[-aCeJpPq] " CMD_BUFFER_USAGE " [-E end-line] "
+		 "[-S start-line]" CMD_TARGET_PANE_USAGE,
+
+	.tflag = CMD_PANE,
+
+	.flags = 0,
+	.exec = cmd_capture_pane_exec
 };
 
 char *
 cmd_capture_pane_append(char *buf, size_t *len, char *line, size_t linelen)
 {
-	buf = xrealloc(buf, 1, *len + linelen + 1);
+	buf = xrealloc(buf, *len + linelen + 1);
 	memcpy(buf + *len, line, linelen);
 	*len += linelen;
 	return (buf);
@@ -59,15 +62,17 @@ char *
 cmd_capture_pane_pending(struct args *args, struct window_pane *wp,
     size_t *len)
 {
-	char	*buf, *line, tmp[5];
-	size_t	 linelen;
-	u_int	 i;
+	struct evbuffer	*pending;
+	char		*buf, *line, tmp[5];
+	size_t		 linelen;
+	u_int		 i;
 
-	if (wp->ictx.since_ground == NULL)
+	pending = input_pending(wp);
+	if (pending == NULL)
 		return (xstrdup(""));
 
-	line = EVBUFFER_DATA(wp->ictx.since_ground);
-	linelen = EVBUFFER_LENGTH(wp->ictx.since_ground);
+	line = EVBUFFER_DATA(pending);
+	linelen = EVBUFFER_LENGTH(pending);
 
 	buf = xstrdup("");
 	if (args_has(args, 'C')) {
@@ -76,7 +81,7 @@ cmd_capture_pane_pending(struct args *args, struct window_pane *wp,
 				tmp[0] = line[i];
 				tmp[1] = '\0';
 			} else
-				xsnprintf(tmp, sizeof tmp, "\\%03o", line[i]);
+				xsnprintf(tmp, sizeof tmp, "\\%03hho", line[i]);
 			buf = cmd_capture_pane_append(buf, len, tmp,
 			    strlen(tmp));
 		}
@@ -95,6 +100,7 @@ cmd_capture_pane_history(struct args *args, struct cmd_q *cmdq,
 	int			 n, with_codes, escape_c0, join_lines;
 	u_int			 i, sx, top, bottom, tmp;
 	char			*cause, *buf, *line;
+	const char		*Sflag, *Eflag;
 	size_t			 linelen;
 
 	sx = screen_size_x(&wp->base);
@@ -110,27 +116,37 @@ cmd_capture_pane_history(struct args *args, struct cmd_q *cmdq,
 	} else
 		gd = wp->base.grid;
 
-	n = args_strtonum(args, 'S', INT_MIN, SHRT_MAX, &cause);
-	if (cause != NULL) {
-		top = gd->hsize;
-		free(cause);
-	} else if (n < 0 && (u_int) -n > gd->hsize)
+	Sflag = args_get(args, 'S');
+	if (Sflag != NULL && strcmp(Sflag, "-") == 0)
 		top = 0;
-	else
-		top = gd->hsize + n;
-	if (top > gd->hsize + gd->sy - 1)
-		top = gd->hsize + gd->sy - 1;
+	else {
+		n = args_strtonum(args, 'S', INT_MIN, SHRT_MAX, &cause);
+		if (cause != NULL) {
+			top = gd->hsize;
+			free(cause);
+		} else if (n < 0 && (u_int) -n > gd->hsize)
+			top = 0;
+		else
+			top = gd->hsize + n;
+		if (top > gd->hsize + gd->sy - 1)
+			top = gd->hsize + gd->sy - 1;
+	}
 
-	n = args_strtonum(args, 'E', INT_MIN, SHRT_MAX, &cause);
-	if (cause != NULL) {
+	Eflag = args_get(args, 'E');
+	if (Eflag != NULL && strcmp(Eflag, "-") == 0)
 		bottom = gd->hsize + gd->sy - 1;
-		free(cause);
-	} else if (n < 0 && (u_int) -n > gd->hsize)
-		bottom = 0;
-	else
-		bottom = gd->hsize + n;
-	if (bottom > gd->hsize + gd->sy - 1)
-		bottom = gd->hsize + gd->sy - 1;
+	else {
+		n = args_strtonum(args, 'E', INT_MIN, SHRT_MAX, &cause);
+		if (cause != NULL) {
+			bottom = gd->hsize + gd->sy - 1;
+			free(cause);
+		} else if (n < 0 && (u_int) -n > gd->hsize)
+			bottom = 0;
+		else
+			bottom = gd->hsize + n;
+		if (bottom > gd->hsize + gd->sy - 1)
+			bottom = gd->hsize + gd->sy - 1;
+	}
 
 	if (bottom < top) {
 		tmp = bottom;
@@ -164,14 +180,10 @@ cmd_capture_pane_exec(struct cmd *self, struct cmd_q *cmdq)
 {
 	struct args		*args = self->args;
 	struct client		*c;
-	struct window_pane	*wp;
+	struct window_pane	*wp = cmdq->state.tflag.wp;
 	char			*buf, *cause;
-	int			 buffer;
-	u_int			 limit;
+	const char		*bufname;
 	size_t			 len;
-
-	if (cmd_find_pane(cmdq, args_get(args, 't'), NULL, &wp) == NULL)
-		return (CMD_RETURN_ERROR);
 
 	len = 0;
 	if (args_has(args, 'P'))
@@ -186,29 +198,22 @@ cmd_capture_pane_exec(struct cmd *self, struct cmd_q *cmdq)
 		if (c == NULL ||
 		    (c->session != NULL && !(c->flags & CLIENT_CONTROL))) {
 			cmdq_error(cmdq, "can't write to stdout");
+			free(buf);
 			return (CMD_RETURN_ERROR);
 		}
 		evbuffer_add(c->stdout_data, buf, len);
+		free(buf);
 		if (args_has(args, 'P') && len > 0)
 		    evbuffer_add(c->stdout_data, "\n", 1);
-		server_push_stdout(c);
+		server_client_push_stdout(c);
 	} else {
-		limit = options_get_number(&global_options, "buffer-limit");
-		if (!args_has(args, 'b')) {
-			paste_add(&global_buffers, buf, len, limit);
-			return (CMD_RETURN_NORMAL);
-		}
+		bufname = NULL;
+		if (args_has(args, 'b'))
+			bufname = args_get(args, 'b');
 
-		buffer = args_strtonum(args, 'b', 0, INT_MAX, &cause);
-		if (cause != NULL) {
-			cmdq_error(cmdq, "buffer %s", cause);
-			free(buf);
+		if (paste_set(buf, len, bufname, &cause) != 0) {
+			cmdq_error(cmdq, "%s", cause);
 			free(cause);
-			return (CMD_RETURN_ERROR);
-		}
-
-		if (paste_replace(&global_buffers, buffer, buf, len) != 0) {
-			cmdq_error(cmdq, "no buffer %d", buffer);
 			free(buf);
 			return (CMD_RETURN_ERROR);
 		}
