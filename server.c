@@ -162,6 +162,11 @@ server_start(struct event_base *base, int lockfd, char *lockfile)
 	RB_INIT(&sessions);
 	TAILQ_INIT(&session_groups);
 	mode_key_init_trees();
+
+#ifdef TMATE
+	tmate_session_init(base);
+#endif
+
 	key_bindings_init();
 
 	gettimeofday(&start_time, NULL);
@@ -177,10 +182,6 @@ server_start(struct event_base *base, int lockfd, char *lockfile)
 		free(lockfile);
 		close(lockfd);
 	}
-
-#ifdef TMATE
-	tmate_session_init(base);
-#endif
 
 	start_cfg();
 
