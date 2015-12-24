@@ -115,6 +115,9 @@ make_label(const char *label)
 	struct stat	 sb;
 	u_int		 uid;
 	int		 saved_errno;
+#ifdef TMATE
+	int do_random_label = label == NULL;
+#endif
 
 	if (label == NULL)
 		label = "default";
@@ -122,9 +125,9 @@ make_label(const char *label)
 	uid = getuid();
 
 	if ((s = getenv("TMUX_TMPDIR")) != NULL && *s != '\0')
-		xasprintf(&base, "%s/tmux-%u", s, uid);
+		xasprintf(&base, "%s/tmate-%u", s, uid);
 	else
-		xasprintf(&base, "%s/tmux-%u", _PATH_TMP, uid);
+		xasprintf(&base, "%s/tmate-%u", _PATH_TMP, uid);
 
 	if (mkdir(base, S_IRWXU) != 0 && errno != EEXIST)
 		goto fail;
@@ -140,9 +143,18 @@ make_label(const char *label)
 		goto fail;
 	}
 
+#ifdef TMATE
+	if (do_random_label)
+		label = "XXXXXX";
+#endif
+
 	if (realpath(base, resolved) == NULL)
 		strlcpy(resolved, base, sizeof resolved);
 	xasprintf(&path, "%s/%s", resolved, label);
+#ifdef TMATE
+	if (do_random_label)
+		mktemp(path);
+#endif
 	return (path);
 
 fail:
