@@ -210,6 +210,11 @@ client_exit_message(void)
 	return ("unknown reason");
 }
 
+#ifdef TMATE
+extern const struct cmd_entry cmd_attach_session_entry;
+extern const struct cmd_entry cmd_new_session_entry;
+#endif
+
 /* Client main loop. */
 int
 client_main(struct event_base *base, int argc, char **argv, int flags,
@@ -225,6 +230,9 @@ client_main(struct event_base *base, int argc, char **argv, int flags,
 	char			*cause, path[PATH_MAX];
 	struct termios		 tio, saved_tio;
 	size_t			 size;
+#ifdef TMATE
+	int cant_nest = 0;
+#endif
 
 	/* Ignore SIGCHLD now or daemon() in the server will leave a zombie. */
 	signal(SIGCHLD, SIG_IGN);
@@ -240,6 +248,9 @@ client_main(struct event_base *base, int argc, char **argv, int flags,
 	} else if (argc == 0) {
 		msg = MSG_COMMAND;
 		cmdflags = CMD_STARTSERVER;
+#ifdef TMATE
+	cant_nest = 1;
+#endif
 	} else {
 		msg = MSG_COMMAND;
 
@@ -257,9 +268,23 @@ client_main(struct event_base *base, int argc, char **argv, int flags,
 		TAILQ_FOREACH(cmd, &cmdlist->list, qentry) {
 			if (cmd->entry->flags & CMD_STARTSERVER)
 				cmdflags |= CMD_STARTSERVER;
+
+#ifdef TMATE
+			if (cmd->entry == &cmd_attach_session_entry ||
+			    cmd->entry == &cmd_new_session_entry)
+				cant_nest = 1;
+#endif
 		}
 		cmd_list_free(cmdlist);
 	}
+
+#ifdef TMATE
+	if (cant_nest && getenv("TMUX")) {
+		fprintf(stderr, "sessions should be nested with care, "
+			"unset $TMUX to force\n");
+		return (1);
+	}
+#endif
 
 	/* Create client process structure (starts logging). */
 	client_proc = proc_start("client", base, 0, client_signal);
