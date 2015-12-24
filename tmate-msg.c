@@ -8,10 +8,12 @@ void status_message_callback(int, short, void *);
 static void tmate_status_message_client(struct client *c, const char *message)
 {
 	struct timeval		 tv;
-	struct session		*s = c->session;
 	struct message_entry	*msg, *msg1;
 	int			 delay;
 	u_int			 first, limit;
+
+	limit = options_get_number(global_options, "message-limit");
+	delay = c->session ? options_get_number(c->session->options, "tmate-display-time") : 30000;
 
 	status_prompt_clear(c);
 	status_message_clear(c);
@@ -23,15 +25,6 @@ static void tmate_status_message_client(struct client *c, const char *message)
 	msg->msg_num = c->message_next++;
 	msg->msg = xstrdup(c->message_string);
 	TAILQ_INSERT_TAIL(&c->message_log, msg, entry);
-
-	if (s) {
-		limit = options_get_number(s->options, "message-limit");
-		delay = options_get_number(s->options, "tmate-display-time");
-	} else {
-		/* Very early in the connection process we won't have a session */
-		limit = options_get_number(global_s_options, "message-limit");
-		delay = options_get_number(global_s_options, "tmate-display-time");
-	}
 
 	first = c->message_next - limit;
 	TAILQ_FOREACH_SAFE(msg, &c->message_log, entry, msg1) {
