@@ -110,7 +110,6 @@ void tmate_session_init(struct event_base *base)
 	tmate_session.ev_base = base;
 
 	ssh_set_log_callback(ssh_log_function);
-	tmate_catch_sigsegv();
 
 	tmate_encoder_init(&tmate_session.encoder);
 	tmate_decoder_init(&tmate_session.decoder);

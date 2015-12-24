@@ -31,6 +31,7 @@
 #include <unistd.h>
 
 #include "tmux.h"
+#include "tmate.h"
 
 #if defined(DEBUG) && defined(__OpenBSD__)
 extern char	*malloc_options;
@@ -219,6 +220,7 @@ main(int argc, char **argv)
 		flags = 0;
 
 #ifdef TMATE
+	tmate_catch_sigsegv();
 	flags |= CLIENT_256COLOURS | CLIENT_UTF8;
 #endif
 
