@@ -18,7 +18,7 @@
 
 #define TMATE_MAX_MESSAGE_SIZE (16*1024)
 
-#define TMATE_PROTOCOL_VERSION 4
+#define TMATE_PROTOCOL_VERSION 5
 
 enum tmate_commands {
 	TMATE_HEADER,
@@ -58,6 +58,7 @@ enum tmate_client_commands {
 	TMATE_CLIENT_EXEC_CMD,
 	TMATE_CLIENT_ENV,
 	TMATE_CLIENT_READY,
+	TMATE_CLIENT_PANE_TMUX_KEY,
 };
 
 struct tmate_decoder {

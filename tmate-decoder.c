@@ -105,6 +105,52 @@ static void tmate_client_pane_key(struct tmate_unpacker *uk)
 	window_pane_key(wp, NULL, s, key, NULL);
 }
 
+static struct window_pane *find_window_pane(struct session *s, unsigned int pane_id)
+{
+	struct window *w;
+	struct window_pane *wp;
+	struct winlink	*wl;
+
+	w = s->curw->window;
+	if (!w)
+		goto slow_path;
+
+	wp = w->active;
+	if (!wp)
+		goto slow_path;
+	if (wp->id == pane_id)
+		return wp;
+
+slow_path:
+	RB_FOREACH(wl, winlinks, &s->windows) {
+		TAILQ_FOREACH(wp, &wl->window->panes, entry) {
+			if (wp->id == pane_id)
+				return wp;
+		}
+	}
+
+	return NULL;
+}
+
+static void tmate_client_pane_tmux_key(struct tmate_unpacker *uk)
+{
+	struct session *s;
+	struct window_pane *wp;
+
+	int pane_id = unpack_int(uk);
+	key_code key = unpack_int(uk);
+
+	s = RB_MIN(sessions, &sessions);
+	if (!s)
+		return;
+
+	wp = find_window_pane(s, pane_id);
+	if (!wp)
+		return;
+
+	window_pane_key(wp, NULL, s, key, NULL);
+}
+
 static void tmate_client_resize(struct tmate_unpacker *uk)
 {
 	/* TODO This is sad, we might want our own client. */
@@ -187,6 +233,7 @@ static void handle_message(struct tmate_decoder *decoder, msgpack_object obj)
 	case TMATE_CLIENT_EXEC_CMD:	tmate_client_exec_cmd(uk); break;
 	case TMATE_CLIENT_ENV:		tmate_client_env(uk); break;
 	case TMATE_CLIENT_READY:	tmate_client_ready(decoder, uk); break;
+	case TMATE_CLIENT_PANE_TMUX_KEY: tmate_client_pane_tmux_key(uk); break;
 	default:			decoder_error();
 	}
 }
