@@ -131,6 +131,21 @@ server_create_socket(void)
 	return (fd);
 }
 
+#ifdef TMATE
+void tmate_set_editor_mode(void)
+{
+	switch (options_get_number(global_s_options, "status-keys")) {
+		case MODEKEY_EMACS: tmate_exec_cmd("set-option -g status-keys emacs"); break;
+		case MODEKEY_VI:    tmate_exec_cmd("set-option -g status-keys vi"); break;
+	}
+
+	switch (options_get_number(global_w_options, "mode-keys")) {
+		case MODEKEY_EMACS: tmate_exec_cmd("set-window-option -g mode-keys emacs"); break;
+		case MODEKEY_VI:    tmate_exec_cmd("set-window-option -g mode-keys vi"); break;
+	}
+}
+#endif
+
 /* Fork new server. */
 int
 server_start(struct event_base *base, int lockfd, char *lockfile)
@@ -183,6 +198,9 @@ server_start(struct event_base *base, int lockfd, char *lockfile)
 		close(lockfd);
 	}
 
+#ifdef TMATE
+	tmate_set_editor_mode();
+#endif
 	start_cfg();
 
 	status_prompt_load_history();
