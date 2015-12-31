@@ -12,7 +12,7 @@
 #define tmate_debug(...) log_debug("[tmate] D " __VA_ARGS__)
 #define tmate_warn(...)  log_debug("[tmate] W " __VA_ARGS__)
 #define tmate_info(...)  log_debug("[tmate] I " __VA_ARGS__)
-#define tmate_fatal(...)     fatal("[tmate]" __VA_ARGS__)
+#define tmate_fatal(...)    fatalx("[tmate] " __VA_ARGS__)
 
 /* tmate-encoder.c */
 
