@@ -581,10 +581,6 @@ status_message_set(struct client *c, const char *fmt, ...)
 		free(msg);
 	}
 
-#ifdef TMATE
-	/* FIXME tmux: session can be NULL */
-#endif
-
 	delay = options_get_number(c->session->options, "display-time");
 	if (delay > 0) {
 		tv.tv_sec = delay / 1000;
