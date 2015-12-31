@@ -287,7 +287,7 @@ static void on_session_event(struct tmate_ssh_client *client)
 			    !client->tried_passphrase)
 				request_passphrase(client);
 			else
-				kill_session(client, "Access denied. Check your SSH keys.");
+				kill_session(client, "SSH keys not found. Run 'ssh-keygen' to create keys and try again.");
 			return;
 		case SSH_AUTH_ERROR:
 			reconnect_session(client, "Auth error: %s",
