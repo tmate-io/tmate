@@ -915,6 +915,9 @@ struct window {
 
 	struct timeval	 activity_time;
 
+#ifdef TMATE
+	struct window_pane *tmate_last_sync_active_pane;
+#endif
 	struct window_pane *active;
 	struct window_pane *last;
 	struct window_panes panes;

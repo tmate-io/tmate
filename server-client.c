@@ -722,6 +722,8 @@ server_client_loop(void)
 #ifdef TMATE
 		if (w->flags & WINDOW_REDRAW)
 			tmate_should_sync_layout = 1;
+		if (w->tmate_last_sync_active_pane != w->active)
+			tmate_should_sync_layout = 1;
 #endif
 
 		w->flags &= ~WINDOW_REDRAW;

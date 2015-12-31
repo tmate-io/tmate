@@ -48,8 +48,15 @@ void tmate_sync_layout(void)
 	struct window_pane *wp;
 	int num_panes = 0;
 	int num_windows = 0;
-	int active_pane_id = -1;
+	int active_pane_id;
 	int active_window_idx = -1;
+
+	/*
+	 * TODO this can get a little heavy.
+	 * We are shipping the full layout whenever a window name changes,
+	 * that is, at every shell command.
+	 * Might be better to do something incremental.
+	 */
 
 	/*
 	 * We only allow one session, it makes our lives easier.
@@ -83,6 +90,9 @@ void tmate_sync_layout(void)
 		if (!w)
 			continue;
 
+		w->tmate_last_sync_active_pane = NULL;
+		active_pane_id = -1;
+
 		if (active_window_idx == -1)
 			active_window_idx = wl->idx;
 
@@ -103,8 +113,11 @@ void tmate_sync_layout(void)
 			pack(int, wp->xoff);
 			pack(int, wp->yoff);
 
-			if (wp == w->active)
+			if (wp == w->active) {
+				w->tmate_last_sync_active_pane = wp;
 				active_pane_id = wp->id;
+			}
+
 		}
 		pack(int, active_pane_id);
 	}

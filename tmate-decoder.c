@@ -105,7 +105,7 @@ static void tmate_client_pane_key(struct tmate_unpacker *uk)
 	window_pane_key(wp, NULL, s, key, NULL);
 }
 
-static struct window_pane *find_window_pane(struct session *s, unsigned int pane_id)
+static struct window_pane *find_window_pane(struct session *s, int pane_id)
 {
 	struct window *w;
 	struct window_pane *wp;
@@ -118,13 +118,16 @@ static struct window_pane *find_window_pane(struct session *s, unsigned int pane
 	wp = w->active;
 	if (!wp)
 		goto slow_path;
-	if (wp->id == pane_id)
+	if (pane_id == -1 || (int)wp->id == pane_id)
 		return wp;
 
 slow_path:
+	if (pane_id == -1)
+		return NULL;
+
 	RB_FOREACH(wl, winlinks, &s->windows) {
 		TAILQ_FOREACH(wp, &wl->window->panes, entry) {
-			if (wp->id == pane_id)
+			if ((int)wp->id == pane_id)
 				return wp;
 		}
 	}

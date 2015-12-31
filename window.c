@@ -296,6 +296,10 @@ window_create1(u_int sx, u_int sy)
 	TAILQ_INIT(&w->panes);
 	w->active = NULL;
 
+#ifdef TMATE
+	w->tmate_last_sync_active_pane = NULL;
+#endif
+
 	w->lastlayout = -1;
 	w->layout_root = NULL;
 
