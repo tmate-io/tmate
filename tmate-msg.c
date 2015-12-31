@@ -66,7 +66,7 @@ void __tmate_status_message(const char *fmt, va_list ap)
 	free(message);
 }
 
-void printflike(1, 2) tmate_status_message(const char *fmt, ...)
+void tmate_status_message(const char *fmt, ...)
 {
 	va_list ap;
 

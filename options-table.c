@@ -102,7 +102,11 @@ const struct options_table_entry options_table[] = {
 	  .scope = OPTIONS_TABLE_SERVER,
 	  .minimum = 0,
 	  .maximum = INT_MAX,
+#ifdef TMATE
+	  .default_num = 500
+#else
 	  .default_num = 100
+#endif
 	},
 
 	{ .name = "quiet",
