@@ -215,7 +215,8 @@ void tmate_sync_copy_mode(struct window_pane *wp)
 
 	pack(int, wp->id);
 
-	if (wp->mode != &window_copy_mode) {
+	if (wp->mode != &window_copy_mode ||
+	    data->inputtype == WINDOW_COPY_PASSWORD) {
 		pack(array, 0);
 		return;
 	}
