@@ -283,11 +283,13 @@ static void on_session_event(struct tmate_ssh_client *client)
 		case SSH_AUTH_PARTIAL:
 		case SSH_AUTH_INFO:
 		case SSH_AUTH_DENIED:
-			if (client->tmate_session->need_passphrase &&
-			    !client->tried_passphrase)
+			if (client->tmate_session->need_passphrase)
 				request_passphrase(client);
 			else
 				kill_session(client, "SSH keys not found. Run 'ssh-keygen' to create keys and try again.");
+
+			if (client->tried_passphrase)
+				tmate_status_message("Can't load SSH key. Try typing passphrase again in case of typo. ctrl-c to abort.");
 			return;
 		case SSH_AUTH_ERROR:
 			reconnect_session(client, "Auth error: %s",

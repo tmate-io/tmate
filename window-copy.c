@@ -669,6 +669,10 @@ __window_copy_key(struct window_pane *wp, struct client *c, struct session *sess
 	case MODEKEYCOPY_SEARCHAGAIN:
 	case MODEKEYCOPY_SEARCHREVERSE:
 		switch (data->searchtype) {
+#ifdef TMATE
+		case WINDOW_COPY_PASSWORD:
+			break;
+#endif
 		case WINDOW_COPY_OFF:
 		case WINDOW_COPY_GOTOLINE:
 		case WINDOW_COPY_JUMPFORWARD:
@@ -677,10 +681,6 @@ __window_copy_key(struct window_pane *wp, struct client *c, struct session *sess
 		case WINDOW_COPY_JUMPTOBACK:
 		case WINDOW_COPY_NAMEDBUFFER:
 		case WINDOW_COPY_NUMERICPREFIX:
-#ifdef TMATE
-		case WINDOW_COPY_PASSWORD:
-			break;
-#endif
 		case WINDOW_COPY_SEARCHUP:
 			ss = data->searchstr;
 			if (cmd == MODEKEYCOPY_SEARCHAGAIN) {
@@ -850,9 +850,8 @@ window_copy_key_input(struct window_pane *wp, key_code key)
 				data->password_cb(data->inputstr,
 						  data->password_cb_private);
 			}
-			*data->inputstr = '\0';
-			window_copy_copy_selection(wp, NULL);
 			window_pane_reset_mode(wp);
+			return 0;
 #endif
 		}
 		data->numprefix = -1;
