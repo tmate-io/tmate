@@ -13,7 +13,8 @@ static void tmate_status_message_client(struct client *c, const char *message)
 	u_int			 first, limit;
 
 	limit = options_get_number(global_options, "message-limit");
-	delay = c->session ? options_get_number(c->session->options, "tmate-display-time") : 30000;
+	delay = options_get_number(c->session ? c->session->options : global_s_options,
+				   "tmate-display-time");
 
 	status_prompt_clear(c);
 	status_message_clear(c);
@@ -26,10 +27,9 @@ static void tmate_status_message_client(struct client *c, const char *message)
 	msg->msg = xstrdup(c->message_string);
 	TAILQ_INSERT_TAIL(&c->message_log, msg, entry);
 
-	first = c->message_next - limit;
 	TAILQ_FOREACH_SAFE(msg, &c->message_log, entry, msg1) {
-		if (msg->msg_num >= first)
-			continue;
+		if (msg->msg_num + limit >= c->message_next)
+			break;
 		free(msg->msg);
 		TAILQ_REMOVE(&c->message_log, msg, entry);
 		free(msg);
