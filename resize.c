@@ -52,6 +52,10 @@ recalculate_sizes(void)
 	struct window_pane	*wp;
 	u_int			 ssx, ssy, has, limit;
 	int			 flag, has_status, is_zoomed, forced;
+#ifdef TMATE
+	int tmate_sx = tmate_session.min_sx;
+	int tmate_sy = tmate_session.min_sy;
+#endif
 
 	RB_FOREACH(s, sessions, &sessions) {
 		has_status = options_get_number(s->options, "status");

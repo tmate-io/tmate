@@ -1,41 +1,13 @@
 #include "tmate.h"
+#include "tmate-protocol.h"
 #include "window-copy.h"
 
-#define DEFAULT_ENCODER (&tmate_session.encoder)
-
-static int msgpack_write(void *data, const char *buf, size_t len)
-{
-	struct tmate_encoder *encoder = data;
-
-	evbuffer_add(encoder->buffer, buf, len);
-
-	if ((encoder->ev_readable.ev_flags & EVLIST_INSERTED) &&
-	    !(encoder->ev_readable.ev_flags & EVLIST_ACTIVE)) {
-		event_active(&encoder->ev_readable, EV_READ, 0);
-	}
-
-	return 0;
-}
-
-void tmate_encoder_init(struct tmate_encoder *encoder)
-{
-	msgpack_packer_init(&encoder->pk, encoder, &msgpack_write);
-	encoder->ev_readable.ev_flags = 0;
-	encoder->buffer = evbuffer_new();
-}
-
-#define msgpack_pack_string(pk, str) do {		\
-	int __strlen = strlen(str);			\
-	msgpack_pack_str(pk, __strlen);			\
-	msgpack_pack_str_body(pk, str, __strlen);	\
-} while(0)
-
-#define pack(what, ...) msgpack_pack_##what(&DEFAULT_ENCODER->pk, __VA_ARGS__)
+#define pack(what, ...) _pack(&tmate_session.encoder, what, __VA_ARGS__)
 
 void tmate_write_header(void)
 {
 	pack(array, 3);
-	pack(int, TMATE_HEADER);
+	pack(int, TMATE_OUT_HEADER);
 	pack(int, TMATE_PROTOCOL_VERSION);
 	pack(string, VERSION);
 }
@@ -79,7 +51,7 @@ void tmate_sync_layout(void)
 		return;
 
 	pack(array, 5);
-	pack(int, TMATE_SYNC_LAYOUT);
+	pack(int, TMATE_OUT_SYNC_LAYOUT);
 
 	pack(int, s->sx);
 	pack(int, s->sy);
@@ -134,12 +106,12 @@ void tmate_pty_data(struct window_pane *wp, const char *buf, size_t len)
 {
 	size_t max_write, to_write;
 
-	max_write = TMATE_MAX_MESSAGE_SIZE - 4;
+	max_write = TMATE_MAX_MESSAGE_SIZE - 16;
 	while (len > 0) {
 		to_write = len < max_write ? len : max_write;
 
 		pack(array, 3);
-		pack(int, TMATE_PTY_DATA);
+		pack(int, TMATE_OUT_PTY_DATA);
 		pack(int, wp->id);
 		pack(str, to_write);
 		pack(str_body, buf, to_write);
@@ -175,14 +147,14 @@ int tmate_should_replicate_cmd(const struct cmd_entry *cmd)
 void tmate_exec_cmd(const char *cmd)
 {
 	pack(array, 2);
-	pack(int, TMATE_EXEC_CMD);
+	pack(int, TMATE_OUT_EXEC_CMD);
 	pack(string, cmd);
 }
 
 void tmate_failed_cmd(int client_id, const char *cause)
 {
 	pack(array, 3);
-	pack(int, TMATE_FAILED_CMD);
+	pack(int, TMATE_OUT_FAILED_CMD);
 	pack(int, client_id);
 	pack(string, cause);
 }
@@ -196,7 +168,7 @@ void tmate_status(const char *left, const char *right)
 		return;
 
 	pack(array, 3);
-	pack(int, TMATE_STATUS);
+	pack(int, TMATE_OUT_STATUS);
 	pack(string, left);
 	pack(string, right);
 
@@ -211,7 +183,7 @@ void tmate_sync_copy_mode(struct window_pane *wp)
 	struct window_copy_mode_data *data = wp->modedata;
 
 	pack(array, 3);
-	pack(int, TMATE_SYNC_COPY_MODE);
+	pack(int, TMATE_OUT_SYNC_COPY_MODE);
 
 	pack(int, wp->id);
 
@@ -248,7 +220,7 @@ void tmate_sync_copy_mode(struct window_pane *wp)
 void tmate_write_copy_mode(struct window_pane *wp, const char *str)
 {
 	pack(array, 3);
-	pack(int, TMATE_WRITE_COPY_MODE);
+	pack(int, TMATE_OUT_WRITE_COPY_MODE);
 	pack(int, wp->id);
 	pack(string, str);
 }

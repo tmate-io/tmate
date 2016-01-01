@@ -53,7 +53,7 @@ static int print_resolved_stack_frame(const char *frame)
 }
 #endif
 
-void tmate_print_trace(void)
+void tmate_print_stack_trace(void)
 {
 	void *array[20];
 	size_t size;
@@ -80,7 +80,7 @@ static void handle_sigsegv(__unused int sig)
 {
 	/* TODO send stack trace to server */
 	tmate_info("CRASH, printing stack trace");
-	tmate_print_trace();
+	tmate_print_stack_trace();
 	tmate_fatal("CRASHED");
 }
 

@@ -177,6 +177,7 @@ dist_tmate_SOURCES = \
 	tmate-decoder.c \
 	tmate-env.c \
 	tmate-msg.c \
+	tmate-msgpack.c \
 	tmate-session.c \
 	tmux.c \
 	tty-acs.c \

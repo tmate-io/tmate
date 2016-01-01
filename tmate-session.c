@@ -99,27 +99,31 @@ static void lookup_and_connect(void)
 				&hints, dns_cb, (void *)tmate_server_host);
 }
 
-static void ssh_log_function(int priority, const char *function,
-			     const char *buffer, __unused void *userdata)
+static void __tmate_session_init(struct tmate_session *session,
+				 struct event_base *base)
 {
-	tmate_debug("[%d] [%s] %s", priority, function, buffer);
+	memset(session, 0, sizeof(*session));
+
+	session->ev_base = base;
+
+	/*
+	 * Early initialization of encoder because we need to parse
+	 * config files to get the server configs, but while we are parsing
+	 * config files, we need to buffer bind commands and all for the
+	 * slave.
+	 * Decoder is setup later.
+	 */
+	tmate_encoder_init(&session->encoder, NULL, &tmate_session);
+
+	session->min_sx = -1;
+	session->min_sy = -1;
+
+	TAILQ_INIT(&session->clients);
 }
 
 void tmate_session_init(struct event_base *base)
 {
-	tmate_session.ev_base = base;
-
-	ssh_set_log_callback(ssh_log_function);
-
-	tmate_encoder_init(&tmate_session.encoder);
-	tmate_decoder_init(&tmate_session.decoder);
-
-	TAILQ_INIT(&tmate_session.clients);
-
-	tmate_session.need_passphrase = 0;
-	tmate_session.passphrase = NULL;
-
-	/* The header will be written as soon as the first client connects */
+	__tmate_session_init(&tmate_session, base);
 	tmate_write_header();
 }
 

@@ -14,30 +14,66 @@
 #define tmate_info(...)  log_debug("[tmate] I " __VA_ARGS__)
 #define tmate_fatal(...)    fatalx("[tmate] " __VA_ARGS__)
 
-/* tmate-encoder.c */
+/* tmate-msgpack.c */
 
-#define TMATE_MAX_MESSAGE_SIZE (16*1024)
-
-#define TMATE_PROTOCOL_VERSION 5
-
-enum tmate_commands {
-	TMATE_HEADER,
-	TMATE_SYNC_LAYOUT,
-	TMATE_PTY_DATA,
-	TMATE_EXEC_CMD,
-	TMATE_FAILED_CMD,
-	TMATE_STATUS,
-	TMATE_SYNC_COPY_MODE,
-	TMATE_WRITE_COPY_MODE,
-};
+typedef void tmate_encoder_write_cb(void *userdata, struct evbuffer *buffer);
 
 struct tmate_encoder {
 	msgpack_packer pk;
+	tmate_encoder_write_cb *ready_callback;
+	void *userdata;
 	struct evbuffer *buffer;
-	struct event ev_readable;
+	struct event ev_buffer;
+	bool ev_active;
 };
 
-extern void tmate_encoder_init(struct tmate_encoder *encoder);
+extern void tmate_encoder_init(struct tmate_encoder *encoder,
+			       tmate_encoder_write_cb *callback,
+			       void *userdata);
+extern void tmate_encoder_set_ready_callback(struct tmate_encoder *encoder,
+					     tmate_encoder_write_cb *callback,
+					     void *userdata);
+
+extern void msgpack_pack_string(msgpack_packer *pk, const char *str);
+extern void msgpack_pack_boolean(msgpack_packer *pk, bool value);
+
+#define _pack(enc, what, ...) msgpack_pack_##what(&(enc)->pk, __VA_ARGS__)
+
+struct tmate_unpacker;
+struct tmate_decoder;
+typedef void tmate_decoder_reader(void *userdata, struct tmate_unpacker *uk);
+
+struct tmate_decoder {
+	struct msgpack_unpacker unpacker;
+	tmate_decoder_reader *reader;
+	void *userdata;
+};
+
+extern void tmate_decoder_init(struct tmate_decoder *decoder, tmate_decoder_reader *reader, void *userdata);
+extern void tmate_decoder_get_buffer(struct tmate_decoder *decoder, char **buf, size_t *len);
+extern void tmate_decoder_commit(struct tmate_decoder *decoder, size_t len);
+
+struct tmate_unpacker {
+	int argc;
+	msgpack_object *argv;
+};
+
+extern void init_unpacker(struct tmate_unpacker *uk, msgpack_object obj);
+extern void tmate_decoder_error(void);
+extern int64_t unpack_int(struct tmate_unpacker *uk);
+extern bool unpack_bool(struct tmate_unpacker *uk);
+extern void unpack_buffer(struct tmate_unpacker *uk, const char **buf, size_t *len);
+extern char *unpack_string(struct tmate_unpacker *uk);
+extern void unpack_array(struct tmate_unpacker *uk, struct tmate_unpacker *nested);
+
+#define unpack_each(nested_uk, tmp_uk, uk)						\
+	for (unpack_array(uk, tmp_uk);							\
+	     (tmp_uk)->argc > 0 && (init_unpacker(nested_uk, (tmp_uk)->argv[0]), 1);	\
+	     (tmp_uk)->argv++, (tmp_uk)->argc--)
+
+/* tmate-encoder.c */
+
+#define TMATE_PROTOCOL_VERSION 5
 
 extern void tmate_write_header(void);
 extern void tmate_sync_layout(void);
@@ -51,28 +87,9 @@ extern void tmate_write_copy_mode(struct window_pane *wp, const char *str);
 
 /* tmate-decoder.c */
 
-enum tmate_client_commands {
-	TMATE_NOTIFY,
-	TMATE_CLIENT_PANE_KEY,
-	TMATE_CLIENT_RESIZE,
-	TMATE_CLIENT_EXEC_CMD,
-	TMATE_CLIENT_ENV,
-	TMATE_CLIENT_READY,
-	TMATE_CLIENT_PANE_TMUX_KEY,
-};
-
-struct tmate_decoder {
-	struct msgpack_unpacker unpacker;
-	int ready;
-};
-
-extern int tmate_sx;
-extern int tmate_sy;
-
-extern void tmate_decoder_init(struct tmate_decoder *decoder);
-extern void tmate_decoder_get_buffer(struct tmate_decoder *decoder,
-				     char **buf, size_t *len);
-extern void tmate_decoder_commit(struct tmate_decoder *decoder, size_t len);
+struct tmate_session;
+extern void tmate_dispatch_slave_message(struct tmate_session *session,
+					 struct tmate_unpacker *uk);
 
 /* tmate-ssh-client.c */
 
@@ -132,6 +149,12 @@ struct tmate_session {
 	struct tmate_encoder encoder;
 	struct tmate_decoder decoder;
 
+	/* True when the slave has sent all the environment variables */
+	int tmate_env_ready;
+
+	int min_sx;
+	int min_sy;
+
 	/*
 	 * This list contains one connection per IP. The first connected
 	 * client wins, and saved in *client. When we have a winner, the
@@ -147,7 +170,7 @@ extern void tmate_session_init(struct event_base *base);
 extern void tmate_session_start(void);
 
 /* tmate-debug.c */
-extern void tmate_print_trace(void);
+extern void tmate_print_stack_trace(void);
 extern void tmate_catch_sigsegv(void);
 
 /* tmate-msg.c */

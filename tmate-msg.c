@@ -10,7 +10,7 @@ static void tmate_status_message_client(struct client *c, const char *message)
 	struct timeval		 tv;
 	struct message_entry	*msg, *msg1;
 	int			 delay;
-	u_int			 first, limit;
+	u_int			 limit;
 
 	limit = options_get_number(global_options, "message-limit");
 	delay = options_get_number(c->session ? c->session->options : global_s_options,

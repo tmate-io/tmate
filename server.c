@@ -132,7 +132,7 @@ server_create_socket(void)
 }
 
 #ifdef TMATE
-void tmate_set_editor_mode(void)
+static void tmate_set_editor_mode(void)
 {
 	switch (options_get_number(global_s_options, "status-keys")) {
 		case MODEKEY_EMACS: tmate_exec_cmd("set-option -g status-keys emacs"); break;
