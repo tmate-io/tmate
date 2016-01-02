@@ -88,7 +88,7 @@ static void lookup_and_connect(void)
 
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC;
-	hints.ai_flags = 0;
+	hints.ai_flags = EVUTIL_AI_ADDRCONFIG;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
 
