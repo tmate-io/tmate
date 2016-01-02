@@ -215,6 +215,10 @@ session_destroy(struct session *s)
 
 	log_debug("session %s destroyed", s->name);
 
+#ifdef TMATE
+	tmate_write_fin();
+#endif
+
 	RB_REMOVE(sessions, &sessions, s);
 	notify_session_closed(s);
 

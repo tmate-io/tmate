@@ -84,6 +84,7 @@ extern void tmate_failed_cmd(int client_id, const char *cause);
 extern void tmate_status(const char *left, const char *right);
 extern void tmate_sync_copy_mode(struct window_pane *wp);
 extern void tmate_write_copy_mode(struct window_pane *wp, const char *str);
+extern void tmate_write_fin(void);
 
 /* tmate-decoder.c */
 

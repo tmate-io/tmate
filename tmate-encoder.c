@@ -224,3 +224,9 @@ void tmate_write_copy_mode(struct window_pane *wp, const char *str)
 	pack(int, wp->id);
 	pack(string, str);
 }
+
+void tmate_write_fin(void)
+{
+	pack(array, 1);
+	pack(int, TMATE_OUT_FIN);
+}
