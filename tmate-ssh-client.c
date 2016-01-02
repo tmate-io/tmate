@@ -26,7 +26,7 @@ static void read_channel(struct tmate_ssh_client *client)
 		len = ssh_channel_read_nonblocking(client->channel, buf, len, 0);
 		if (len < 0) {
 			reconnect_ssh_client(client, "Error reading from channel: %s",
-					  ssh_get_error(client->session));
+					     ssh_get_error(client->session));
 			break;
 		}
 
@@ -59,7 +59,7 @@ static void on_encoder_write(void *userdata, struct evbuffer *buffer)
 		written = ssh_channel_write(client->channel, buf, len);
 		if (written < 0) {
 			reconnect_ssh_client(client, "Error writing to channel: %s",
-					  ssh_get_error(client->session));
+					     ssh_get_error(client->session));
 			break;
 		}
 
@@ -236,7 +236,7 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 			return;
 		case SSH_ERROR:
 			reconnect_ssh_client(client, "Error connecting: %s",
-					  ssh_get_error(session));
+					     ssh_get_error(session));
 			return;
 		case SSH_OK:
 			register_session_fd_event(client);
@@ -316,7 +316,7 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 			return;
 		case SSH_AUTH_ERROR:
 			reconnect_ssh_client(client, "Auth error: %s",
-					  ssh_get_error(session));
+					     ssh_get_error(session));
 			return;
 		case SSH_AUTH_SUCCESS:
 			tmate_debug("Auth successful");
@@ -330,7 +330,7 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 			return;
 		case SSH_ERROR:
 			reconnect_ssh_client(client, "Error opening channel: %s",
-					  ssh_get_error(session));
+					     ssh_get_error(session));
 			return;
 		case SSH_OK:
 			tmate_debug("Session opened, initalizing tmate");
@@ -344,7 +344,7 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 			return;
 		case SSH_ERROR:
 			reconnect_ssh_client(client, "Error initializing tmate: %s",
-					  ssh_get_error(session));
+					     ssh_get_error(session));
 			return;
 		case SSH_OK:
 			tmate_debug("Ready");
@@ -427,7 +427,7 @@ static void on_reconnect_timer(__unused evutil_socket_t fd, __unused short what,
 }
 
 static void reconnect_ssh_client(struct tmate_ssh_client *client,
-			      const char *fmt, ...)
+				 const char *fmt, ...)
 {
 	/* struct timeval tv; */
 	va_list ap;
