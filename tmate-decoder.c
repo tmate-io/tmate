@@ -36,31 +36,15 @@ static void handle_legacy_pane_key(__unused struct tmate_session *_session,
 static struct window_pane *find_window_pane(struct session *s, int pane_id)
 {
 	struct window *w;
-	struct window_pane *wp;
-	struct winlink	*wl;
+
+	if (pane_id != -1)
+		return window_pane_find_by_id(pane_id);
 
 	w = s->curw->window;
 	if (!w)
-		goto slow_path;
-
-	wp = w->active;
-	if (!wp)
-		goto slow_path;
-	if (pane_id == -1 || (int)wp->id == pane_id)
-		return wp;
-
-slow_path:
-	if (pane_id == -1)
 		return NULL;
 
-	RB_FOREACH(wl, winlinks, &s->windows) {
-		TAILQ_FOREACH(wp, &wl->window->panes, entry) {
-			if ((int)wp->id == pane_id)
-				return wp;
-		}
-	}
-
-	return NULL;
+	return w->active;
 }
 
 static void handle_pane_key(__unused struct tmate_session *_session,
