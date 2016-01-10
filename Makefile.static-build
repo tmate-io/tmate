@@ -11,7 +11,7 @@ TMATE_CONFIGURE=PKG_CONFIG_PATH=./ext/lib/pkgconfig
 all: tmate
 
 dependencies:
-	apt-get install build-essentials cmake libssl-dev autoconf automake pkg-config libtool libevent-dev libncurses-dev zlib1g-dev
+	apt-get install build-essential cmake libssl-dev autoconf automake pkg-config libtool libevent-dev libncurses-dev zlib1g-dev
 
 downloads/$(notdir $(LIBSSH_URL)):
 	mkdir -p downloads

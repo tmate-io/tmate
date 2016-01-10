@@ -47,13 +47,12 @@ AC_ARG_ENABLE(
 	found_static=$enable_static
 )
 if test "x$found_static" = xyes; then
-	LDFLAGS="$LDFLAGS -static"
 	PKG_CONFIG="pkg-config --static"
 
 	CFLAGS="$CFLAGS -flto"
 	LDFLAGS="$LDFLAGS -flto"
 
-	 PKG_CHECK_MODULES([ZLIB], [zlib], [
+	PKG_CHECK_MODULES([ZLIB], [zlib], [
 		CPPFLAGS="$ZLIB_CFLAGS $CPPFLAGS"
 		LIBS="$ZLIB_LIBS $LIBS"
 	 ])
@@ -62,7 +61,6 @@ if test "x$found_static" = xyes; then
 		CPPFLAGS="$LIBCRYPTO_CFLAGS $CPPFLAGS"
 		LIBS="$LIBCRYPTO_LIBS $LIBS"
 	])
-	AC_CHECK_LIB(dl, dlopen)
 fi
 
 # Is this gcc?
@@ -450,6 +448,11 @@ if test "x$found_getopt" != xno; then
 	fi
 fi
 AM_CONDITIONAL(NO_GETOPT, [test "x$found_getopt" = xno])
+
+if test "x$found_static" = xyes; then
+	# libc and libdl should be dynamically linked.
+	LIBS="-Wl,-Bstatic ${LIBS/-ldl/} -Wl,-Bdynamic -ldl"
+fi
 
 # Check for BSD-style integer types.
 AC_MSG_CHECKING(for BSD-style unsigned types)
