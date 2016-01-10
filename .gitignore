@@ -21,3 +21,7 @@ cscope.*
 ctags
 *.log
 tmate.1.*
+downloads/
+ext/
+libssh-*/
+msgpack-*/

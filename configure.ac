@@ -49,6 +49,20 @@ AC_ARG_ENABLE(
 if test "x$found_static" = xyes; then
 	LDFLAGS="$LDFLAGS -static"
 	PKG_CONFIG="pkg-config --static"
+
+	CFLAGS="$CFLAGS -flto"
+	LDFLAGS="$LDFLAGS -flto"
+
+	 PKG_CHECK_MODULES([ZLIB], [zlib], [
+		CPPFLAGS="$ZLIB_CFLAGS $CPPFLAGS"
+		LIBS="$ZLIB_LIBS $LIBS"
+	 ])
+
+	PKG_CHECK_MODULES([LIBCRYPTO], [libcrypto], [
+		CPPFLAGS="$LIBCRYPTO_CFLAGS $CPPFLAGS"
+		LIBS="$LIBCRYPTO_LIBS $LIBS"
+	])
+	AC_CHECK_LIB(dl, dlopen)
 fi
 
 # Is this gcc?
