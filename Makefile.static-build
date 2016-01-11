@@ -8,6 +8,10 @@ MSGPACK_LIB=ext/lib/libmsgpack.a
 
 TMATE_CONFIGURE=PKG_CONFIG_PATH=./ext/lib/pkgconfig
 
+LIBC=$(shell gcc -print-file-name=libc.a)
+STATIC_LIBC_OBJECTS=fdelt_chk
+STATIC_COMPAT_OBJECTS=memcpy clock_gettime
+
 all: tmate
 
 dependencies:
@@ -39,11 +43,18 @@ $(MSGPACK_LIB): $(MSGPACK)/.ready
 	cd $(MSGPACK)/build; ([ -f Makefile ] || cmake -DCMAKE_INSTALL_PREFIX:PATH=$(shell pwd)/ext ..)
 	+make -C $(MSGPACK)/build install
 
-tmate: $(MSGPACK_LIB) $(LIBSSH_LIB)
+libc/%.o:
+	mkdir -p libc
+	cd libc; ar x $(LIBC) $(notdir $@)
+
+compat/%.o: compat/%.c
+	gcc -c -o $@ $<
+
+tmate: $(MSGPACK_LIB) $(LIBSSH_LIB) $(patsubst %,libc/%.o,$(STATIC_LIBC_OBJECTS)) $(patsubst %,compat/%.o,$(STATIC_COMPAT_OBJECTS))
 	./autogen.sh
 	$(TMATE_CONFIGURE) ./configure --enable-static
 	+make
 
 clean:
-	rm -rf ext $(LIBSSH) $(MSGPACK)
+	rm -rf ext libc $(LIBSSH) $(MSGPACK)
 	+make clean
