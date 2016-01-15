@@ -385,7 +385,6 @@ static void __kill_ssh_client(struct tmate_ssh_client *client,
 
 	if (event_initialized(&client->ev_ssh)) {
 		event_del(&client->ev_ssh);
-		client->ev_ssh.ev_flags = 0;
 	}
 
 	if (client->session) {
@@ -475,8 +474,6 @@ struct tmate_ssh_client *tmate_ssh_client_alloc(struct tmate_session *session,
 	client->session = NULL;
 	client->channel = NULL;
 	client->has_encoder = 0;
-
-	client->ev_ssh.ev_flags = 0;
 
 	evtimer_assign(&client->ev_ssh_reconnect, session->ev_base,
 		       on_reconnect_timer, client);
