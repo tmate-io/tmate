@@ -162,18 +162,23 @@ static void request_passphrase(struct tmate_ssh_client *client)
 	data->password_cb_private = client;
 }
 
-static void register_session_fd_event(struct tmate_ssh_client *client)
+static void init_conn_fd(struct tmate_ssh_client *client)
 {
-	if (!event_initialized(&client->ev_ssh)) {
-		int flag = 1;
-		setsockopt(ssh_get_fd(client->session), IPPROTO_TCP,
-			   TCP_NODELAY, &flag, sizeof(flag));
+	if (client->has_init_conn_fd)
+		return;
 
-		event_assign(&client->ev_ssh, client->tmate_session->ev_base,
-			     ssh_get_fd(client->session),
-			     EV_READ | EV_PERSIST, __on_ssh_client_event, client);
-		event_add(&client->ev_ssh, NULL);
-	}
+	if (ssh_get_fd(client->session) < 0)
+		return;
+
+	int flag = 1;
+	setsockopt(ssh_get_fd(client->session), IPPROTO_TCP,
+		   TCP_NODELAY, &flag, sizeof(flag));
+
+	event_set(&client->ev_ssh, ssh_get_fd(client->session),
+		  EV_READ | EV_PERSIST, __on_ssh_client_event, client);
+	event_add(&client->ev_ssh, NULL);
+
+	client->has_init_conn_fd = true;
 }
 
 static void on_ssh_client_event(struct tmate_ssh_client *client)
@@ -232,14 +237,15 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 	case SSH_CONNECT:
 		switch (ssh_connect(session)) {
 		case SSH_AGAIN:
-			register_session_fd_event(client);
+			init_conn_fd(client);
 			return;
 		case SSH_ERROR:
 			reconnect_ssh_client(client, "Error connecting: %s",
 					     ssh_get_error(session));
 			return;
 		case SSH_OK:
-			register_session_fd_event(client);
+			init_conn_fd(client);
+
 			tmate_debug("Establishing connection to %s", client->server_ip);
 			client->state = SSH_AUTH_SERVER;
 			/* fall through */
@@ -383,9 +389,9 @@ static void __kill_ssh_client(struct tmate_ssh_client *client,
 	else
 		tmate_debug("Disconnecting %s", client->server_ip);
 
-	if (event_initialized(&client->ev_ssh)) {
+	if (client->has_init_conn_fd) {
 		event_del(&client->ev_ssh);
-		client->ev_ssh.ev_flags = 0;
+		client->has_init_conn_fd = false;
 	}
 
 	if (client->session) {
@@ -476,7 +482,7 @@ struct tmate_ssh_client *tmate_ssh_client_alloc(struct tmate_session *session,
 	client->channel = NULL;
 	client->has_encoder = 0;
 
-	client->ev_ssh.ev_flags = 0;
+	client->has_init_conn_fd = false;
 
 	evtimer_assign(&client->ev_ssh_reconnect, session->ev_base,
 		       on_reconnect_timer, client);

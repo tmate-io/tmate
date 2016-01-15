@@ -132,6 +132,7 @@ struct tmate_ssh_client {
 	ssh_session session;
 	ssh_channel channel;
 
+	bool has_init_conn_fd;
 	struct event ev_ssh;
 	struct event ev_ssh_reconnect;
 };
