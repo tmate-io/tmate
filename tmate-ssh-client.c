@@ -49,6 +49,9 @@ static void on_encoder_write(void *userdata, struct evbuffer *buffer)
 	ssize_t len, written;
 	unsigned char *buf;
 
+	if (!client->channel)
+		return;
+
 	for(;;) {
 		len = evbuffer_get_length(buffer);
 		if (!len)
