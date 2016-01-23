@@ -146,6 +146,6 @@ void tmate_dispatch_slave_message(struct tmate_session *session,
 	dispatch(TMATE_IN_SET_ENV,		handle_set_env);
 	dispatch(TMATE_IN_READY,		handle_ready);
 	dispatch(TMATE_IN_PANE_KEY,		handle_pane_key);
-	default: tmate_fatal("Bad message type: %d", cmd);
+	default: tmate_info("Bad message type: %d", cmd);
 	}
 }
