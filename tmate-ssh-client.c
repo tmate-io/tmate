@@ -173,9 +173,11 @@ static void init_conn_fd(struct tmate_ssh_client *client)
 	if (ssh_get_fd(client->session) < 0)
 		return;
 
+	{
 	int flag = 1;
 	setsockopt(ssh_get_fd(client->session), IPPROTO_TCP,
 		   TCP_NODELAY, &flag, sizeof(flag));
+	}
 
 	event_set(&client->ev_ssh, ssh_get_fd(client->session),
 		  EV_READ | EV_PERSIST, __on_ssh_client_event, client);
