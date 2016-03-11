@@ -12,6 +12,12 @@ void tmate_write_header(void)
 	pack(string, VERSION);
 }
 
+void tmate_write_ready(void)
+{
+	pack(array, 1);
+	pack(int, TMATE_OUT_READY);
+}
+
 void tmate_sync_layout(void)
 {
 	struct session *s;

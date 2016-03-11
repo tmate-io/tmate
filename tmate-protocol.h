@@ -49,6 +49,7 @@ enum tmate_daemon_out_msg_types {
 	TMATE_OUT_SYNC_COPY_MODE,
 	TMATE_OUT_WRITE_COPY_MODE,
 	TMATE_OUT_FIN,
+	TMATE_OUT_READY,
 };
 
 /*
@@ -66,6 +67,7 @@ enum tmate_daemon_out_msg_types {
                                           // Any of the array can be []
 [TMATE_OUT_WRITE_COPY_MODE, int: pane_id, string: str]
 [TMATE_OUT_FIN]
+[TMATE_OUT_READY]
 */
 
 enum tmate_daemon_in_msg_types {

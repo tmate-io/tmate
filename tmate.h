@@ -73,9 +73,10 @@ extern void unpack_array(struct tmate_unpacker *uk, struct tmate_unpacker *neste
 
 /* tmate-encoder.c */
 
-#define TMATE_PROTOCOL_VERSION 5
+#define TMATE_PROTOCOL_VERSION 6
 
 extern void tmate_write_header(void);
+extern void tmate_write_ready(void);
 extern void tmate_sync_layout(void);
 extern void tmate_pty_data(struct window_pane *wp, const char *buf, size_t len);
 extern int tmate_should_replicate_cmd(const struct cmd_entry *cmd);
