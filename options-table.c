@@ -942,6 +942,17 @@ const struct options_table_entry options_table[] = {
 	  .default_num = 30000
 	},
 
+	{ .name = "tmate-webhook-userdata",
+	  .type = OPTIONS_TABLE_STRING,
+	  .scope = OPTIONS_TABLE_SERVER,
+	  .default_str = ""
+	},
+
+	{ .name = "tmate-webhook-url",
+	  .type = OPTIONS_TABLE_STRING,
+	  .scope = OPTIONS_TABLE_SERVER,
+	  .default_str = ""
+	},
 #endif
 
 	{ .name = NULL }
