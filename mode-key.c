@@ -1,7 +1,7 @@
 /* $OpenBSD$ */
 
 /*
- * Copyright (c) 2008 Nicholas Marriott <nicm@users.sourceforge.net>
+ * Copyright (c) 2008 Nicholas Marriott <nicholas.marriott@gmail.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -347,6 +347,7 @@ const struct mode_key_entry mode_key_vi_copy[] = {
 	{ KEYC_WHEELUP_PANE,        0, MODEKEYCOPY_SCROLLUP },
 	{ KEYC_WHEELDOWN_PANE,      0, MODEKEYCOPY_SCROLLDOWN },
 	{ KEYC_MOUSEDRAG1_PANE,     0, MODEKEYCOPY_STARTSELECTION },
+	{ KEYC_MOUSEUP1_PANE,       0, MODEKEYCOPY_COPYSELECTION },
 
 	{ 0,			   -1, 0 }
 };
@@ -495,6 +496,7 @@ const struct mode_key_entry mode_key_emacs_copy[] = {
 	{ KEYC_WHEELUP_PANE,        0, MODEKEYCOPY_SCROLLUP },
 	{ KEYC_WHEELDOWN_PANE,      0, MODEKEYCOPY_SCROLLDOWN },
 	{ KEYC_MOUSEDRAG1_PANE,     0, MODEKEYCOPY_STARTSELECTION },
+	{ KEYC_MOUSEUP1_PANE,       0, MODEKEYCOPY_COPYSELECTION },
 
 	{ 0,			   -1, 0 }
 };

@@ -1,7 +1,7 @@
 /* $OpenBSD$ */
 
 /*
- * Copyright (c) 2009 Nicholas Marriott <nicm@users.sourceforge.net>
+ * Copyright (c) 2009 Nicholas Marriott <nicholas.marriott@gmail.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -35,7 +35,7 @@ const struct cmd_entry cmd_break_pane_entry = {
 	.alias = "breakp",
 
 	.args = { "dPF:s:t:", 0, 0 },
-	.usage = "[-dP] [-F format] " CMD_SRCDST_PANE_USAGE,
+	.usage = "[-dP] [-F format] [-s src-pane] [-t dst-window]",
 
 	.sflag = CMD_PANE,
 	.tflag = CMD_WINDOW_INDEX,

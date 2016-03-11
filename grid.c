@@ -1,7 +1,7 @@
 /* $OpenBSD$ */
 
 /*
- * Copyright (c) 2008 Nicholas Marriott <nicm@users.sourceforge.net>
+ * Copyright (c) 2008 Nicholas Marriott <nicholas.marriott@gmail.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -37,7 +37,7 @@
 
 /* Default grid cell data. */
 const struct grid_cell grid_default_cell = {
-	0, 0, 8, 8, { { ' ' }, 0, 1, 1 }
+	0, 0, { .fg = 8 }, { .bg = 8 }, { { ' ' }, 0, 1, 1 }
 };
 const struct grid_cell_entry grid_default_entry = {
 	0, { .data = { 0, 8, 8, ' ' } }
@@ -284,6 +284,7 @@ grid_set_cell(struct grid *gd, u_int px, u_int py, const struct grid_cell *gc)
 	struct grid_line	*gl;
 	struct grid_cell_entry	*gce;
 	struct grid_cell 	*gcp;
+	int			 extended;
 
 	if (grid_check_y(gd, py) != 0)
 		return;
@@ -293,8 +294,12 @@ grid_set_cell(struct grid *gd, u_int px, u_int py, const struct grid_cell *gc)
 	gl = &gd->linedata[py];
 	gce = &gl->celldata[px];
 
-	if ((gce->flags & GRID_FLAG_EXTENDED) || gc->data.size != 1 ||
-	    gc->data.width != 1) {
+	extended = (gce->flags & GRID_FLAG_EXTENDED);
+	if (!extended && (gc->data.size != 1 || gc->data.width != 1))
+		extended = 1;
+	if (!extended && (gc->flags & (GRID_FLAG_FGRGB|GRID_FLAG_BGRGB)))
+		extended = 1;
+	if (extended) {
 		if (~gce->flags & GRID_FLAG_EXTENDED) {
 			gl->extddata = xreallocarray(gl->extddata,
 			    gl->extdsize + 1, sizeof *gl->extddata);
@@ -447,6 +452,12 @@ grid_string_cells_fg(const struct grid_cell *gc, int *values)
 		values[n++] = 38;
 		values[n++] = 5;
 		values[n++] = gc->fg;
+	} else if (gc->flags & GRID_FLAG_FGRGB) {
+		values[n++] = 38;
+		values[n++] = 2;
+		values[n++] = gc->fg_rgb.r;
+		values[n++] = gc->fg_rgb.g;
+		values[n++] = gc->fg_rgb.b;
 	} else {
 		switch (gc->fg) {
 		case 0:
@@ -488,6 +499,12 @@ grid_string_cells_bg(const struct grid_cell *gc, int *values)
 		values[n++] = 48;
 		values[n++] = 5;
 		values[n++] = gc->bg;
+	} else if (gc->flags & GRID_FLAG_BGRGB) {
+		values[n++] = 48;
+		values[n++] = 2;
+		values[n++] = gc->bg_rgb.r;
+		values[n++] = gc->bg_rgb.g;
+		values[n++] = gc->bg_rgb.b;
 	} else {
 		switch (gc->bg) {
 		case 0:
@@ -527,7 +544,7 @@ void
 grid_string_cells_code(const struct grid_cell *lastgc,
     const struct grid_cell *gc, char *buf, size_t len, int escape_c0)
 {
-	int	oldc[16], newc[16], s[32];
+	int	oldc[64], newc[64], s[128];
 	size_t	noldc, nnewc, n, i;
 	u_int	attr = gc->attr;
 	u_int	lastattr = lastgc->attr;

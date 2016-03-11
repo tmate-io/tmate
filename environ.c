@@ -1,7 +1,7 @@
 /* $OpenBSD$ */
 
 /*
- * Copyright (c) 2009 Nicholas Marriott <nicm@users.sourceforge.net>
+ * Copyright (c) 2009 Nicholas Marriott <nicholas.marriott@gmail.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -196,10 +196,10 @@ void
 environ_push(struct environ *env)
 {
 	struct environ_entry	 *envent;
-	char			**vp, *v;
+	char			*v;
 
-	for (vp = environ; *vp != NULL; vp++) {
-		v = xstrdup(*vp);
+	while (*environ != NULL) {
+		v = xstrdup(*environ);
 		v[strcspn(v, "=")] = '\0';
 
 		unsetenv(v);

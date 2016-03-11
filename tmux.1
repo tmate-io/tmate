@@ -1,6 +1,6 @@
 .\" $OpenBSD$
 .\"
-.\" Copyright (c) 2007 Nicholas Marriott <nicm@users.sourceforge.net>
+.\" Copyright (c) 2007 Nicholas Marriott <nicholas.marriott@gmail.com>
 .\"
 .\" Permission to use, copy, modify, and distribute this software for any
 .\" purpose with or without fee is hereby granted, provided that the above
@@ -721,7 +721,7 @@ will set the session working directory (used for new windows) to
 .Pp
 If
 .Fl E
-is used,
+is used, the
 .Ic update-environment
 option will not be applied.
 .It Xo Ic detach-client
@@ -857,13 +857,12 @@ with
 .Ar target-session .
 This means they share the same set of windows - all windows from
 .Ar target-session
-are linked to the new session and any subsequent new windows or windows being
-closed are applied to both sessions.
+are linked to the new session, any new windows are linked to both sessions and
+any windows closed removed from both sessions.
 The current and previous window and any session options remain independent and
 either session may be killed without affecting the other.
-Giving
 .Fl n
-or
+and
 .Ar shell-command
 are invalid if
 .Fl t
@@ -879,7 +878,7 @@ but a different format may be specified with
 .Pp
 If
 .Fl E
-is used,
+is used, the
 .Ic update-environment
 option will not be applied.
 .It Xo Ic refresh-client
@@ -1254,7 +1253,7 @@ Commands related to windows and panes are as follows:
 .Op Fl dP
 .Op Fl F Ar format
 .Op Fl s Ar src-pane
-.Op Fl t Ar dst-pane
+.Op Fl t Ar dst-window
 .Xc
 .D1 (alias: Ic breakp )
 Break
@@ -2925,7 +2924,7 @@ and poor for interactive programs such as shells.
 .Op Ic on | off
 .Xc
 Allow programs to change the window name using a terminal escape
-sequence (\\033k...\\033\\\\).
+sequence (\eek...\ee\e\e).
 The default is on.
 .Pp
 .It Xo Ic alternate-screen
@@ -3228,6 +3227,16 @@ Each hook has a
 .Em name .
 The following hooks are available:
 .Bl -tag -width "XXXXXXXXXXXXXXXX"
+.It alert-activity
+Run when a window has activity.
+See
+.Ic monitor-activity .
+.It alert-bell
+Run when a window has received a bell.
+.It alert-silence
+Run when a window has been silent.
+See
+.Ic monitor-silence .
 .It client-attached
 Run when a client is attached.
 .It client-detached
@@ -3371,9 +3380,13 @@ if not.
 A limit may be placed on the length of the resultant string by prefixing it
 by an
 .Ql = ,
-a number and a colon, so
-.Ql #{=10:pane_title}
-will include at most the first 10 characters of the pane title.
+a number and a colon.
+Positive numbers count from the start of the string and negative from the end,
+so
+.Ql #{=5:pane_title}
+will include at most the first 5 characters of the pane title, or
+.Ql #{=-5:pane_title}
+the last 5 characters.
 Prefixing a time variable with
 .Ql t:
 will convert it to a string, so if
@@ -4019,7 +4032,7 @@ This command only works from outside
 .El
 .Sh TERMINFO EXTENSIONS
 .Nm
-understands some extensions to
+understands some unofficial extensions to
 .Xr terminfo 5 :
 .Bl -tag -width Ds
 .It Em Cs , Cr
@@ -4043,10 +4056,12 @@ $ printf '\e033[4 q'
 If
 .Em Se
 is not set, \&Ss with argument 0 will be used to reset the cursor style instead.
+.It Em \&Tc
+Indicate that the terminal supports the
+.Ql direct colour
+RGB escape sequence (for example, \ee[38;2;255;255;255m).
 .It Em \&Ms
-This sequence can be used by
-.Nm
-to store the current buffer in the host terminal's selection (clipboard).
+Store the current buffer in the host terminal's selection (clipboard).
 See the
 .Em set-clipboard
 option above and the
@@ -4243,4 +4258,4 @@ bind-key S command-prompt "new-window -n %1 'ssh %1'"
 .Sh SEE ALSO
 .Xr pty 4
 .Sh AUTHORS
-.An Nicholas Marriott Aq Mt nicm@users.sourceforge.net
+.An Nicholas Marriott Aq Mt nicholas.marriott@gmail.com
