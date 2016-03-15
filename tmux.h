@@ -1,7 +1,7 @@
 /* $OpenBSD$ */
 
 /*
- * Copyright (c) 2007 Nicholas Marriott <nicm@users.sourceforge.net>
+ * Copyright (c) 2007 Nicholas Marriott <nicholas.marriott@gmail.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -31,6 +31,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <termios.h>
+#include <wchar.h>
 
 #ifdef HAVE_UTEMPTER
 #include <utempter.h>
@@ -389,6 +390,7 @@ enum tty_code_code {
 	TTYC_SMSO,	/* enter_standout_mode, so */
 	TTYC_SMUL,	/* enter_underline_mode, us */
 	TTYC_SS,	/* set cursor style, Ss */
+	TTYC_TC,	/* 24-bit "true" colour, Tc */
 	TTYC_TSL,	/* to_status_line, tsl */
 	TTYC_VPA,	/* row_address, cv */
 	TTYC_XENL,	/* eat_newline_glitch, xn */
@@ -645,16 +647,31 @@ enum utf8_state {
 #define GRID_FLAG_BG256 0x2
 #define GRID_FLAG_PADDING 0x4
 #define GRID_FLAG_EXTENDED 0x8
+#define GRID_FLAG_FGRGB 0x10
+#define GRID_FLAG_BGRGB 0x20
 
 /* Grid line flags. */
 #define GRID_LINE_WRAPPED 0x1
+
+/* Grid cell RGB colours. */
+struct grid_cell_rgb {
+	u_char	r;
+	u_char	g;
+	u_char	b;
+};
 
 /* Grid cell data. */
 struct grid_cell {
 	u_char			flags;
 	u_char			attr;
-	u_char			fg;
-	u_char			bg;
+	union {
+		u_char		fg;
+		struct grid_cell_rgb	fg_rgb;
+	};
+	union {
+		u_char		bg;
+		struct grid_cell_rgb	bg_rgb;
+	};
 	struct utf8_data	data;
 
 };
@@ -1555,7 +1572,7 @@ extern struct client *cfg_client;
 void		 start_cfg(void);
 int		 load_cfg(const char *, struct cmd_q *, char **);
 void		 set_cfg_file(const char *);
-void		 cfg_add_cause(const char *, ...);
+void printflike(1, 2) cfg_add_cause(const char *, ...);
 void		 cfg_print_causes(struct cmd_q *);
 void		 cfg_show_causes(struct session *);
 
@@ -1784,8 +1801,11 @@ long long	 args_strtonum(struct args *, u_char, long long, long long,
 		     char **);
 
 /* cmd-find.c */
-int		 cmd_find_target(struct cmd_find_state *, struct cmd_q *,
-		     const char *, enum cmd_find_type, int);
+int		 cmd_find_current(struct cmd_find_state *, struct cmd_q *,
+		     int);
+int		 cmd_find_target(struct cmd_find_state *,
+		     struct cmd_find_state *, struct cmd_q *, const char *,
+		     enum cmd_find_type, int);
 struct client	*cmd_find_client(struct cmd_q *, const char *, int);
 void		 cmd_find_clear_state(struct cmd_find_state *, struct cmd_q *,
 		     int);
@@ -1795,6 +1815,8 @@ void		 cmd_find_copy_state(struct cmd_find_state *,
 void		 cmd_find_log_state(const char *, struct cmd_find_state *);
 int		 cmd_find_from_session(struct cmd_find_state *,
 		     struct session *);
+int		 cmd_find_from_winlink(struct cmd_find_state *,
+		     struct session *, struct winlink *);
 int		 cmd_find_from_window(struct cmd_find_state *, struct window *);
 int		 cmd_find_from_pane(struct cmd_find_state *,
 		     struct window_pane *);
@@ -1806,7 +1828,8 @@ char	       **cmd_copy_argv(int, char **);
 void		 cmd_free_argv(int, char **);
 char		*cmd_stringify_argv(int, char **);
 struct cmd	*cmd_parse(int, char **, const char *, u_int, char **);
-int		 cmd_prepare_state(struct cmd *, struct cmd_q *);
+int		 cmd_prepare_state(struct cmd *, struct cmd_q *,
+		     struct cmd_q *);
 char		*cmd_print(struct cmd *);
 int		 cmd_mouse_at(struct window_pane *, struct mouse_event *,
 		     u_int *, u_int *, int);
@@ -2307,19 +2330,18 @@ void		 session_group_synchronize1(struct session *, struct session *);
 void		 session_renumber_windows(struct session *);
 
 /* utf8.c */
-u_int		 utf8_width(u_int);
 void		 utf8_set(struct utf8_data *, u_char);
 void		 utf8_copy(struct utf8_data *, const struct utf8_data *);
 enum utf8_state	 utf8_open(struct utf8_data *, u_char);
 enum utf8_state	 utf8_append(struct utf8_data *, u_char);
-u_int		 utf8_combine(const struct utf8_data *);
-enum utf8_state	 utf8_split(u_int, struct utf8_data *);
-u_int		 utf8_split2(u_int, u_char *);
+enum utf8_state	 utf8_combine(const struct utf8_data *, wchar_t *);
+enum utf8_state	 utf8_split(wchar_t, struct utf8_data *);
 int		 utf8_strvis(char *, const char *, size_t, int);
 char		*utf8_sanitize(const char *);
 struct utf8_data *utf8_fromcstr(const char *);
 char		*utf8_tocstr(struct utf8_data *);
 u_int		 utf8_cstrwidth(const char *);
+char		*utf8_rtrimcstr(const char *, u_int);
 char		*utf8_trimcstr(const char *, u_int);
 char		*utf8_padcstr(const char *, u_int);
 

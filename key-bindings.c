@@ -1,7 +1,7 @@
 /* $OpenBSD$ */
 
 /*
- * Copyright (c) 2007 Nicholas Marriott <nicm@users.sourceforge.net>
+ * Copyright (c) 2007 Nicholas Marriott <nicholas.marriott@gmail.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -68,12 +68,12 @@ void
 key_bindings_unref_table(struct key_table *table)
 {
 	struct key_binding	*bd;
+	struct key_binding	*bd1;
 
 	if (--table->references != 0)
 		return;
 
-	while (!RB_EMPTY(&table->key_bindings)) {
-		bd = RB_ROOT(&table->key_bindings);
+	RB_FOREACH_SAFE(bd, key_bindings, &table->key_bindings, bd1) {
 		RB_REMOVE(key_bindings, &table->key_bindings, bd);
 		cmd_list_free(bd->cmdlist);
 		free(bd);

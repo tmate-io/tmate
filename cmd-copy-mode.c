@@ -1,7 +1,7 @@
 /* $OpenBSD$ */
 
 /*
- * Copyright (c) 2007 Nicholas Marriott <nicm@users.sourceforge.net>
+ * Copyright (c) 2007 Nicholas Marriott <nicholas.marriott@gmail.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -45,6 +45,8 @@ const struct cmd_entry cmd_clock_mode_entry = {
 
 	.args = { "t:", 0, 0 },
 	.usage = CMD_TARGET_PANE_USAGE,
+
+	.tflag = CMD_PANE,
 
 	.flags = 0,
 	.exec = cmd_copy_mode_exec

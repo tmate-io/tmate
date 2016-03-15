@@ -8,7 +8,7 @@ This release runs on OpenBSD, FreeBSD, NetBSD, Linux, OS X and Solaris.
 
 tmux depends on libevent 2.x. Download it from:
 
-	http://www.monkey.org/~provos/libevent/
+	http://libevent.org
 
 To build tmux from a release tarball, do:
 
@@ -33,12 +33,16 @@ the source tree with:
 Some common questions are answered in the FAQ file and a more extensive (but
 slightly out of date) guide is available in the OpenBSD FAQ at
 http://www.openbsd.org/faq/faq7.html#tmux. A rough todo list is in the TODO
-file and some example configurations are in the examples directory.
+file and an example configuration in example_tmux.conf.
 
 A vim(1) syntax file is available at:
 
    https://github.com/keith/tmux.vim
    https://raw.githubusercontent.com/keith/tmux.vim/master/syntax/tmux.vim
+
+And a bash(1) completion file at:
+
+   https://github.com/przepompownia/tmux-bash-completion
 
 For debugging, running tmux with -v or -vv will generate server and client log
 files in the current directory.
@@ -56,10 +60,7 @@ welcome. Please send by email to:
 
 	tmux-users@googlegroups.com
 
-This file and the CHANGES, FAQ, SYNCING and TODO files are licensed under
-the ISC license. Files under examples/ remain copyright their authors unless
-otherwise stated in the file but permission has been received to distribute
-them with tmux. All other files have a license and copyright notice at their
-start.
+This file and the CHANGES, FAQ, SYNCING and TODO files are licensed under the
+ISC license. All other files have a license and copyright notice at their start.
 
 -- Nicholas Marriott <nicholas.marriott@gmail.com>
