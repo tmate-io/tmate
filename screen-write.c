@@ -1,7 +1,7 @@
 /* $OpenBSD$ */
 
 /*
- * Copyright (c) 2007 Nicholas Marriott <nicm@users.sourceforge.net>
+ * Copyright (c) 2007 Nicholas Marriott <nicholas.marriott@gmail.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -994,7 +994,9 @@ screen_write_cell(struct screen_write_ctx *ctx, const struct grid_cell *gc)
 		utf8_copy(&tmp_gc.data, &gc->data);
 		tmp_gc.attr = tmp_gc.attr & ~GRID_ATTR_CHARSET;
 		tmp_gc.attr |= gc->attr & GRID_ATTR_CHARSET;
-		tmp_gc.flags = gc->flags & ~(GRID_FLAG_FG256|GRID_FLAG_BG256);
+		tmp_gc.flags = gc->flags;
+		tmp_gc.flags &= ~(GRID_FLAG_FGRGB|GRID_FLAG_BGRGB);
+		tmp_gc.flags &= ~(GRID_FLAG_FG256|GRID_FLAG_BG256);
 		tmp_gc.flags |= s->sel.cell.flags &
 		    (GRID_FLAG_FG256|GRID_FLAG_BG256);
 		ttyctx.cell = &tmp_gc;

@@ -1,7 +1,7 @@
 /* $OpenBSD$ */
 
 /*
- * Copyright (c) 2007 Nicholas Marriott <nicm@users.sourceforge.net>
+ * Copyright (c) 2007 Nicholas Marriott <nicholas.marriott@gmail.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -23,6 +23,8 @@
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
+#include <getopt.h>
+#include <langinfo.h>
 #include <locale.h>
 #include <pwd.h>
 #include <stdlib.h>
@@ -32,10 +34,6 @@
 
 #include "tmux.h"
 #include "tmate.h"
-
-#if defined(DEBUG) && defined(__OpenBSD__)
-extern char	*malloc_options;
-#endif
 
 struct options	*global_options;	/* server options */
 struct options	*global_s_options;	/* session options */
@@ -207,9 +205,14 @@ main(int argc, char **argv)
 	const char	*s;
 	int		 opt, flags, keys;
 
-#if defined(DEBUG) && defined(__OpenBSD__)
-	malloc_options = (char *) "AFGJPX";
-#endif
+	if (setlocale(LC_CTYPE, "en_US.UTF-8") == NULL) {
+		if (setlocale(LC_CTYPE, "") == NULL)
+			errx(1, "invalid LC_ALL, LC_CTYPE or LANG");
+		s = nl_langinfo(CODESET);
+		if (strcasecmp(s, "UTF-8") != 0 &&
+		    strcasecmp(s, "UTF8") != 0)
+			errx(1, "need UTF-8 locale (LC_CTYPE) but have %s", s);
+	}
 
 	setlocale(LC_TIME, "");
 	tzset();
