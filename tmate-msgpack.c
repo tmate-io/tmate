@@ -65,13 +65,22 @@ void tmate_encoder_init(struct tmate_encoder *encoder,
 	encoder->ev_active = false;
 }
 
+void tmate_encoder_destroy(struct tmate_encoder *encoder)
+{
+	/* encoder->pk doesn't need any cleanup */
+	evbuffer_free(encoder->buffer);
+	event_del(&encoder->ev_buffer);
+	memset(encoder, 0, sizeof(*encoder));
+}
+
 void tmate_encoder_set_ready_callback(struct tmate_encoder *encoder,
 				      tmate_encoder_write_cb *callback,
 				      void *userdata)
 {
 	encoder->ready_callback = callback;
 	encoder->userdata = userdata;
-	encoder->ready_callback(encoder->userdata, encoder->buffer);
+	if (encoder->ready_callback)
+		encoder->ready_callback(encoder->userdata, encoder->buffer);
 }
 
 void tmate_decoder_error(void)
@@ -176,6 +185,12 @@ void tmate_decoder_init(struct tmate_decoder *decoder, tmate_decoder_reader *rea
 		tmate_fatal("Cannot initialize the unpacker");
 	decoder->reader = reader;
 	decoder->userdata = userdata;
+}
+
+void tmate_decoder_destroy(struct tmate_decoder *decoder)
+{
+	msgpack_unpacker_destroy(&decoder->unpacker);
+	memset(decoder, 0, sizeof(*decoder));
 }
 
 void tmate_decoder_get_buffer(struct tmate_decoder *decoder,

@@ -114,19 +114,29 @@ out:
 	free(cmd_str);
 }
 
-static void handle_set_env(__unused struct tmate_session *session,
+static void maybe_save_reconnection_data(struct tmate_session *session,
+				const char *name, const char *value)
+{
+	if (!strcmp(name, "tmate_reconnection_data")) {
+		free(session->reconnection_data);
+		session->reconnection_data = xstrdup(value);
+	}
+}
+
+static void handle_set_env(struct tmate_session *session,
 			   struct tmate_unpacker *uk)
 {
 	char *name = unpack_string(uk);
 	char *value = unpack_string(uk);
 
 	tmate_set_env(name, value);
+	maybe_save_reconnection_data(session, name, value);
 
 	free(name);
 	free(value);
 }
 
-static void handle_ready(__unused struct tmate_session *session,
+static void handle_ready(struct tmate_session *session,
 			 __unused struct tmate_unpacker *uk)
 {
 	session->tmate_env_ready = 1;

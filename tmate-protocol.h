@@ -29,6 +29,7 @@ enum tmate_control_in_msg_types {
 	TMATE_CTL_PANE_KEYS,
 	TMATE_CTL_RESIZE,
 	TMATE_CTL_EXEC_RESPONSE,
+	TMATE_CTL_RENAME_SESSION,
 };
 
 /*
@@ -37,6 +38,7 @@ enum tmate_control_in_msg_types {
 [TMATE_CTL_PANE_KEYS, int: pane_id, string: keys]
 [TMATE_CTL_RESIZE, int: sx, int: sy] // sx == -1: no clients
 [TMATE_CTL_EXEC_RESPONSE, int: exit_code, string: message]
+[TMATE_CTL_RENAME_SESSION, string: stoken, string: stoken_ro]
 */
 
 enum tmate_daemon_out_msg_types {
@@ -50,6 +52,8 @@ enum tmate_daemon_out_msg_types {
 	TMATE_OUT_WRITE_COPY_MODE,
 	TMATE_OUT_FIN,
 	TMATE_OUT_READY,
+	TMATE_OUT_RECONNECT,
+	TMATE_OUT_SNAPSHOT,
 };
 
 /*

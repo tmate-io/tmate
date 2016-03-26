@@ -11,7 +11,8 @@
 
 #include "tmate.h"
 
-#define TMATE_DNS_RETRY_TIMEOUT 10
+#define TMATE_DNS_RETRY_TIMEOUT 2
+#define TMATE_RECONNECT_RETRY_TIMEOUT 2
 
 struct tmate_session tmate_session;
 
@@ -129,11 +130,52 @@ void tmate_session_init(struct event_base *base)
 
 void tmate_session_start(void)
 {
-	/* We split init and start because:
+	/*
+	 * We split init and start because:
 	 * - We need to process the tmux config file during the connection as
 	 *   we are setting up the tmate identity.
 	 * - While we are parsing the config file, we need to be able to
 	 *   serialize it, and so we need a worker encoder.
 	 */
 	lookup_and_connect();
+}
+
+static void on_reconnect_retry(__unused evutil_socket_t fd, __unused short what, void *arg)
+{
+	struct tmate_session *session = arg;
+
+	if (session->last_server_ip) {
+		/*
+		 * We have a previous server ip. Let's try that again first,
+		 * but then connect to any server if it fails again.
+		 */
+		(void)tmate_ssh_client_alloc(&tmate_session, session->last_server_ip);
+		free(session->last_server_ip);
+		session->last_server_ip = NULL;
+	} else {
+		lookup_and_connect();
+	}
+}
+
+void tmate_reconnect_session(struct tmate_session *session)
+{
+	/*
+	 * We no longer have an SSH connection. Time to reconnect.
+	 * We'll reuse some of the session information if we can,
+	 * and we'll try to reconnect to the same server if possible,
+	 * to avoid an SSH connection string change.
+	 */
+	struct timeval tv = { .tv_sec = TMATE_RECONNECT_RETRY_TIMEOUT, .tv_usec = 0 };
+
+	evtimer_assign(&session->ev_connection_retry, session->ev_base,
+		       on_reconnect_retry, session);
+	evtimer_add(&session->ev_connection_retry, &tv);
+
+	tmate_status_message("Reconnecting...");
+
+	/*
+	 * This says that we'll need to send a snapshot of the current state.
+	 * Until we have persisted logs...
+	 */
+	session->reconnected = true;
 }

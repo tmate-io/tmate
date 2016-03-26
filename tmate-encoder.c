@@ -236,3 +236,126 @@ void tmate_write_fin(void)
 	pack(array, 1);
 	pack(int, TMATE_OUT_FIN);
 }
+
+static void do_snapshot(unsigned int max_history_lines,
+			struct window_pane *pane)
+{
+	struct screen *screen;
+	struct grid *grid;
+	struct grid_line *line;
+	struct grid_cell gc;
+	unsigned int line_i, i;
+	unsigned int max_lines;
+	size_t str_len;
+
+	screen = &pane->base;
+	grid = screen->grid;
+
+	pack(array, 4);
+	pack(int, pane->id);
+
+	pack(array, 2);
+	pack(int, screen->cx);
+	pack(int, screen->cy);
+
+	pack(unsigned_int, screen->mode);
+
+	max_lines = max_history_lines + grid->sy;
+
+#define grid_num_lines(grid) (grid->hsize + grid->sy)
+
+	if (grid_num_lines(grid) > max_lines)
+		line_i = grid_num_lines(grid) - max_lines;
+	else
+		line_i = 0;
+
+	pack(array, grid_num_lines(grid) - line_i);
+	for (; line_i < grid_num_lines(grid); line_i++) {
+		line = &grid->linedata[line_i];
+
+		pack(array, 2);
+		str_len = 0;
+		for (i = 0; i < line->cellsize; i++) {
+			grid_get_cell(grid, i, line_i, &gc);
+			str_len += gc.data.size;
+		}
+
+		pack(str, str_len);
+		for (i = 0; i < line->cellsize; i++) {
+			grid_get_cell(grid, i, line_i, &gc);
+			pack(str_body, gc.data.data, gc.data.size);
+		}
+
+		pack(array, line->cellsize);
+		for (i = 0; i < line->cellsize; i++) {
+			grid_get_cell(grid, i, line_i, &gc);
+			pack(unsigned_int, ((gc.flags << 24) |
+					    (gc.attr  << 16) |
+					    (gc.bg    << 8)  |
+					     gc.fg        ));
+		}
+	}
+}
+
+static void tmate_send_session_snapshot(unsigned int max_history_lines)
+{
+	struct session *s;
+	struct winlink *wl;
+	struct window *w;
+	struct window_pane *pane;
+	int num_panes;
+
+	pack(array, 2);
+	pack(int, TMATE_OUT_SNAPSHOT);
+
+	s = RB_MIN(sessions, &sessions);
+	if (!s)
+		tmate_fatal("no session?");
+
+	num_panes = 0;
+	RB_FOREACH(wl, winlinks, &s->windows) {
+		w = wl->window;
+		if (!w)
+			continue;
+
+		TAILQ_FOREACH(pane, &w->panes, entry)
+			num_panes++;
+	}
+
+	pack(array, num_panes);
+	RB_FOREACH(wl, winlinks, &s->windows) {
+		w = wl->window;
+		if (!w)
+			continue;
+
+		TAILQ_FOREACH(pane, &w->panes, entry)
+			do_snapshot(max_history_lines, pane);
+	}
+}
+
+static void tmate_send_reconnection_data(struct tmate_session *session)
+{
+	if (!session->reconnection_data)
+		return;
+
+	pack(array, 2);
+	pack(int, TMATE_OUT_RECONNECT);
+	pack(string, session->reconnection_data);
+}
+
+#define RECONNECTION_MAX_HISTORY_LINE 300
+
+void tmate_send_reconnection_state(struct tmate_session *session)
+{
+	/* Start with a fresh encoder */
+	tmate_encoder_destroy(&session->encoder);
+	tmate_encoder_init(&session->encoder, NULL, session);
+
+	tmate_write_header();
+	tmate_send_reconnection_data(session);
+	/* TODO send all option variables */
+	tmate_write_ready();
+
+	tmate_sync_layout();
+	tmate_send_session_snapshot(RECONNECTION_MAX_HISTORY_LINE);
+}

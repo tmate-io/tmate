@@ -30,6 +30,7 @@ struct tmate_encoder {
 extern void tmate_encoder_init(struct tmate_encoder *encoder,
 			       tmate_encoder_write_cb *callback,
 			       void *userdata);
+extern void tmate_encoder_destroy(struct tmate_encoder *encoder);
 extern void tmate_encoder_set_ready_callback(struct tmate_encoder *encoder,
 					     tmate_encoder_write_cb *callback,
 					     void *userdata);
@@ -50,6 +51,7 @@ struct tmate_decoder {
 };
 
 extern void tmate_decoder_init(struct tmate_decoder *decoder, tmate_decoder_reader *reader, void *userdata);
+extern void tmate_decoder_destroy(struct tmate_decoder *decoder);
 extern void tmate_decoder_get_buffer(struct tmate_decoder *decoder, char **buf, size_t *len);
 extern void tmate_decoder_commit(struct tmate_decoder *decoder, size_t len);
 
@@ -75,6 +77,8 @@ extern void unpack_array(struct tmate_unpacker *uk, struct tmate_unpacker *neste
 
 #define TMATE_PROTOCOL_VERSION 6
 
+struct tmate_session;
+
 extern void tmate_write_header(void);
 extern void tmate_write_ready(void);
 extern void tmate_sync_layout(void);
@@ -86,6 +90,7 @@ extern void tmate_status(const char *left, const char *right);
 extern void tmate_sync_copy_mode(struct window_pane *wp);
 extern void tmate_write_copy_mode(struct window_pane *wp, const char *str);
 extern void tmate_write_fin(void);
+extern void tmate_send_reconnection_state(struct tmate_session *session);
 
 /* tmate-decoder.c */
 
@@ -135,7 +140,6 @@ struct tmate_ssh_client {
 
 	bool has_init_conn_fd;
 	struct event ev_ssh;
-	struct event ev_ssh_reconnect;
 };
 TAILQ_HEAD(tmate_ssh_clients, tmate_ssh_client);
 
@@ -166,11 +170,17 @@ struct tmate_session {
 	struct tmate_ssh_clients clients;
 	int need_passphrase;
 	char *passphrase;
+
+	bool reconnected;
+	struct event ev_connection_retry;
+	char *last_server_ip;
+	char *reconnection_data;
 };
 
 extern struct tmate_session tmate_session;
 extern void tmate_session_init(struct event_base *base);
 extern void tmate_session_start(void);
+extern void tmate_reconnect_session(struct tmate_session *session);
 
 /* tmate-debug.c */
 extern void tmate_print_stack_trace(void);
