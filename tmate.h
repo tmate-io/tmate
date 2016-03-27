@@ -38,7 +38,7 @@ extern void tmate_encoder_set_ready_callback(struct tmate_encoder *encoder,
 extern void msgpack_pack_string(msgpack_packer *pk, const char *str);
 extern void msgpack_pack_boolean(msgpack_packer *pk, bool value);
 
-#define _pack(enc, what, ...) msgpack_pack_##what(&(enc)->pk, __VA_ARGS__)
+#define _pack(enc, what, ...) msgpack_pack_##what(&(enc)->pk, ##__VA_ARGS__)
 
 struct tmate_unpacker;
 struct tmate_decoder;

@@ -2,7 +2,7 @@
 #include "tmate-protocol.h"
 #include "window-copy.h"
 
-#define pack(what, ...) _pack(&tmate_session.encoder, what, __VA_ARGS__)
+#define pack(what, ...) _pack(&tmate_session.encoder, what, ##__VA_ARGS__)
 
 void tmate_write_header(void)
 {
@@ -237,28 +237,13 @@ void tmate_write_fin(void)
 	pack(int, TMATE_OUT_FIN);
 }
 
-static void do_snapshot(unsigned int max_history_lines,
-			struct window_pane *pane)
+static void do_snapshot_grid(struct grid *grid, unsigned int max_history_lines)
 {
-	struct screen *screen;
-	struct grid *grid;
 	struct grid_line *line;
 	struct grid_cell gc;
 	unsigned int line_i, i;
 	unsigned int max_lines;
 	size_t str_len;
-
-	screen = &pane->base;
-	grid = screen->grid;
-
-	pack(array, 4);
-	pack(int, pane->id);
-
-	pack(array, 2);
-	pack(int, screen->cx);
-	pack(int, screen->cy);
-
-	pack(unsigned_int, screen->mode);
 
 	max_lines = max_history_lines + grid->sy;
 
@@ -295,6 +280,31 @@ static void do_snapshot(unsigned int max_history_lines,
 					     gc.fg        ));
 		}
 	}
+
+}
+
+static void do_snapshot_pane(struct window_pane *wp, unsigned int max_history_lines)
+{
+	struct screen *screen = &wp->base;
+
+	pack(array, 4);
+	pack(int, wp->id);
+
+	pack(unsigned_int, screen->mode);
+
+	pack(array, 3);
+	pack(int, screen->cx);
+	pack(int, screen->cy);
+	do_snapshot_grid(screen->grid, max_history_lines);
+
+	if (wp->saved_grid) {
+		pack(array, 3);
+		pack(int, wp->saved_cx);
+		pack(int, wp->saved_cy);
+		do_snapshot_grid(wp->saved_grid, max_history_lines);
+	} else {
+		pack(nil);
+	}
 }
 
 static void tmate_send_session_snapshot(unsigned int max_history_lines)
@@ -329,7 +339,7 @@ static void tmate_send_session_snapshot(unsigned int max_history_lines)
 			continue;
 
 		TAILQ_FOREACH(pane, &w->panes, entry)
-			do_snapshot(max_history_lines, pane);
+			do_snapshot_pane(pane, max_history_lines);
 	}
 }
 
