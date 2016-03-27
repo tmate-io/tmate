@@ -939,7 +939,7 @@ const struct options_table_entry options_table[] = {
 	  .scope = OPTIONS_TABLE_SESSION,
 	  .minimum = 1,
 	  .maximum = INT_MAX,
-	  .default_num = 30000
+	  .default_num = 15000
 	},
 
 	{ .name = "tmate-webhook-userdata",
