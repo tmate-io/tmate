@@ -175,6 +175,17 @@ struct tmate_session {
 	struct event ev_connection_retry;
 	char *last_server_ip;
 	char *reconnection_data;
+	/*
+	 * When we reconnect, instead of serializing the key bindings and
+	 * options, we replay all the tmux commands we replicated.
+	 * It may be a little innacurate to replicate the state, but
+	 * it's much easier.
+	 */
+	struct {
+		unsigned int capacity;
+		unsigned int tail;
+		char **cmds;
+	} saved_tmux_cmds;
 };
 
 extern struct tmate_session tmate_session;

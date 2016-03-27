@@ -150,11 +150,46 @@ int tmate_should_replicate_cmd(const struct cmd_entry *cmd)
 	return 0;
 }
 
-void tmate_exec_cmd(const char *cmd)
+#define sc (&session->saved_tmux_cmds)
+#define SAVED_TMUX_CMD_INITIAL_SIZE 256
+static void __tmate_exec_cmd(const char *cmd);
+
+static void append_saved_cmd(struct tmate_session *session,
+			     const char *cmd)
+{
+	if (!sc->cmds) {
+		sc->capacity = SAVED_TMUX_CMD_INITIAL_SIZE;
+		sc->cmds = xmalloc(sizeof(char *) * sc->capacity);
+		sc->tail = 0;
+	}
+
+	if (sc->tail == sc->capacity) {
+		sc->capacity *= 2;
+		sc->cmds = xrealloc(sc->cmds, sizeof(char *) * sc->capacity);
+	}
+
+	sc->cmds[sc->tail++] = xstrdup(cmd);
+}
+
+static void replay_saved_cmd(struct tmate_session *session)
+{
+	unsigned int i;
+	for (i = 0; i < sc->tail; i++)
+		__tmate_exec_cmd(sc->cmds[i]);
+}
+#undef sc
+
+static void __tmate_exec_cmd(const char *cmd)
 {
 	pack(array, 2);
 	pack(int, TMATE_OUT_EXEC_CMD);
 	pack(string, cmd);
+}
+
+void tmate_exec_cmd(const char *cmd)
+{
+	__tmate_exec_cmd(cmd);
+	append_saved_cmd(&tmate_session, cmd);
 }
 
 void tmate_failed_cmd(int client_id, const char *cause)
@@ -363,6 +398,7 @@ void tmate_send_reconnection_state(struct tmate_session *session)
 
 	tmate_write_header();
 	tmate_send_reconnection_data(session);
+	replay_saved_cmd(session);
 	/* TODO send all option variables */
 	tmate_write_ready();
 
