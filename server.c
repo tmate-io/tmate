@@ -213,6 +213,9 @@ server_start(struct event_base *base, int lockfd, char *lockfile)
 
 	proc_loop(server_proc, server_loop);
 	status_prompt_save_history();
+#ifdef TMATE
+	unlink(socket_path);
+#endif
 	exit(0);
 }
 
