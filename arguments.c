@@ -177,34 +177,20 @@ args_print(struct args *args)
 			args_print_add(&buf, &len, " -%c ", entry->flag);
 		else
 			args_print_add(&buf, &len, "-%c ", entry->flag);
-#ifdef TMATE
-		if (strchr(entry->value, '\'') != NULL)
-			args_print_add(&buf, &len, "\"%s\"", entry->value);
-		else
-			args_print_add(&buf, &len, "'%s'", entry->value);
-#else
 		if (strchr(entry->value, ' ') != NULL)
 			args_print_add(&buf, &len, "\"%s\"", entry->value);
 		else
 			args_print_add(&buf, &len, "%s", entry->value);
-#endif
 	}
 
 	/* And finally the argument vector. */
 	for (i = 0; i < args->argc; i++) {
 		if (*buf != '\0')
 			args_print_add(&buf, &len, " ");
-#ifdef TMATE
-		if (strchr(args->argv[i], '\'') != NULL)
-			args_print_add(&buf, &len, "\"%s\"", args->argv[i]);
-		else
-			args_print_add(&buf, &len, "'%s'", args->argv[i]);
-#else
 		if (strchr(args->argv[i], ' ') != NULL)
 			args_print_add(&buf, &len, "\"%s\"", args->argv[i]);
 		else
 			args_print_add(&buf, &len, "%s", args->argv[i]);
-#endif
 	}
 
 	return (buf);
