@@ -2,23 +2,26 @@
 #define TMATE_PROTOCOL_H
 
 enum tmate_control_out_msg_types {
-	TMATE_CTL_AUTH,
+	TMATE_CTL_HEADER,
 	TMATE_CTL_DEAMON_OUT_MSG,
 	TMATE_CTL_SNAPSHOT,
 	TMATE_CTL_CLIENT_JOIN,
 	TMATE_CTL_CLIENT_LEFT,
 	TMATE_CTL_EXEC,
+	TMATE_CTL_LATENCY,
 };
 
 /*
-[TMATE_CTL_AUTH, int: ctl_proto_version, string: ip_address, string: pubkey,
-                 string: session_token, string: session_token_ro]
+[TMATE_CTL_HEADER, int: ctl_proto_version, string: ip_address, string: pubkey,
+                   string: session_token, string: session_token_ro, string: ssh_cmd_fmt]
+	           string: client_version, int: client_protocol_version]
 [TMATE_CTL_DEAMON_OUT_MSG, object: msg]
 [TMATE_CTL_SNAPSHOT, [[int: pane_id, [int: cur_x, int: cur_y], int: mode,
                        [[string: line_utf8, [int: char_attr, ...]], ...], ...], ...]]
 [TMATE_CTL_CLIENT_JOIN, int: client_id, string: ip_address, string: pubkey, boolean: readonly]
 [TMATE_CTL_CLIENT_LEFT, int: client_id]
 [TMATE_CTL_EXEC, string: username, string: ip_address, string: pubkey, string: command]
+[TMATE_CTL_LATENCY, int: client_id, int: latency_ms] // client_id == -1: tmate host
 */
 
 enum tmate_control_in_msg_types {
