@@ -201,12 +201,13 @@ cmdq_continue_one(struct cmd_q *cmdq)
 	char		*tmp;
 	int		 flags = !!(cmd->flags & CMD_CONTROL);
 
-	tmp = cmd_print(cmd);
-	log_debug("cmdq %p: %s", cmdq, tmp);
 #ifdef TMATE
 	if (tmate_should_replicate_cmd(cmd->entry))
-		tmate_exec_cmd(tmp);
+		tmate_exec_cmd(cmd);
 #endif
+
+	tmp = cmd_print(cmd);
+	log_debug("cmdq %p: %s", cmdq, tmp);
 	free(tmp);
 
 	cmdq->time = time(NULL);

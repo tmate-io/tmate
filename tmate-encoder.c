@@ -152,44 +152,99 @@ int tmate_should_replicate_cmd(const struct cmd_entry *cmd)
 
 #define sc (&session->saved_tmux_cmds)
 #define SAVED_TMUX_CMD_INITIAL_SIZE 256
-static void __tmate_exec_cmd(const char *cmd);
+static void __tmate_exec_cmd_args(int argc, const char **argv);
 
 static void append_saved_cmd(struct tmate_session *session,
-			     const char *cmd)
+			     int argc, const char **argv)
 {
 	if (!sc->cmds) {
 		sc->capacity = SAVED_TMUX_CMD_INITIAL_SIZE;
-		sc->cmds = xmalloc(sizeof(char *) * sc->capacity);
+		sc->cmds = xmalloc(sizeof(*sc->cmds) * sc->capacity);
 		sc->tail = 0;
 	}
 
 	if (sc->tail == sc->capacity) {
 		sc->capacity *= 2;
-		sc->cmds = xrealloc(sc->cmds, sizeof(char *) * sc->capacity);
+		sc->cmds = xrealloc(sc->cmds, sizeof(*sc->cmds) * sc->capacity);
 	}
 
-	sc->cmds[sc->tail++] = xstrdup(cmd);
+	sc->cmds[sc->tail].argc = argc;
+	sc->cmds[sc->tail].argv = cmd_copy_argv(argc, (char **)argv);
+
+	sc->tail++;
 }
 
 static void replay_saved_cmd(struct tmate_session *session)
 {
 	unsigned int i;
 	for (i = 0; i < sc->tail; i++)
-		__tmate_exec_cmd(sc->cmds[i]);
+		__tmate_exec_cmd_args(sc->cmds[i].argc, (const char **)sc->cmds[i].argv);
 }
 #undef sc
 
-static void __tmate_exec_cmd(const char *cmd)
+struct args_entry {
+	u_char			 flag;
+	char			*value;
+	RB_ENTRY(args_entry)	 entry;
+};
+
+static void extract_cmd(struct cmd *cmd, int *_argc, char ***_argv)
 {
-	pack(array, 2);
-	pack(int, TMATE_OUT_EXEC_CMD);
-	pack(string, cmd);
+	struct args_entry *entry;
+	struct args* args = cmd->args;
+	int argc = 0;
+	char **argv;
+	int next = 0, i;
+
+	argc++; /* cmd name */
+	RB_FOREACH(entry, args_tree, &args->tree) {
+		argc++;
+		if (entry->value != NULL)
+			argc++;
+	}
+	argc += args->argc;
+	argv = xmalloc(sizeof(char *) * argc);
+
+	argv[next++] = xstrdup(cmd->entry->name);
+
+	RB_FOREACH(entry, args_tree, &args->tree) {
+		xasprintf(&argv[next++], "-%c", entry->flag);
+		if (entry->value != NULL)
+			argv[next++] = xstrdup(entry->value);
+	}
+
+	for (i = 0; i < args->argc; i++)
+		argv[next++] = xstrdup(args->argv[i]);
+
+	*_argc = argc;
+	*_argv = argv;
 }
 
-void tmate_exec_cmd(const char *cmd)
+static void __tmate_exec_cmd_args(int argc, const char **argv)
 {
-	__tmate_exec_cmd(cmd);
-	append_saved_cmd(&tmate_session, cmd);
+	int i;
+
+	pack(array, argc + 1);
+	pack(int, TMATE_OUT_EXEC_CMD);
+
+	for (i = 0; i < argc; i++)
+		pack(string, argv[i]);
+}
+
+void tmate_exec_cmd_args(int argc, const char **argv)
+{
+	__tmate_exec_cmd_args(argc, argv);
+	append_saved_cmd(&tmate_session, argc, argv);
+}
+
+void tmate_exec_cmd(struct cmd *cmd)
+{
+	int argc;
+	char **argv;
+
+	extract_cmd(cmd, &argc, &argv);
+	tmate_exec_cmd_args(argc, (const char **)argv);
+	cmd_free_argv(argc, argv);
 }
 
 void tmate_failed_cmd(int client_id, const char *cause)

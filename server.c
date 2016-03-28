@@ -135,13 +135,13 @@ server_create_socket(void)
 static void tmate_set_editor_mode(void)
 {
 	switch (options_get_number(global_s_options, "status-keys")) {
-		case MODEKEY_EMACS: tmate_exec_cmd("set-option -g status-keys emacs"); break;
-		case MODEKEY_VI:    tmate_exec_cmd("set-option -g status-keys vi"); break;
+		case MODEKEY_EMACS: tmate_exec_cmd_args(4, (const char *[]){"set-option", "-g", "status-keys", "emacs"}); break;
+		case MODEKEY_VI:    tmate_exec_cmd_args(4, (const char *[]){"set-option", "-g", "status-keys", "vi"}); break;
 	}
 
 	switch (options_get_number(global_w_options, "mode-keys")) {
-		case MODEKEY_EMACS: tmate_exec_cmd("set-window-option -g mode-keys emacs"); break;
-		case MODEKEY_VI:    tmate_exec_cmd("set-window-option -g mode-keys vi"); break;
+		case MODEKEY_EMACS: tmate_exec_cmd_args(4, (const char *[]){"set-window-option", "-g", "status-keys", "emacs"}); break;
+		case MODEKEY_VI:    tmate_exec_cmd_args(4, (const char *[]){"set-window-option", "-g", "status-keys", "vi"}); break;
 	}
 }
 #endif

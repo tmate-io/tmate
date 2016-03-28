@@ -78,8 +78,8 @@ static void handle_resize(struct tmate_session *session,
 extern char		**cfg_causes;
 extern u_int		  cfg_ncauses;
 
-static void handle_exec_cmd(__unused struct tmate_session *session,
-			    struct tmate_unpacker *uk)
+static void handle_exec_cmd_str(__unused struct tmate_session *session,
+				struct tmate_unpacker *uk)
 {
 	struct cmd_q *cmd_q;
 	struct cmd_list *cmdlist;
@@ -112,6 +112,55 @@ static void handle_exec_cmd(__unused struct tmate_session *session,
 
 out:
 	free(cmd_str);
+}
+
+static void handle_exec_cmd(__unused struct tmate_session *session,
+			    struct tmate_unpacker *uk)
+{
+	struct cmd_q *cmd_q;
+	struct cmd_list *cmdlist;
+	struct cmd *cmd;
+	char *cause;
+	u_int i;
+	unsigned int argc;
+	char **argv;
+
+	int client_id = unpack_int(uk);
+
+	argc = uk->argc;
+	argv = xmalloc(sizeof(char *) * argc);
+	for (i = 0; i < argc; i++)
+		argv[i] = unpack_string(uk);
+
+	cmd = cmd_parse(argc, argv, NULL, 0, &cause);
+	if (!cmd) {
+		tmate_failed_cmd(client_id, cause);
+		free(cause);
+		goto out;
+	}
+
+	cmdlist = xcalloc(1, sizeof *cmdlist);
+	cmdlist->references = 1;
+	TAILQ_INIT(&cmdlist->list);
+	TAILQ_INSERT_TAIL(&cmdlist->list, cmd, qentry);
+
+	cmd_q = cmdq_new(NULL);
+	cmdq_run(cmd_q, cmdlist, NULL);
+	cmd_list_free(cmdlist);
+	cmdq_free(cmd_q);
+
+	/* error messages land in cfg_causes */
+	for (i = 0; i < cfg_ncauses; i++) {
+		tmate_failed_cmd(client_id, cfg_causes[i]);
+		free(cfg_causes[i]);
+	}
+
+	free(cfg_causes);
+	cfg_causes = NULL;
+	cfg_ncauses = 0;
+
+out:
+	cmd_free_argv(argc, argv);
 }
 
 static void maybe_save_reconnection_data(struct tmate_session *session,
@@ -152,10 +201,11 @@ void tmate_dispatch_slave_message(struct tmate_session *session,
 	dispatch(TMATE_IN_NOTIFY,		handle_notify);
 	dispatch(TMATE_IN_LEGACY_PANE_KEY,	handle_legacy_pane_key);
 	dispatch(TMATE_IN_RESIZE,		handle_resize);
-	dispatch(TMATE_IN_EXEC_CMD,		handle_exec_cmd);
+	dispatch(TMATE_IN_EXEC_CMD_STR,		handle_exec_cmd_str);
 	dispatch(TMATE_IN_SET_ENV,		handle_set_env);
 	dispatch(TMATE_IN_READY,		handle_ready);
 	dispatch(TMATE_IN_PANE_KEY,		handle_pane_key);
+	dispatch(TMATE_IN_EXEC_CMD,		handle_exec_cmd);
 	default: tmate_info("Bad message type: %d", cmd);
 	}
 }

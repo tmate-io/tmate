@@ -84,7 +84,8 @@ extern void tmate_write_ready(void);
 extern void tmate_sync_layout(void);
 extern void tmate_pty_data(struct window_pane *wp, const char *buf, size_t len);
 extern int tmate_should_replicate_cmd(const struct cmd_entry *cmd);
-extern void tmate_exec_cmd(const char *cmd);
+extern void tmate_exec_cmd_args(int argc, const char **argv);
+extern void tmate_exec_cmd(struct cmd *cmd);
 extern void tmate_failed_cmd(int client_id, const char *cause);
 extern void tmate_status(const char *left, const char *right);
 extern void tmate_sync_copy_mode(struct window_pane *wp);
@@ -184,7 +185,10 @@ struct tmate_session {
 	struct {
 		unsigned int capacity;
 		unsigned int tail;
-		char **cmds;
+		struct {
+			int argc;
+			char **argv;
+		} *cmds;
 	} saved_tmux_cmds;
 };
 

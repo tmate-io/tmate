@@ -45,7 +45,7 @@ enum tmate_daemon_out_msg_types {
 	TMATE_OUT_HEADER,
 	TMATE_OUT_SYNC_LAYOUT,
 	TMATE_OUT_PTY_DATA,
-	TMATE_OUT_EXEC_CMD,
+	TMATE_OUT_EXEC_CMD_STR,
 	TMATE_OUT_FAILED_CMD,
 	TMATE_OUT_STATUS,
 	TMATE_OUT_SYNC_COPY_MODE,
@@ -54,6 +54,7 @@ enum tmate_daemon_out_msg_types {
 	TMATE_OUT_READY,
 	TMATE_OUT_RECONNECT,
 	TMATE_OUT_SNAPSHOT,
+	TMATE_OUT_EXEC_CMD,
 };
 
 /*
@@ -62,7 +63,7 @@ enum tmate_daemon_out_msg_types {
 			  [[int: pane_id, int: sx, int: sy, int: xoff, int: yoff], ...],
 			  int: active_pane_id], ...], int: active_win_id]
 [TMATE_OUT_PTY_DATA, int: pane_id, binary: buffer]
-[TMATE_OUT_EXEC_CMD, string: cmd]
+[TMATE_OUT_EXEC_CMD_STR, string: cmd]
 [TMATE_OUT_FAILED_CMD, int: client_id, string: cause]
 [TMATE_OUT_STATUS, string: left, string: right]
 [TMATE_OUT_SYNC_COPY_MODE, int: pane_id, [int: backing, int: oy, int: cx, int: cy,
@@ -72,26 +73,31 @@ enum tmate_daemon_out_msg_types {
 [TMATE_OUT_WRITE_COPY_MODE, int: pane_id, string: str]
 [TMATE_OUT_FIN]
 [TMATE_OUT_READY]
+[TMATE_OUT_RECONNECT, string: reconnection_data]
+[TMATE_OUT_SNAPSHOT, ...]
+[TMATE_OUT_EXEC_CMD, string: cmd_name, ...string: args]
 */
 
 enum tmate_daemon_in_msg_types {
 	TMATE_IN_NOTIFY,
 	TMATE_IN_LEGACY_PANE_KEY,
 	TMATE_IN_RESIZE,
-	TMATE_IN_EXEC_CMD,
+	TMATE_IN_EXEC_CMD_STR,
 	TMATE_IN_SET_ENV,
 	TMATE_IN_READY,
 	TMATE_IN_PANE_KEY,
+	TMATE_IN_EXEC_CMD,
 };
 
 /*
 [TMATE_IN_NOTIFY, string: msg]
 [TMATE_IN_PANE_KEY, int: key]
 [TMATE_IN_RESIZE, int: sx, int: sy] // sx == -1: no clients
-[TMATE_IN_EXEC_CMD, int: client_id, string: cmd]
+[TMATE_IN_EXEC_CMD_STR, int: client_id, string: cmd]
 [TMATE_IN_SET_ENV, string: name, string: value]
 [TMATE_IN_READY]
 [TMATE_IN_PANE_KEY, int: pane_id, uint64 keycode] // pane_id == -1: active pane
+[TMATE_IN_EXEC_CMD, int: client_id, ...string: args]
 */
 
 #endif
