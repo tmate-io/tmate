@@ -108,13 +108,14 @@ void tmate_sync_layout(void)
 
 /* TODO add a buffer for pty_data ? */
 
+#define TMATE_MAX_PTY_SIZE (16*1024)
+
 void tmate_pty_data(struct window_pane *wp, const char *buf, size_t len)
 {
-	size_t max_write, to_write;
+	size_t to_write;
 
-	max_write = TMATE_MAX_MESSAGE_SIZE - 16;
 	while (len > 0) {
-		to_write = len < max_write ? len : max_write;
+		to_write = len < TMATE_MAX_PTY_SIZE ? len : TMATE_MAX_PTY_SIZE;
 
 		pack(array, 3);
 		pack(int, TMATE_OUT_PTY_DATA);

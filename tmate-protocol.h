@@ -1,8 +1,6 @@
 #ifndef TMATE_PROTOCOL_H
 #define TMATE_PROTOCOL_H
 
-#define TMATE_MAX_MESSAGE_SIZE (16*1024)
-
 enum tmate_control_out_msg_types {
 	TMATE_CTL_AUTH,
 	TMATE_CTL_DEAMON_OUT_MSG,
