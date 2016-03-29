@@ -195,7 +195,7 @@ struct tmate_session {
 extern struct tmate_session tmate_session;
 extern void tmate_session_init(struct event_base *base);
 extern void tmate_session_start(void);
-extern void tmate_reconnect_session(struct tmate_session *session);
+extern void tmate_reconnect_session(struct tmate_session *session, const char *message);
 
 /* tmate-debug.c */
 extern void tmate_print_stack_trace(void);

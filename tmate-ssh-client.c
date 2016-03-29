@@ -395,14 +395,16 @@ static void kill_ssh_client(struct tmate_ssh_client *client,
 {
 	bool last_client;
 	va_list ap;
+	char *message = NULL;
 
 	TAILQ_REMOVE(&client->tmate_session->clients, client, node);
 	last_client = TAILQ_EMPTY(&client->tmate_session->clients);
 
 	if (fmt && last_client) {
 		va_start(ap, fmt);
-		__tmate_status_message(fmt, ap);
+		xvasprintf(&message, fmt, ap);
 		va_end(ap);
+		tmate_status_message("%s", message);
 	}
 
 	tmate_debug("SSH client killed (%s)", client->server_ip);
@@ -429,7 +431,7 @@ static void kill_ssh_client(struct tmate_ssh_client *client,
 	}
 
 	if (last_client)
-		tmate_reconnect_session(client->tmate_session);
+		tmate_reconnect_session(client->tmate_session, message);
 
 	free(client->server_ip);
 	free(client);

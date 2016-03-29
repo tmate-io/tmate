@@ -157,7 +157,7 @@ static void on_reconnect_retry(__unused evutil_socket_t fd, __unused short what,
 	}
 }
 
-void tmate_reconnect_session(struct tmate_session *session)
+void tmate_reconnect_session(struct tmate_session *session, const char *message)
 {
 	/*
 	 * We no longer have an SSH connection. Time to reconnect.
@@ -171,7 +171,10 @@ void tmate_reconnect_session(struct tmate_session *session)
 		       on_reconnect_retry, session);
 	evtimer_add(&session->ev_connection_retry, &tv);
 
-	tmate_status_message("Reconnecting...");
+	if (message)
+		tmate_status_message("Reconnecting... (%s)", message);
+	else
+		tmate_status_message("Reconnecting...");
 
 	/*
 	 * This says that we'll need to send a snapshot of the current state.
