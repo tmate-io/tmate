@@ -54,6 +54,7 @@ tmate: $(MSGPACK_LIB) $(LIBSSH_LIB) $(patsubst %,libc/%.o,$(STATIC_LIBC_OBJECTS)
 	./autogen.sh
 	$(TMATE_CONFIGURE) ./configure --enable-static
 	+make
+	strip tmate
 
 clean:
 	rm -rf ext libc $(LIBSSH) $(MSGPACK)
