@@ -319,7 +319,7 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 				request_passphrase(client);
 			} else {
 				kill_ssh_client(client, "SSH keys not found."
-				" Run 'ssh-keygen' to create keys and try again.");
+				" Run 'ssh-keygen' to create keys.");
 				return;
 			}
 
