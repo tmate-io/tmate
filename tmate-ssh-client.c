@@ -165,22 +165,48 @@ static void request_passphrase(struct tmate_ssh_client *client)
 	data->password_cb_private = client;
 }
 
+#define KEEPALIVE_CNT		3
+#define KEEPALIVE_IDLE		20
+#define KEEPALIVE_INTVL		10
+
+static void setup_socket(int fd)
+{
+#define SSO(level, optname, val) ({							\
+	int _flag = val;								\
+	if (setsockopt(fd, level, optname, &(_flag), sizeof(int)) < 0) {		\
+		tmate_warn("setsockopt(" #level ", " #optname ", %d) failed", val);	\
+	}										\
+})
+
+	SSO(IPPROTO_TCP, TCP_NODELAY, 1);
+	SSO(SOL_SOCKET, SO_KEEPALIVE, 1);
+#ifdef TCP_KEEPALIVE
+	SSO(IPPROTO_TCP, TCP_KEEPALIVE, KEEPALIVE_IDLE);
+#endif
+#ifdef TCP_KEEPCNT
+	SSO(IPPROTO_TCP, TCP_KEEPCNT, KEEPALIVE_CNT);
+#endif
+#ifdef TCP_KEEPIDLE
+	SSO(IPPROTO_TCP, TCP_KEEPIDLE, KEEPALIVE_IDLE);
+#endif
+#ifdef TCP_KEEPINTVL
+	SSO(IPPROTO_TCP, TCP_KEEPINTVL, KEEPALIVE_INTVL);
+#endif
+#undef SSO
+}
+
 static void init_conn_fd(struct tmate_ssh_client *client)
 {
+	int fd;
+
 	if (client->has_init_conn_fd)
 		return;
 
-	if (ssh_get_fd(client->session) < 0)
+	if ((fd = ssh_get_fd(client->session)) < 0)
 		return;
 
-	{
-	int flag = 1;
-	setsockopt(ssh_get_fd(client->session), IPPROTO_TCP,
-		   TCP_NODELAY, &flag, sizeof(flag));
-	}
-
-	event_set(&client->ev_ssh, ssh_get_fd(client->session),
-		  EV_READ | EV_PERSIST, __on_ssh_client_event, client);
+	setup_socket(fd);
+	event_set(&client->ev_ssh, fd, EV_READ | EV_PERSIST, __on_ssh_client_event, client);
 	event_add(&client->ev_ssh, NULL);
 
 	client->has_init_conn_fd = true;
