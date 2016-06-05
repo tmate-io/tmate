@@ -2,6 +2,7 @@
 #include <event2/util.h>
 #include <event2/event.h>
 
+#include <netinet/in.h>
 #include <sys/socket.h>
 
 #include <stdio.h>
