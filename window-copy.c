@@ -1054,6 +1054,11 @@ window_copy_search_up(struct window_pane *wp, const char *searchstr)
 	int				 n, wrapped, wrapflag, cis;
 	const char			*ptr;
 
+#ifdef TMATE
+	if (!searchstr)
+		return;
+#endif
+
 	if (*searchstr == '\0')
 		return;
 	wrapflag = options_get_number(wp->window->options, "wrap-search");
@@ -1119,6 +1124,11 @@ window_copy_search_down(struct window_pane *wp, const char *searchstr)
 	u_int				 i, first, fx, fy, px;
 	int				 n, wrapped, wrapflag, cis;
 	const char			*ptr;
+
+#ifdef TMATE
+	if (!searchstr)
+		return;
+#endif
 
 	if (*searchstr == '\0')
 		return;
