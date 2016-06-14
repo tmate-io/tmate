@@ -307,6 +307,10 @@ cmd_string_variable(const char *s, size_t *p)
 	free(buf);
 	if (envent == NULL)
 		return (xstrdup(""));
+#ifdef TMATE
+	if (envent->value == NULL)
+		return (xstrdup(""));
+#endif
 	return (xstrdup(envent->value));
 
 error:
