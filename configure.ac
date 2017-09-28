@@ -102,6 +102,7 @@ AC_CHECK_HEADERS(
 		bitstring.h \
 		curses.h \
 		dirent.h \
+		execinfo.h \
 		fcntl.h \
 		inttypes.h \
 		libutil.h \
@@ -121,9 +122,13 @@ AC_CHECK_HEADERS(
 # Look for library needed for flock.
 AC_SEARCH_LIBS(flock, bsd)
 
+# Look for library needed for backtrace
+AC_SEARCH_LIBS(backtrace, execinfo)
+
 # Check for some functions that are replaced or omitted.
 AC_CHECK_FUNCS(
 	[ \
+		backtrace \
 		dirfd \
 		flock \
 		setproctitle \

@@ -1,9 +1,18 @@
+#ifdef HAVE_EXECINFO_H
 #include <execinfo.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <regex.h>
 #include <signal.h>
 #include "tmate.h"
+
+#ifndef HAVE_BACKTRACE
+
+void tmate_print_stack_trace(void) {}
+void tmate_catch_sigsegv(void) {}
+
+#else
 
 #if DEBUG
 
@@ -88,3 +97,4 @@ void tmate_catch_sigsegv(void)
 {
 	signal(SIGSEGV, handle_sigsegv);
 }
+#endif
