@@ -15,13 +15,13 @@
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
 .Dd $Mdocdate: March 25 2013 $
-.Dt TMUX 1
+.Dt TMATE 1
 .Os
 .Sh NAME
-.Nm tmux
+.Nm tmate
 .Nd terminal multiplexer
 .Sh SYNOPSIS
-.Nm tmux
+.Nm tmate
 .Bk -words
 .Op Fl 2CluvV
 .Op Fl c Ar shell-command
@@ -80,7 +80,7 @@ key strokes).
 .Nm
 may be reattached using:
 .Pp
-.Dl $ tmux attach
+.Dl $ tmate attach
 .Pp
 In
 .Nm ,
@@ -126,7 +126,9 @@ By default,
 loads the system configuration file from
 .Pa @SYSCONFDIR@/tmux.conf ,
 if present, then looks for a user configuration file at
-.Pa ~/.tmux.conf .
+.Pa ~/.tmux.conf
+and
+.Pa ~/.tmate.conf .
 .Pp
 The configuration file is a set of
 .Nm
@@ -167,7 +169,9 @@ directories are missing).
 .It Fl l
 Behave as a login shell.
 This flag currently has no effect and is for compatibility with other shells
-when using tmux as a login shell.
+when using
+.Nm
+as a login shell.
 .It Fl S Ar socket-path
 Specify a full alternative path to the server socket.
 If
@@ -597,7 +601,7 @@ to be given as multiple arguments and executed directly (without
 This can avoid issues with shell quoting.
 For example:
 .Bd -literal -offset indent
-$ tmux new-window vi /etc/passwd
+$ tmate new-window vi /etc/passwd
 .Ed
 .Pp
 Will run
@@ -616,7 +620,7 @@ bind-key F1 set-window-option force-width 81
 Or if using
 .Xr sh 1 :
 .Bd -literal -offset indent
-$ tmux bind-key F1 set-window-option force-width 81
+$ tmate bind-key F1 set-window-option force-width 81
 .Ed
 .Pp
 Multiple commands may be specified together as part of a
@@ -648,11 +652,11 @@ bind-key R source-file ~/.tmux.conf \e; \e
 Or from
 .Xr sh 1 :
 .Bd -literal -offset indent
-$ tmux kill-window -t :1
+$ tmate kill-window -t :1
 
-$ tmux new-window \e; split-window -d
+$ tmate new-window \e; split-window -d
 
-$ tmux new-session -d 'vi /etc/passwd' \e; split-window -d \e; attach
+$ tmate new-session -d 'vi /etc/passwd' \e; split-window -d \e; attach
 .Ed
 .Sh CLIENTS AND SESSIONS
 The
@@ -1236,10 +1240,10 @@ command displays the layout of each window in a form suitable for use with
 .Ic select-layout .
 For example:
 .Bd -literal -offset indent
-$ tmux list-windows
+$ tmate list-windows
 0: ksh [159x48]
     layout: bb62,159x48,0,0{79x48,0,0,79x48,80,0}
-$ tmux select-layout bb62,159x48,0,0{79x48,0,0,79x48,80,0}
+$ tmate select-layout bb62,159x48,0,0{79x48,0,0,79x48,80,0}
 .Ed
 .Pp
 .Nm
@@ -2307,8 +2311,8 @@ User options may have any name, so long as they are prefixed with
 and be set to any string.
 For example:
 .Bd -literal -offset indent
-$ tmux setw -q @foo "abc123"
-$ tmux showw -v @foo
+$ tmate setw -q @foo "abc123"
+$ tmate showw -v @foo
 abc123
 .Ed
 .Pp
@@ -2394,7 +2398,8 @@ to work correctly, this
 .Em must
 be set to
 .Ql screen ,
-.Ql tmux
+.Ql tmux ,
+.Ql tmate
 or a derivative of them.
 .It Ic escape-time Ar time
 Set the time in milliseconds for which
@@ -4172,18 +4177,18 @@ To create a new
 session running
 .Xr vi 1 :
 .Pp
-.Dl $ tmux new-session vi
+.Dl $ tmate new-session vi
 .Pp
 Most commands have a shorter form, known as an alias.
 For new-session, this is
 .Ic new :
 .Pp
-.Dl $ tmux new vi
+.Dl $ tmate new vi
 .Pp
 Alternatively, the shortest unambiguous form of a command is accepted.
 If there are several options, they are listed:
 .Bd -literal -offset indent
-$ tmux n
+$ tmate n
 ambiguous command: n, could be: new-session, new-window, next-window
 .Ed
 .Pp
@@ -4213,7 +4218,7 @@ A session may be detached using
 .Xr ssh 1
 disconnection) and reattached with:
 .Pp
-.Dl $ tmux attach-session
+.Dl $ tmate attach-session
 .Pp
 Typing
 .Ql C-b \&?
