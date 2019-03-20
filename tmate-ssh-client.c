@@ -2,6 +2,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <event.h>
 #include <assert.h>
 
@@ -260,6 +261,9 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 			 * regular one doesn't.
 			 */
 			ssh_options_set(session, SSH_OPTIONS_IDENTITY, identity);
+
+			/* Do not use keys from ssh-agent. */
+			unsetenv("SSH_AUTH_SOCK");
 			free(identity);
 		}
 
