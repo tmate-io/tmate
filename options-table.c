@@ -925,13 +925,13 @@ const struct options_table_entry options_table[] = {
 	{ .name = "tmate-server-rsa-fingerprint",
 	  .type = OPTIONS_TABLE_STRING,
 	  .scope = OPTIONS_TABLE_SERVER,
-	  .default_str = "af:2d:81:c1:fe:49:70:2d:7f:09:a9:d7:4b:32:e3:be"
+	  .default_str = "SHA256:Hthk2T/M/Ivqfk1YYUn5ijC2Att3+UPzD7Rn72P5VWs"
 	},
 
 	{ .name = "tmate-server-ecdsa-fingerprint",
 	  .type = OPTIONS_TABLE_STRING,
 	  .scope = OPTIONS_TABLE_SERVER,
-	  .default_str = "c7:a1:51:36:d2:bb:35:4b:0a:1a:c0:43:97:74:ea:42"
+	  .default_str = "SHA256:8GmKHYHEJ6n0TEdciHeEGkKOigQfCFuBULdt6vZIhDc"
 	},
 
 	{ .name = "tmate-display-time",
