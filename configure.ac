@@ -214,7 +214,7 @@ fi
 
 PKG_CHECK_MODULES(
   LIBSSH,
-  libssh >= 0.6.0,
+  libssh >= 0.8.4,
   [
     CPPFLAGS="$LIBSSH_CFLAGS $CPPFLAGS"
     LIBS="$LIBSSH_LIBS $LIBS"
@@ -223,7 +223,7 @@ PKG_CHECK_MODULES(
   found_libssh=no
 )
 if test "x$found_libssh" = xno; then
-  AC_MSG_ERROR("libssh >= 0.6.0 not found")
+  AC_MSG_ERROR("libssh >= 0.8.4 not found")
 fi
 
 # Check for b64_ntop.
