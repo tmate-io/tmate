@@ -2,6 +2,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <event.h>
 #include <assert.h>
 
@@ -342,6 +343,8 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 
 	case SSH_AUTH_CLIENT:
 		client->tried_passphrase = client->tmate_session->passphrase;
+		/* Do not use keys from ssh-agent. */
+		unsetenv("SSH_AUTH_SOCK");
 		switch (ssh_userauth_autopubkey(session, client->tried_passphrase)) {
 		case SSH_AUTH_AGAIN:
 			return;
