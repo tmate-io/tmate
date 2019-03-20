@@ -287,12 +287,14 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 		if (ssh_get_publickey(session, &pubkey) < 0)
 			tmate_fatal("ssh_get_publickey");
 
-		if (ssh_get_publickey_hash(pubkey, SSH_PUBLICKEY_HASH_MD5, &hash, &hash_len) < 0) {
+		if (ssh_get_publickey_hash(pubkey, SSH_PUBLICKEY_HASH_SHA256,
+					   &hash, &hash_len) < 0) {
 			kill_ssh_client(client, "Cannot authenticate server");
 			return;
 		}
 
-		hash_str = ssh_get_hexa(hash, hash_len);
+		hash_str = ssh_get_fingerprint_hash(SSH_PUBLICKEY_HASH_SHA256,
+						    hash, hash_len);
 		if (!hash_str)
 			tmate_fatal("malloc failed");
 
