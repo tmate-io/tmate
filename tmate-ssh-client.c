@@ -309,6 +309,10 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 			server_hash_str = options_get_string(global_options,
 						"tmate-server-ecdsa-fingerprint");
 			break;
+		case SSH_KEYTYPE_ED25519:
+			server_hash_str = options_get_string(global_options,
+						"tmate-server-ed25519-fingerprint");
+			break;
 		default:
 			server_hash_str = "";
 		}
