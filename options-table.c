@@ -937,7 +937,7 @@ const struct options_table_entry options_table[] = {
 	{ .name = "tmate-server-ed25519-fingerprint",
 	  .type = OPTIONS_TABLE_STRING,
 	  .scope = OPTIONS_TABLE_SERVER,
-	  .default_str = ""
+	  .default_str = "SHA256:jfttvoypkHiQYUqUCwKeqd9d1fJj/ZiQlFOHVl6E9sI"
 	},
 
 	{ .name = "tmate-display-time",
