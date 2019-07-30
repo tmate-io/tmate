@@ -282,8 +282,13 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 		}
 
 	case SSH_AUTH_SERVER:
+#if LIBSSH_VERSION_INT >= SSH_VERSION_INT(0, 9, 0)
+		if (ssh_get_server_publickey(session, &pubkey) < 0)
+			tmate_fatal("ssh_get_server_publickey");
+#else
 		if (ssh_get_publickey(session, &pubkey) < 0)
 			tmate_fatal("ssh_get_publickey");
+#endif
 
 		if (ssh_get_publickey_hash(pubkey, SSH_PUBLICKEY_HASH_SHA256,
 					   &hash, &hash_len) < 0) {
