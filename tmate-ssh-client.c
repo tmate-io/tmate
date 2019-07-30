@@ -218,7 +218,7 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 {
 	char *identity;
 	ssh_key pubkey;
-	int key_type;
+	enum ssh_keytypes_e key_type;
 	unsigned char *hash;
 	ssize_t hash_len;
 	char *hash_str;
@@ -304,6 +304,11 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 						"tmate-server-rsa-fingerprint");
 			break;
 		case SSH_KEYTYPE_ECDSA:
+#if LIBSSH_VERSION_INT >= SSH_VERSION_INT(0, 9, 0)
+		case SSH_KEYTYPE_ECDSA_P256:
+		case SSH_KEYTYPE_ECDSA_P384:
+		case SSH_KEYTYPE_ECDSA_P521:
+#endif
 			server_hash_str = options_get_string(global_options,
 						"tmate-server-ecdsa-fingerprint");
 			break;
