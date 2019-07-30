@@ -241,12 +241,6 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 
 		ssh_set_callbacks(session, &client->ssh_callbacks);
 
-		client->channel = channel = ssh_channel_new(session);
-		if (!channel) {
-			tmate_fatal("cannot initialize");
-			return;
-		}
-
 		ssh_set_blocking(session, 0);
 		ssh_options_set(session, SSH_OPTIONS_HOST, client->server_ip);
 		ssh_options_set(session, SSH_OPTIONS_LOG_VERBOSITY, &verbosity);
@@ -370,6 +364,12 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 		case SSH_AUTH_SUCCESS:
 			tmate_debug("Auth successful");
 			client->state = SSH_OPEN_CHANNEL;
+
+			client->channel = channel = ssh_channel_new(session);
+			if (!channel) {
+				tmate_fatal("cannot initialize");
+				return;
+			}
 			/* fall through */
 		}
 
