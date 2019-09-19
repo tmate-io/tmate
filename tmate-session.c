@@ -138,6 +138,7 @@ void tmate_session_start(void)
 	 * - While we are parsing the config file, we need to be able to
 	 *   serialize it, and so we need a worker encoder.
 	 */
+	tmate_write_ready();
 	lookup_and_connect();
 }
 

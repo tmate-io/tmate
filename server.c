@@ -205,10 +205,6 @@ server_start(struct event_base *base, int lockfd, char *lockfile)
 
 	status_prompt_load_history();
 
-#ifdef TMATE
-	tmate_write_ready();
-#endif
-
 	server_add_accept(0);
 
 	proc_loop(server_proc, server_loop);
