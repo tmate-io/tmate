@@ -1,6 +1,6 @@
 # configure.ac
 
-AC_INIT(tmate, 2.3.0)
+AC_INIT(tmate, 2.3.1)
 
 AC_CONFIG_AUX_DIR(etc)
 AM_INIT_AUTOMAKE([foreign subdir-objects])
