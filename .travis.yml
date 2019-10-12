@@ -1,10 +1,36 @@
 language: c
+services:
+- docker
+
 matrix:
-    include:
-        - compiler: gcc
-        - compiler: clang
-          env: CFLAGS="-g -O2"
-before_install:
-    - sudo apt-get update -qq
-    - sudo apt-get -y install debhelper autotools-dev dh-autoreconf file libncurses5-dev libevent-dev pkg-config libutempter-dev build-essential
-script: (CFLAGS= ./autogen.sh) && ./configure --enable-debug && make
+  include:
+  - arch: amd64
+    env: PLATFORM=amd64
+  - arch: amd64
+    env: PLATFORM=i386
+  - arch: arm64
+    env: PLATFORM=arm32v6
+  - arch: arm64
+    env: PLATFORM=arm32v7
+  - arch: arm64
+    env: PLATFORM=arm64v8
+
+script:
+- 'docker build . --tag local-$PLATFORM/tmate-build --build-arg PLATFORM=$PLATFORM'
+# On arch=arm64, some directories are not setup correctly, and 'ruby -S gem
+# install dpl' required by the release push scripts fails.
+- 'if [ "$TRAVIS_TAG" ]; then sudo chown -R $USER: /var/lib/gems /usr/local/bin; fi'
+- 'if [ "$TRAVIS_TAG" ]; then ./package_release.sh $TRAVIS_TAG $PLATFORM; fi'
+
+deploy:
+  provider: releases
+  api_key:
+    secure: T2109tjjOsrVLEpJZK/uxmO0AuDGXYFdN4AAsNTmVwu/W5dcX57Kk2TCgqDuLfD21iGGXP0U/OYHM06IfBDODBWCA9P8ASHYsenS7wIiFnvCEMbfzoAFyBMrXN2kNdM2+ho3aqc0xE2lQKOKDLxpGm5FZrzujscXXzxQjWBU5Hk=
+  skip_cleanup: true
+  overwrite: true
+  file_glob: true
+  file: /tmp/tmate-release/*.tar.*
+  on:
+    repo: tmate-io/tmate
+    branch: master
+    tags: true
