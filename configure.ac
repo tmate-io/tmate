@@ -47,10 +47,11 @@ AC_ARG_ENABLE(
 	found_static=$enable_static
 )
 if test "x$found_static" = xyes; then
+        # XXX Static build are only doable with the musl library
 	PKG_CONFIG="pkg-config --static"
 
 	CFLAGS="$CFLAGS -flto"
-	LDFLAGS="$LDFLAGS -flto"
+	LDFLAGS="$LDFLAGS -flto -static -no-pie"
 
 	PKG_CHECK_MODULES([ZLIB], [zlib], [
 		CPPFLAGS="$ZLIB_CFLAGS $CPPFLAGS"
@@ -61,7 +62,6 @@ if test "x$found_static" = xyes; then
 		CPPFLAGS="$LIBCRYPTO_CFLAGS $CPPFLAGS"
 		LIBS="$LIBCRYPTO_LIBS $LIBS"
 	])
-  # See more static settings below... (search for found_static)
 fi
 
 # Is this gcc?
@@ -461,17 +461,6 @@ if test "x$found_getopt" != xno; then
 	fi
 fi
 AM_CONDITIONAL(NO_GETOPT, [test "x$found_getopt" = xno])
-
-if test "x$found_static" = xyes; then
-	# libc and libdl should be dynamically linked.
-	# but we want to lower our requirements for libc's version.
-	# so we extract some symobls and add them here
-	if test `uname -m` = x86_64; then
-		LIBS="compat/memcpy.o -Wl,--wrap=memcpy $LIBS"
-	fi
-	LIBS="compat/clock_gettime.o libc/fdelt_chk.o $LIBS"
-	LIBS="-Wl,-Bstatic ${LIBS/-ldl/} -Wl,-Bdynamic -ldl"
-fi
 
 # Check for BSD-style integer types.
 AC_MSG_CHECKING(for BSD-style unsigned types)
