@@ -235,7 +235,7 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 	case SSH_INIT:
 		client->session = session = ssh_new();
 		if (!session) {
-			tmate_fatal("cannot initialize");
+			tmate_fatal("cannot ssh_new()");
 			return;
 		}
 
@@ -344,13 +344,30 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 		 */
 		tmate_debug("Connected to %s", client->server_ip);
 		on_ssh_auth_server_complete(client);
-		client->state = SSH_AUTH_CLIENT;
 
+		client->state = SSH_AUTH_CLIENT_NONE;
 		/* fall through */
 
-	case SSH_AUTH_CLIENT:
+	case SSH_AUTH_CLIENT_NONE:
+		switch (ssh_userauth_none(session, NULL)) {
+		case SSH_AUTH_AGAIN:
+			return;
+		case SSH_AUTH_ERROR:
+			kill_ssh_client(client, "Auth error: %s", ssh_get_error(session));
+			return;
+		case SSH_AUTH_SUCCESS:
+			tmate_debug("Auth successful via none method");
+			client->state = SSH_NEW_CHANNEL;
+			goto SSH_NEW_CHANNEL;
+		case SSH_AUTH_PARTIAL:
+		case SSH_AUTH_DENIED:
+			client->state = SSH_AUTH_CLIENT_PUBKEY;
+			/* fall through */
+		}
+
+	case SSH_AUTH_CLIENT_PUBKEY:
 		client->tried_passphrase = client->tmate_session->passphrase;
-		switch (ssh_userauth_autopubkey(session, client->tried_passphrase)) {
+		switch (ssh_userauth_publickey_auto(session, NULL, client->tried_passphrase)) {
 		case SSH_AUTH_AGAIN:
 			return;
 		case SSH_AUTH_PARTIAL:
@@ -372,16 +389,19 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 			kill_ssh_client(client, "Auth error: %s", ssh_get_error(session));
 			return;
 		case SSH_AUTH_SUCCESS:
-			tmate_debug("Auth successful");
-			client->state = SSH_OPEN_CHANNEL;
-
-			client->channel = channel = ssh_channel_new(session);
-			if (!channel) {
-				tmate_fatal("cannot initialize");
-				return;
-			}
+			tmate_debug("Auth successful with pubkey");
+			client->state = SSH_NEW_CHANNEL;
 			/* fall through */
 		}
+
+SSH_NEW_CHANNEL:
+	case SSH_NEW_CHANNEL:
+		client->channel = channel = ssh_channel_new(session);
+		if (!channel) {
+			tmate_fatal("cannot ssh_channel_new()");
+			return;
+		}
+		client->state = SSH_OPEN_CHANNEL;
 
 	case SSH_OPEN_CHANNEL:
 		switch (ssh_channel_open_session(channel)) {
