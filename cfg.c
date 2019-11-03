@@ -71,7 +71,7 @@ start_cfg(void)
 		cfg_add_cause("%s: %s", TMUX_CONF, strerror(errno));
 
 	if (cfg_file == NULL && (home = find_home()) != NULL) {
-		xasprintf(&cfg_file, "%s/.tmux.conf", home);
+		xasprintf(&cfg_file, "%s/.tmate.conf", home);
 		if (access(cfg_file, R_OK) != 0 && errno == ENOENT) {
 			free(cfg_file);
 			cfg_file = NULL;
@@ -80,20 +80,6 @@ start_cfg(void)
 	if (cfg_file != NULL && load_cfg(cfg_file, cfg_cmd_q, &cause) == -1)
 		cfg_add_cause("%s: %s", cfg_file, cause);
 	free(cause);
-
-#ifdef TMATE
-	cause = NULL;
-	if ((home = find_home()) != NULL) {
-		xasprintf(&tmate_cfg_file, "%s/.tmate.conf", home);
-		if (access(tmate_cfg_file, R_OK) != 0 && errno == ENOENT) {
-			free(tmate_cfg_file);
-			tmate_cfg_file = NULL;
-		}
-	}
-	if (tmate_cfg_file != NULL && load_cfg(tmate_cfg_file, cfg_cmd_q, &cause) == -1)
-		cfg_add_cause("%s: %s", cfg_file, cause);
-	free(cause);
-#endif
 
 	cmdq_continue(cfg_cmd_q);
 }

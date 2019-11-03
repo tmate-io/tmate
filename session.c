@@ -249,7 +249,7 @@ session_destroy(struct session *s)
 		next_session_id = 0;
 		run_initial_client_cmd();
 	} else {
-		tmate_info("Session terminated");
+		tmate_info("Session closed");
 		tmate_write_fin();
 	}
 #endif
