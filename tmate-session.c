@@ -96,7 +96,7 @@ static void lookup_and_connect(void)
 
 	tmate_server_host = options_get_string(global_options,
 					       "tmate-server-host");
-	tmate_info("Looking up %s...", tmate_server_host);
+	tmate_debug("Looking up %s...", tmate_server_host);
 	(void)evdns_getaddrinfo(tmate_session.ev_dnsbase, tmate_server_host, NULL,
 				&hints, dns_cb, (void *)tmate_server_host);
 }

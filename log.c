@@ -32,6 +32,11 @@ static int	 log_level;
 static void	 log_event_cb(int, const char *);
 static void	 log_vwrite(const char *, va_list);
 
+static int is_log_stdout(void)
+{
+	return fileno(log_file) <= 2;
+}
+
 /* Log callback for libevent. */
 static void
 log_event_cb(__unused int severity, const char *msg)
@@ -53,6 +58,18 @@ log_get_level(void)
 	return (log_level);
 }
 
+void
+log_open_fp(FILE *f)
+{
+	if (log_file != NULL && !is_log_stdout())
+		fclose(log_file);
+
+	log_file = f;
+
+	setvbuf(log_file, NULL, _IOLBF, 0);
+	event_set_log_callback(log_event_cb);
+}
+
 /* Open logging to file. */
 void
 log_open(const char *name)
@@ -62,24 +79,18 @@ log_open(const char *name)
 	if (log_level == 0)
 		return;
 
-	if (log_file != NULL)
-		fclose(log_file);
-
 	xasprintf(&path, "tmate-%s-%ld.log", name, (long)getpid());
-	log_file = fopen(path, "w");
+	FILE *f = fopen(path, "w");
 	free(path);
-	if (log_file == NULL)
-		return;
-
-	setvbuf(log_file, NULL, _IOLBF, 0);
-	event_set_log_callback(log_event_cb);
+	if (f)
+		log_open_fp(f);
 }
 
 /* Close logging. */
 void
 log_close(void)
 {
-	if (log_file != NULL)
+	if (log_file != NULL && !is_log_stdout())
 		fclose(log_file);
 	log_file = NULL;
 
@@ -102,9 +113,16 @@ log_vwrite(const char *msg, va_list ap)
 		exit(1);
 
 	gettimeofday(&tv, NULL);
-	if (fprintf(log_file, "%lld.%06d %s\n", (long long)tv.tv_sec,
-	    (int)tv.tv_usec, out) == -1)
-		exit(1);
+
+	if (is_log_stdout()) {
+		if (fprintf(log_file, "%s\n", out) == -1)
+			exit(1);
+	} else {
+		if (fprintf(log_file, "%lld.%06d %s\n", (long long)tv.tv_sec,
+			    (int)tv.tv_usec, out) == -1)
+			exit(1);
+	}
+
 	fflush(log_file);
 
 	free(out);
@@ -113,9 +131,12 @@ log_vwrite(const char *msg, va_list ap)
 
 /* Log a debug message. */
 void
-log_debug(const char *msg, ...)
+log_emit(int level, const char *msg, ...)
 {
 	va_list	ap;
+
+	if (log_level < level)
+		return;
 
 	va_start(ap, msg);
 	log_vwrite(msg, ap);

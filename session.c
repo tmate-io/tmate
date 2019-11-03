@@ -215,10 +215,6 @@ session_destroy(struct session *s)
 
 	log_debug("session %s destroyed", s->name);
 
-#ifdef TMATE
-	tmate_write_fin();
-#endif
-
 	RB_REMOVE(sessions, &sessions, s);
 	notify_session_closed(s);
 
@@ -240,6 +236,23 @@ session_destroy(struct session *s)
 	free((void *)s->cwd);
 
 	session_unref(s);
+
+#ifdef TMATE
+	if (tmate_foreground && !server_exit) {
+		tmate_info("Shell exited, restarting");
+		/*
+		 * throttle restarts. This is a blocking sleep.
+		 * It's simpler than using a timer, but fairly harmless
+		 * from a blocking perspective.
+		 */
+		usleep(500*1000);
+		next_session_id = 0;
+		run_initial_client_cmd();
+	} else {
+		tmate_info("Session terminated");
+		tmate_write_fin();
+	}
+#endif
 }
 
 /* Check a session name is valid: not empty and no colons or periods. */

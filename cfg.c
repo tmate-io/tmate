@@ -149,6 +149,20 @@ load_cfg(const char *path, struct cmd_q *cmdq, char **cause)
 	return (found);
 }
 
+static void print_cfg_errors(void)
+{
+	u_int i;
+
+	for (i = 0; i < cfg_ncauses; i++) {
+		tmate_info("%s", cfg_causes[i]);
+		free(cfg_causes[i]);
+	}
+
+	free(cfg_causes);
+	cfg_causes = NULL;
+	cfg_ncauses = 0;
+}
+
 void
 cfg_default_done(__unused struct cmd_q *cmdq)
 {
@@ -158,6 +172,10 @@ cfg_default_done(__unused struct cmd_q *cmdq)
 
 #ifdef TMATE
 	tmate_session_start();
+	if (tmate_foreground && cfg_ncauses) {
+		print_cfg_errors();
+		exit(1);
+	}
 #endif
 
 	if (!RB_EMPTY(&sessions))

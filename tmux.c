@@ -48,7 +48,11 @@ __dead void	 usage(void);
 static char	*make_label(const char *);
 
 #ifndef HAVE___PROGNAME
-char      *__progname = (char *) "tmux";
+char      *__progname = (char *) "tmate";
+#endif
+
+#ifdef TMATE
+int tmate_foreground;
 #endif
 
 __dead void
@@ -228,7 +232,7 @@ main(int argc, char **argv)
 #endif
 
 	label = path = NULL;
-	while ((opt = getopt(argc, argv, "2c:Cdf:lL:qS:uUVv")) != -1) {
+	while ((opt = getopt(argc, argv, "2c:CdFf:lL:qS:uUVv")) != -1) {
 		switch (opt) {
 		case '2':
 			flags |= CLIENT_256COLOURS;
@@ -267,6 +271,11 @@ main(int argc, char **argv)
 			break;
 		case 'v':
 			log_add_level();
+			break;
+		case 'F':
+			tmate_foreground = 1;
+			log_add_level();
+			unsetenv("TMUX");
 			break;
 		default:
 			usage();

@@ -172,7 +172,7 @@ proc_start(const char *name, struct event_base *base, int forkflag,
 	struct tmuxproc	*tp;
 	struct utsname	 u;
 
-	if (forkflag) {
+	if (forkflag && !tmate_foreground) {
 		switch (fork()) {
 		case -1:
 			fatal("fork failed");
@@ -189,7 +189,13 @@ proc_start(const char *name, struct event_base *base, int forkflag,
 			fatalx("event_reinit failed");
 	}
 
-	log_open(name);
+	if (tmate_foreground) {
+		if (forkflag)
+			clear_signals(0);
+		log_open_fp(stdout);
+	} else {
+		log_open(name);
+	}
 
 #ifdef HAVE_SETPROCTITLE
 	setproctitle("%s (%s)", name, socket_path);

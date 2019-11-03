@@ -32,6 +32,7 @@
 #include <unistd.h>
 
 #include "tmux.h"
+#include "tmate.h"
 
 struct tmuxproc	*client_proc;
 struct tmuxpeer	*client_peer;
@@ -213,7 +214,55 @@ client_exit_message(void)
 #ifdef TMATE
 extern const struct cmd_entry cmd_attach_session_entry;
 extern const struct cmd_entry cmd_new_session_entry;
+
+/* For foreground mode */
+static int __argc;
+static char **__argv;
 #endif
+
+static void _run_initial_client_cmd(int argc, char **argv)
+{
+	struct cmd_q *cmd_q;
+	struct cmd_list *cmdlist;
+	char *cause;
+	const char *default_argv[] = {"new-session"};
+
+	if (argc == 0) {
+		argc = 1;
+		argv = (char **)default_argv;
+	}
+
+	cmd_q = cmdq_new(NULL); /* No client */
+
+	if ((cmdlist = cmd_list_parse(argc, (char **)argv, NULL, 0, &cause)) == NULL) {
+		tmate_fatal("%s", cause);
+	}
+
+	cmdq_run(cmd_q, cmdlist, NULL);
+	cmd_list_free(cmdlist);
+	cmdq_free(cmd_q);
+
+	/* error messages land in cfg_causes */
+	extern char		**cfg_causes;
+	extern u_int		  cfg_ncauses;
+	int has_error = !!cfg_ncauses;
+	for (u_int i = 0; i < cfg_ncauses; i++) {
+		tmate_info("%s", cfg_causes[i]);
+		free(cfg_causes[i]);
+	}
+
+	free(cfg_causes);
+	cfg_causes = NULL;
+	cfg_ncauses = 0;
+
+	if (has_error)
+		exit(1);
+}
+
+void run_initial_client_cmd(void)
+{
+	_run_initial_client_cmd(__argc, __argv);
+}
 
 /* Client main loop. */
 int
@@ -232,6 +281,8 @@ client_main(struct event_base *base, int argc, char **argv, int flags,
 	size_t			 size;
 #ifdef TMATE
 	int cant_nest = 0;
+	__argc = argc;
+	__argv = argv;
 #endif
 
 	/* Ignore SIGCHLD now or daemon() in the server will leave a zombie. */

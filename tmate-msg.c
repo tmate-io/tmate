@@ -56,7 +56,7 @@ void __tmate_status_message(const char *fmt, va_list ap)
 	char *message;
 
 	xvasprintf(&message, fmt, ap);
-	tmate_debug("%s", message);
+	tmate_info("%s", message);
 
 	TAILQ_FOREACH(c, &clients, entry) {
 		if (c && !(c->flags & CLIENT_READONLY))

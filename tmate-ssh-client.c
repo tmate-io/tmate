@@ -171,12 +171,12 @@ static void request_passphrase(struct tmate_ssh_client *client)
 #define KEEPALIVE_IDLE		20
 #define KEEPALIVE_INTVL		10
 
-static void setup_socket(int fd)
+static void tune_socket_opts(int fd)
 {
 #define SSO(level, optname, val) ({							\
 	int _flag = val;								\
 	if (setsockopt(fd, level, optname, &(_flag), sizeof(int)) < 0) {		\
-		tmate_warn("setsockopt(" #level ", " #optname ", %d) failed", val);	\
+		tmate_debug("setsockopt(" #level ", " #optname ", %d) failed", val);	\
 	}										\
 })
 
@@ -197,7 +197,7 @@ static void setup_socket(int fd)
 #undef SSO
 }
 
-static void init_conn_fd(struct tmate_ssh_client *client)
+static void init_conn_fd(struct tmate_ssh_client *client, bool tune_socket)
 {
 	int fd;
 
@@ -207,7 +207,9 @@ static void init_conn_fd(struct tmate_ssh_client *client)
 	if ((fd = ssh_get_fd(client->session)) < 0)
 		return;
 
-	setup_socket(fd);
+	if (tune_socket)
+		tune_socket_opts(fd);
+
 	event_set(&client->ev_ssh, fd, EV_READ | EV_PERSIST, __on_ssh_client_event, client);
 	event_add(&client->ev_ssh, NULL);
 
@@ -267,14 +269,14 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 	case SSH_CONNECT:
 		switch (ssh_connect(session)) {
 		case SSH_AGAIN:
-			init_conn_fd(client);
+			init_conn_fd(client, false);
 			return;
 		case SSH_ERROR:
 			kill_ssh_client(client, "Error connecting: %s",
 					ssh_get_error(session));
 			return;
 		case SSH_OK:
-			init_conn_fd(client);
+			init_conn_fd(client, true);
 
 			tmate_debug("Establishing connection to %s", client->server_ip);
 			client->state = SSH_AUTH_SERVER;

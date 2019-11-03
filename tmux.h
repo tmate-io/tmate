@@ -1549,6 +1549,9 @@ extern struct options	*global_w_options;
 extern struct environ	*global_environ;
 extern struct timeval	 start_time;
 extern const char	*socket_path;
+#ifdef TMATE
+extern int tmate_foreground;
+#endif
 const char	*getshell(void);
 int		 checkshell(const char *);
 int		 areshell(const char *);
@@ -1875,6 +1878,7 @@ void signal_waiting_clients(const char *name);
 void	cmd_wait_for_flush(void);
 
 /* client.c */
+void run_initial_client_cmd(void);
 int	client_main(struct event_base *, int, char **, int, const char *);
 
 /* key-bindings.c */
@@ -1902,6 +1906,7 @@ void	alerts_queue(struct window *, int);
 void	alerts_check_session(struct session *);
 
 /* server.c */
+extern int server_exit;
 extern struct tmuxproc *server_proc;
 extern struct clients clients;
 extern struct cmd_find_state marked_pane;
@@ -2356,9 +2361,14 @@ struct event_base *osdep_event_init(void);
 /* log.c */
 void	log_add_level(void);
 int	log_get_level(void);
+void	log_open_fp(FILE *f);
 void	log_open(const char *);
 void	log_close(void);
-void printflike(1, 2) log_debug(const char *, ...);
+#define LOG_ERROR	0
+#define LOG_INFO	1
+#define LOG_DEBUG	2
+#define log_debug(...) log_emit(LOG_DEBUG+1, __VA_ARGS__)
+void printflike(2, 3) log_emit(int level, const char *, ...);
 __dead void printflike(1, 2) fatal(const char *, ...);
 __dead void printflike(1, 2) fatalx(const char *, ...);
 

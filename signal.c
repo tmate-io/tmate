@@ -24,6 +24,7 @@
 
 #include "tmux.h"
 
+struct event	ev_sigint;
 struct event	ev_sighup;
 struct event	ev_sigchld;
 struct event	ev_sigcont;
@@ -40,15 +41,23 @@ set_signals(void (*handler)(int, short, void *), void *arg)
 	sigemptyset(&sigact.sa_mask);
 	sigact.sa_flags = SA_RESTART;
 	sigact.sa_handler = SIG_IGN;
+#ifndef TMATE
 	if (sigaction(SIGINT, &sigact, NULL) != 0)
 		fatal("sigaction failed");
+#endif
 	if (sigaction(SIGPIPE, &sigact, NULL) != 0)
 		fatal("sigaction failed");
 	if (sigaction(SIGUSR2, &sigact, NULL) != 0)
 		fatal("sigaction failed");
+#ifndef TMATE
 	if (sigaction(SIGTSTP, &sigact, NULL) != 0)
 		fatal("sigaction failed");
+#endif
 
+#ifdef TMATE
+	signal_set(&ev_sigint, SIGINT, handler, arg);
+	signal_add(&ev_sigint, NULL);
+#endif
 	signal_set(&ev_sighup, SIGHUP, handler, arg);
 	signal_add(&ev_sighup, NULL);
 	signal_set(&ev_sigchld, SIGCHLD, handler, arg);
@@ -72,16 +81,24 @@ clear_signals(int after_fork)
 	sigemptyset(&sigact.sa_mask);
 	sigact.sa_flags = SA_RESTART;
 	sigact.sa_handler = SIG_DFL;
+#ifndef TMATE
 	if (sigaction(SIGINT, &sigact, NULL) != 0)
 		fatal("sigaction failed");
+#endif
 	if (sigaction(SIGPIPE, &sigact, NULL) != 0)
 		fatal("sigaction failed");
 	if (sigaction(SIGUSR2, &sigact, NULL) != 0)
 		fatal("sigaction failed");
+#ifndef TMATE
 	if (sigaction(SIGTSTP, &sigact, NULL) != 0)
 		fatal("sigaction failed");
+#endif
 
 	if (after_fork) {
+#ifdef TMATE
+		if (sigaction(SIGINT, &sigact, NULL) != 0)
+			fatal("sigaction failed");
+#endif
 		if (sigaction(SIGHUP, &sigact, NULL) != 0)
 			fatal("sigaction failed");
 		if (sigaction(SIGCHLD, &sigact, NULL) != 0)
@@ -95,6 +112,7 @@ clear_signals(int after_fork)
 		if (sigaction(SIGWINCH, &sigact, NULL) != 0)
 			fatal("sigaction failed");
 	} else {
+		event_del(&ev_sigint);
 		event_del(&ev_sighup);
 		event_del(&ev_sigchld);
 		event_del(&ev_sigcont);

@@ -152,14 +152,16 @@ server_start(struct event_base *base, int lockfd, char *lockfile)
 {
 	int	pair[2];
 
-	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, pair) != 0)
-		fatal("socketpair failed");
+	if (!tmate_foreground)
+		if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, pair) != 0)
+			fatal("socketpair failed");
 
 	server_proc = proc_start("server", base, 1, server_signal);
 	if (server_proc == NULL) {
 		close(pair[1]);
 		return (pair[0]);
 	}
+
 	close(pair[0]);
 
 	if (log_get_level() > 3)
@@ -190,7 +192,8 @@ server_start(struct event_base *base, int lockfd, char *lockfile)
 	if (server_fd == -1)
 		fatal("couldn't create socket");
 	server_update_socket();
-	server_client_create(pair[1]);
+	if (!tmate_foreground)
+		server_client_create(pair[1]);
 
 	if (lockfd >= 0) {
 		unlink(lockfile);
@@ -207,11 +210,15 @@ server_start(struct event_base *base, int lockfd, char *lockfile)
 
 	server_add_accept(0);
 
+	if (tmate_foreground)
+		run_initial_client_cmd();
+
 	proc_loop(server_proc, server_loop);
 	status_prompt_save_history();
 #ifdef TMATE
 	unlink(socket_path);
 #endif
+
 	exit(0);
 }
 
@@ -361,6 +368,7 @@ server_signal(int sig)
 	int	fd;
 
 	switch (sig) {
+	case SIGINT:
 	case SIGTERM:
 		server_exit = 1;
 		server_send_exit();

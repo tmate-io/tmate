@@ -131,6 +131,9 @@ cmd_new_session_exec(struct cmd *self, struct cmd_q *cmdq)
 	if (c == NULL)
 		detached = 1;
 
+	if (tmate_foreground)
+		detached = 1;
+
 	/* Is this client already attached? */
 	already_attached = 0;
 	if (c != NULL && c->session != NULL)
