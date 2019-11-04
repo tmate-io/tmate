@@ -157,6 +157,9 @@ cfg_default_done(__unused struct cmd_q *cmdq)
 	cfg_finished = 1;
 
 #ifdef TMATE
+	/* We do it this late, this way, CLI options take precedence over cfg file */
+	tmate_load_cli_options();
+
 	tmate_session_start();
 	if (tmate_foreground && cfg_ncauses) {
 		print_cfg_errors();

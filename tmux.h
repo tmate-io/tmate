@@ -1551,7 +1551,7 @@ extern struct timeval	 start_time;
 extern const char	*socket_path;
 #ifdef TMATE
 extern int tmate_foreground;
-void tmate_init_boot_options(void);
+void tmate_load_cli_options(void);
 #endif
 const char	*getshell(void);
 int		 checkshell(const char *);
@@ -1879,6 +1879,8 @@ void signal_waiting_clients(const char *name);
 void	cmd_wait_for_flush(void);
 
 /* client.c */
+#define DEFER_ERRORS_CFG 1
+int run_headless_command(int argc, const char **argv, int flags, void (*err_callback)(const char *));
 void run_initial_client_cmd(void);
 int	client_main(struct event_base *, int, char **, int, const char *);
 

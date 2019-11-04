@@ -217,37 +217,37 @@ extern const struct cmd_entry cmd_new_session_entry;
 
 /* For foreground mode */
 static int __argc;
-static char **__argv;
+static const char **__argv;
 #endif
 
-static void _run_initial_client_cmd(int argc, char **argv)
+int run_headless_command(int argc, const char **argv, int flags, void (*err_callback)(const char *))
 {
 	struct cmd_q *cmd_q;
 	struct cmd_list *cmdlist;
 	char *cause;
-	const char *default_argv[] = {"new-session"};
-
-	if (argc == 0) {
-		argc = 1;
-		argv = (char **)default_argv;
-	}
-
 	cmd_q = cmdq_new(NULL); /* No client */
 
 	if ((cmdlist = cmd_list_parse(argc, (char **)argv, NULL, 0, &cause)) == NULL) {
-		tmate_fatal("%s", cause);
+		if (err_callback)
+			err_callback(cause);
+		return -1;
 	}
 
 	cmdq_run(cmd_q, cmdlist, NULL);
 	cmd_list_free(cmdlist);
 	cmdq_free(cmd_q);
 
+	if (flags & DEFER_ERRORS_CFG)
+		return 0;
+
 	/* error messages land in cfg_causes */
 	extern char		**cfg_causes;
 	extern u_int		  cfg_ncauses;
-	int has_error = !!cfg_ncauses;
+
+	int ret = cfg_ncauses ? -1 : 0;
 	for (u_int i = 0; i < cfg_ncauses; i++) {
-		tmate_info("%s", cfg_causes[i]);
+		if (err_callback)
+			err_callback(cfg_causes[i]);
 		free(cfg_causes[i]);
 	}
 
@@ -255,13 +255,27 @@ static void _run_initial_client_cmd(int argc, char **argv)
 	cfg_causes = NULL;
 	cfg_ncauses = 0;
 
-	if (has_error)
-		exit(1);
+	return ret;
+}
+
+static void initial_client_cmd_err_callback(const char *cause)
+{
+	tmate_info("%s", cause);
 }
 
 void run_initial_client_cmd(void)
 {
-	_run_initial_client_cmd(__argc, __argv);
+	int argc = __argc;
+	const char **argv = __argv;
+
+	const char *default_argv[] = {"new-session"};
+	if (argc == 0) {
+		argc = 1;
+		argv = default_argv;
+	}
+
+	if (run_headless_command(argc, argv, 0, initial_client_cmd_err_callback) < 0)
+		exit(1);
 }
 
 /* Client main loop. */
@@ -282,7 +296,7 @@ client_main(struct event_base *base, int argc, char **argv, int flags,
 #ifdef TMATE
 	int cant_nest = 0;
 	__argc = argc;
-	__argv = argv;
+	__argv = (const char **)argv;
 #endif
 
 	/* Ignore SIGCHLD now or daemon() in the server will leave a zombie. */

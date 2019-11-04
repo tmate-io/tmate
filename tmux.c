@@ -207,26 +207,20 @@ static char *session_name;
 static char *session_name_ro;
 static char *authorized_keys;
 
-void tmate_init_boot_options(void)
+void tmate_load_cli_options(void)
 {
-	if (account_key)
-		tmate_exec_cmd_args(4, (const char *[]){"set-option", "-g", "tmate-account-key", account_key});
-	if (session_name)
-		tmate_exec_cmd_args(4, (const char *[]){"set-option", "-g", "tmate-session-name", session_name});
-	if (session_name_ro)
-		tmate_exec_cmd_args(4, (const char *[]){"set-option", "-g", "tmate-session-name-ro", session_name_ro});
-	if (authorized_keys)
-		tmate_exec_cmd_args(4, (const char *[]){"set-option", "-g", "tmate-authorized-keys", authorized_keys});
-
-	free(account_key);
-	free(session_name);
-	free(session_name_ro);
-	free(authorized_keys_file);
-
-	account_key = NULL;
-	session_name = NULL;
-	session_name_ro = NULL;
-	authorized_keys = NULL;
+#define SET_OPT(name, val) ({\
+	if (val) { \
+		run_headless_command(3, (const char *[]){"set-option", name, val}, DEFER_ERRORS_CFG, NULL); \
+		free(val); \
+		val = NULL; \
+	} \
+})
+	SET_OPT("tmate-account-key",     account_key);
+	SET_OPT("tmate-account-name",    session_name);
+	SET_OPT("tmate-account-name-ro", session_name_ro);
+	SET_OPT("tmate-authorized-keys", authorized_keys);
+#undef SET_OPT
 }
 #endif
 
