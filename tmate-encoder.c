@@ -238,6 +238,14 @@ void tmate_exec_cmd_args(int argc, const char **argv)
 	append_saved_cmd(&tmate_session, argc, argv);
 }
 
+void tmate_set_val(const char *name, const char *value)
+{
+	char *buf;
+	xasprintf(&buf, "%s=%s", name, value);
+	tmate_exec_cmd_args(3, (const char *[]){"set-option", "tmate-set", buf});
+	free(buf);
+}
+
 void tmate_exec_cmd(struct cmd *cmd)
 {
 	int argc;

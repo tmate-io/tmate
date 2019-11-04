@@ -205,6 +205,7 @@ find_home(void)
 static char *account_key;
 static char *session_name;
 static char *session_name_ro;
+static char *authorized_keys;
 
 void tmate_init_boot_options(void)
 {
@@ -214,14 +215,18 @@ void tmate_init_boot_options(void)
 		tmate_exec_cmd_args(4, (const char *[]){"set-option", "-g", "tmate-session-name", session_name});
 	if (session_name_ro)
 		tmate_exec_cmd_args(4, (const char *[]){"set-option", "-g", "tmate-session-name-ro", session_name_ro});
+	if (authorized_keys)
+		tmate_exec_cmd_args(4, (const char *[]){"set-option", "-g", "tmate-authorized-keys", authorized_keys});
 
 	free(account_key);
 	free(session_name);
 	free(session_name_ro);
+	free(authorized_keys_file);
 
 	account_key = NULL;
 	session_name = NULL;
 	session_name_ro = NULL;
+	authorized_keys = NULL;
 }
 #endif
 
@@ -255,7 +260,7 @@ main(int argc, char **argv)
 #endif
 
 	label = path = NULL;
-	while ((opt = getopt(argc, argv, "2c:CdFf:lL:qS:uUVvk:n:r:")) != -1) {
+	while ((opt = getopt(argc, argv, "2c:CdFf:lL:qS:uUVvk:n:r:a:")) != -1) {
 		switch (opt) {
 		case '2':
 			flags |= CLIENT_256COLOURS;
@@ -308,6 +313,9 @@ main(int argc, char **argv)
 			break;
 		case 'r':
 			session_name_ro = xstrdup(optarg);
+			break;
+		case 'a':
+			authorized_keys = xstrdup(optarg);
 			break;
 		default:
 			usage();

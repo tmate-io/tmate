@@ -129,6 +129,50 @@ void tmate_session_init(struct event_base *base)
 	tmate_write_header();
 }
 
+static void send_authorized_keys()
+{
+	char *path;
+	path = options_get_string(global_options, "tmate-authorized-keys");
+	if (strlen(path) == 0)
+		return;
+
+	path = xstrdup(path);
+	tmate_info("Using %s for access control", path);
+
+	FILE *f;
+	char *line;
+	size_t len;
+
+	if (path[0] == '~' && path[1] == '/') {
+		const char *home = find_home();
+		if (home) {
+			char *new_path;
+			xasprintf(&new_path, "%s%s", home, &path[1]);
+			free(path);
+			path = new_path;
+		}
+	}
+
+	if ((f = fopen(path, "r")) == NULL) {
+		cfg_add_cause("%s: %s", path, strerror(errno));
+		free(path);
+		return;
+	}
+
+	while ((line = fparseln(f, &len, NULL, NULL, 0)) != NULL) {
+		if (len == 0)
+			continue;
+		tmate_set_val("authorized_keys", line);
+		free(line);
+	}
+
+	if (ferror(f))
+		cfg_add_cause("%s: %s", path, strerror(errno));
+
+	fclose(f);
+	free(path);
+}
+
 void tmate_session_start(void)
 {
 	/*
@@ -138,6 +182,7 @@ void tmate_session_start(void)
 	 * - While we are parsing the config file, we need to be able to
 	 *   serialize it, and so we need a worker encoder.
 	 */
+	send_authorized_keys();
 	tmate_write_ready();
 	lookup_and_connect();
 }

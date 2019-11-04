@@ -977,6 +977,18 @@ const struct options_table_entry options_table[] = {
 	  .scope = OPTIONS_TABLE_SERVER,
 	  .default_str = ""
 	},
+
+	{ .name = "tmate-authorized-keys",
+	  .type = OPTIONS_TABLE_STRING,
+	  .scope = OPTIONS_TABLE_SERVER,
+	  .default_str = ""
+	},
+
+	{ .name = "tmate-set",
+	  .type = OPTIONS_TABLE_STRING,
+	  .scope = OPTIONS_TABLE_SERVER,
+	  .default_str = ""
+	},
 #endif
 
 	{ .name = NULL }

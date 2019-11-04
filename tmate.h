@@ -83,6 +83,7 @@ extern void tmate_write_ready(void);
 extern void tmate_sync_layout(void);
 extern void tmate_pty_data(struct window_pane *wp, const char *buf, size_t len);
 extern int tmate_should_replicate_cmd(const struct cmd_entry *cmd);
+extern void tmate_set_val(const char *name, const char *value);
 extern void tmate_exec_cmd_args(int argc, const char **argv);
 extern void tmate_exec_cmd(struct cmd *cmd);
 extern void tmate_failed_cmd(int client_id, const char *cause);
