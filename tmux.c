@@ -201,6 +201,30 @@ find_home(void)
 	return (home);
 }
 
+#ifdef TMATE
+static char *account_key;
+static char *session_name;
+static char *session_name_ro;
+
+void tmate_init_boot_options(void)
+{
+	if (account_key)
+		tmate_exec_cmd_args(4, (const char *[]){"set-option", "-g", "tmate-account-key", account_key});
+	if (session_name)
+		tmate_exec_cmd_args(4, (const char *[]){"set-option", "-g", "tmate-session-name", session_name});
+	if (session_name_ro)
+		tmate_exec_cmd_args(4, (const char *[]){"set-option", "-g", "tmate-session-name-ro", session_name_ro});
+
+	free(account_key);
+	free(session_name);
+	free(session_name_ro);
+
+	account_key = NULL;
+	session_name = NULL;
+	session_name_ro = NULL;
+}
+#endif
+
 int
 main(int argc, char **argv)
 {
@@ -231,7 +255,7 @@ main(int argc, char **argv)
 #endif
 
 	label = path = NULL;
-	while ((opt = getopt(argc, argv, "2c:CdFf:lL:qS:uUVv")) != -1) {
+	while ((opt = getopt(argc, argv, "2c:CdFf:lL:qS:uUVvk:n:r:")) != -1) {
 		switch (opt) {
 		case '2':
 			flags |= CLIENT_256COLOURS;
@@ -275,6 +299,15 @@ main(int argc, char **argv)
 			tmate_foreground = 1;
 			log_add_level();
 			unsetenv("TMUX");
+			break;
+		case 'k':
+			account_key = xstrdup(optarg);
+			break;
+		case 'n':
+			session_name = xstrdup(optarg);
+			break;
+		case 'r':
+			session_name_ro = xstrdup(optarg);
 			break;
 		default:
 			usage();

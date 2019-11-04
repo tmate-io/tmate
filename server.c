@@ -203,6 +203,7 @@ server_start(struct event_base *base, int lockfd, char *lockfile)
 
 #ifdef TMATE
 	tmate_set_editor_mode();
+	tmate_init_boot_options();
 #endif
 	start_cfg();
 

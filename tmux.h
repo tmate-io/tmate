@@ -1551,6 +1551,7 @@ extern struct timeval	 start_time;
 extern const char	*socket_path;
 #ifdef TMATE
 extern int tmate_foreground;
+void tmate_init_boot_options(void);
 #endif
 const char	*getshell(void);
 int		 checkshell(const char *);
