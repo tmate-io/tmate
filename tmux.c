@@ -59,8 +59,18 @@ __dead void
 usage(void)
 {
 	fprintf(stderr,
-	    "usage: %s [-vVF] [-f config-file] [-S socket-path] [command [flags]]\n",
-	    __progname);
+	    "Usage: %s [options] [tmux-command [flags]]\n"
+	    "\n"
+	    "Basic options:\n"
+	    " -n <name>    specify the session name instead of getting a random one\n"
+	    " -r <name>    same, but for the read-only session name\n"
+	    " -k <key>     specify the account-key, necessary for named sessions on tmate.io\n"
+	    " -F           set the foreground mode, useful for setting remote access\n"
+	    " -f <path>    set the config file path\n"
+	    " -S <path>    set the socket path, useful to issue commands to a running tmate instance\n"
+	    " -v           set verbosity (can be repeated)\n"
+	    " -V           print version\n"
+	    ,__progname);
 	exit(1);
 }
 
@@ -254,7 +264,7 @@ main(int argc, char **argv)
 #endif
 
 	label = path = NULL;
-	while ((opt = getopt(argc, argv, "2c:CdFf:lL:qS:uUVvk:n:r:a:")) != -1) {
+	while ((opt = getopt(argc, argv, "h2c:CdFf:lL:qS:uUVvk:n:r:a:")) != -1) {
 		switch (opt) {
 		case '2':
 			flags |= CLIENT_256COLOURS;
@@ -311,6 +321,7 @@ main(int argc, char **argv)
 		case 'a':
 			authorized_keys = xstrdup(optarg);
 			break;
+		case 'h':
 		default:
 			usage();
 		}
