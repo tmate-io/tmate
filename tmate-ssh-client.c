@@ -210,8 +210,12 @@ static void init_conn_fd(struct tmate_ssh_client *client, bool tune_socket)
 	if (tune_socket)
 		tune_socket_opts(fd);
 
-	event_set(&client->ev_ssh, fd, EV_READ | EV_PERSIST, __on_ssh_client_event, client);
-	event_add(&client->ev_ssh, NULL);
+	assert(!client->ev_ssh);
+	client->ev_ssh = event_new(client->tmate_session->ev_base,
+				   fd, EV_READ | EV_PERSIST, __on_ssh_client_event, client);
+	if (!client->ev_ssh)
+		tmate_fatal("out of memory");
+	event_add(client->ev_ssh, NULL);
 
 	client->has_init_conn_fd = true;
 }
@@ -479,7 +483,8 @@ static void kill_ssh_client(struct tmate_ssh_client *client,
 	tmate_debug("SSH client killed (%s)", client->server_ip);
 
 	if (client->has_init_conn_fd) {
-		event_del(&client->ev_ssh);
+		event_del(client->ev_ssh);
+		event_free(client->ev_ssh);
 		client->has_init_conn_fd = false;
 	}
 
@@ -506,12 +511,11 @@ static void kill_ssh_client(struct tmate_ssh_client *client,
 	free(client);
 }
 
-static void connect_ssh_client(struct tmate_ssh_client *client)
+void connect_ssh_client(struct tmate_ssh_client *client)
 {
-	if (!client->session) {
-		client->state = SSH_INIT;
-		on_ssh_client_event(client);
-	}
+	assert(!client->session);
+	client->state = SSH_INIT;
+	on_ssh_client_event(client);
 }
 
 static void ssh_log_function(int priority, const char *function,
@@ -522,9 +526,11 @@ static void ssh_log_function(int priority, const char *function,
 
 struct tmate_ssh_client *tmate_ssh_client_alloc(struct tmate_session *session,
 						const char *server_ip)
+ 
 {
 	struct tmate_ssh_client *client;
 	client = xmalloc(sizeof(*client));
+	memset(client, 0, sizeof(*client));
 
 	ssh_set_log_callback(ssh_log_function);
 
@@ -543,8 +549,6 @@ struct tmate_ssh_client *tmate_ssh_client_alloc(struct tmate_session *session,
 	client->has_encoder = 0;
 
 	client->has_init_conn_fd = false;
-
-	connect_ssh_client(client);
 
 	return client;
 }

@@ -19,7 +19,7 @@ static int on_encoder_write(void *userdata, const char *buf, size_t len)
 		tmate_fatal("Cannot buffer encoded data");
 
 	if (!encoder->ev_active) {
-		event_active(&encoder->ev_buffer, EV_READ, 0);
+		event_active(encoder->ev_buffer, EV_READ, 0);
 		encoder->ev_active = true;
 	}
 
@@ -57,10 +57,12 @@ void tmate_encoder_init(struct tmate_encoder *encoder,
 	if (!encoder->buffer)
 		tmate_fatal("Can't allocate buffer");
 
-	event_set(&encoder->ev_buffer, -1,
-		  EV_READ | EV_PERSIST, on_encoder_buffer_ready, encoder);
+	encoder->ev_buffer = event_new(tmate_session.ev_base, -1,
+		EV_READ | EV_PERSIST, on_encoder_buffer_ready, encoder);
+	if (!encoder->ev_buffer)
+		tmate_fatal("Can't allocate event");
 
-	event_add(&encoder->ev_buffer, NULL);
+	event_add(encoder->ev_buffer, NULL);
 
 	encoder->ev_active = false;
 }
@@ -69,7 +71,8 @@ void tmate_encoder_destroy(struct tmate_encoder *encoder)
 {
 	/* encoder->pk doesn't need any cleanup */
 	evbuffer_free(encoder->buffer);
-	event_del(&encoder->ev_buffer);
+	event_del(encoder->ev_buffer);
+	event_free(encoder->ev_buffer);
 	memset(encoder, 0, sizeof(*encoder));
 }
 

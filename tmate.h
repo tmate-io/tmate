@@ -22,7 +22,7 @@ struct tmate_encoder {
 	tmate_encoder_write_cb *ready_callback;
 	void *userdata;
 	struct evbuffer *buffer;
-	struct event ev_buffer;
+	struct event *ev_buffer;
 	bool ev_active;
 };
 
@@ -142,10 +142,11 @@ struct tmate_ssh_client {
 	ssh_channel channel;
 
 	bool has_init_conn_fd;
-	struct event ev_ssh;
+	struct event *ev_ssh;
 };
 TAILQ_HEAD(tmate_ssh_clients, tmate_ssh_client);
 
+extern void connect_ssh_client(struct tmate_ssh_client *client);
 extern struct tmate_ssh_client *tmate_ssh_client_alloc(struct tmate_session *session,
 						       const char *server_ip);
 
@@ -154,7 +155,7 @@ extern struct tmate_ssh_client *tmate_ssh_client_alloc(struct tmate_session *ses
 struct tmate_session {
 	struct event_base *ev_base;
 	struct evdns_base *ev_dnsbase;
-	struct event ev_dns_retry;
+	struct event *ev_dns_retry;
 
 	struct tmate_encoder encoder;
 	struct tmate_decoder decoder;
@@ -175,7 +176,7 @@ struct tmate_session {
 	char *passphrase;
 
 	bool reconnected;
-	struct event ev_connection_retry;
+	struct event *ev_connection_retry;
 	char *last_server_ip;
 	char *reconnection_data;
 	/*
