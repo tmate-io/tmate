@@ -190,6 +190,11 @@ void tmate_session_start(void)
 	 * - While we are parsing the config file, we need to be able to
 	 *   serialize it, and so we need a worker encoder.
 	 */
+	if (!tmate_foreground) {
+		cfg_add_cause("%s", "To see these messages again, run: tmate show-messages");
+		cfg_add_cause("%s", "-----------------------------------------------------");
+	}
+
 	send_authorized_keys();
 	tmate_write_ready();
 	lookup_and_connect();
