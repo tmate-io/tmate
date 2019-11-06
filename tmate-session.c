@@ -192,6 +192,7 @@ void tmate_session_start(void)
 	 */
 	if (!tmate_foreground) {
 		cfg_add_cause("%s", "To see these messages again, run: tmate show-messages");
+		cfg_add_cause("%s", "Press <Enter> to dismiss");
 		cfg_add_cause("%s", "-----------------------------------------------------");
 	}
 
