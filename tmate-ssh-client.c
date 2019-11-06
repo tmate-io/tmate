@@ -344,11 +344,24 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 		 */
 		tmate_debug("Connected to %s", client->server_ip);
 		on_ssh_auth_server_complete(client);
-		client->state = SSH_AUTH_CLIENT;
+		client->state = SSH_AUTH_CLIENT_NONE;
 
 		/* fall through */
+	case SSH_AUTH_CLIENT_NONE:
+		switch(ssh_userauth_none(session, NULL)) {
+		case SSH_AUTH_ERROR:
+			kill_ssh_client(client, "Auth error: %s", ssh_get_error(session));
+			return;
+		case SSH_AUTH_AGAIN:
+			return;
+		case SSH_AUTH_SUCCESS:
+			goto auth_success;
+		default:
+			client->state = SSH_AUTH_CLIENT_PUBKEY;
+		}
 
-	case SSH_AUTH_CLIENT:
+		/* fall through */
+	case SSH_AUTH_CLIENT_PUBKEY:
 		client->tried_passphrase = client->tmate_session->passphrase;
 		switch (ssh_userauth_autopubkey(session, client->tried_passphrase)) {
 		case SSH_AUTH_AGAIN:
@@ -372,7 +385,8 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 			kill_ssh_client(client, "Auth error: %s", ssh_get_error(session));
 			return;
 		case SSH_AUTH_SUCCESS:
-			tmate_debug("Auth successful");
+auth_success:
+			tmate_debug("Auth successful with 'publickey'");
 			client->state = SSH_OPEN_CHANNEL;
 
 			client->channel = channel = ssh_channel_new(session);
