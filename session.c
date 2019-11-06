@@ -207,6 +207,36 @@ session_free(__unused int fd, __unused short events, void *arg)
 	}
 }
 
+static void maybe_restart_session(void)
+{
+	int fg_restart = options_get_number(global_options, "tmate-foreground-restart");
+	if (!fg_restart)
+		return;
+
+	/*
+	 * throttle restarts. This is a blocking sleep. It's
+	 * simpler than using a timer, but fairly harmless
+	 * from a blocking perspective.
+	 */
+	usleep(500*1000);
+	next_session_id = 0;
+	run_initial_client_cmd();
+
+	tmate_info("Shell exited. Shell restarted");
+
+	struct session *s;
+	s = RB_MIN(sessions, &sessions);
+	if (!s)
+		return;
+
+	struct window_pane *wp;
+	wp = s->curw->window->active;
+	window_pane_set_mode(wp, &window_copy_mode);
+	window_copy_init_for_output(wp);
+	window_copy_add(wp, "%s", "Shell exited. Shell restarted.");
+	window_copy_add(wp, "%s", "Note: press the following sequence to disconnect from SSH: <Enter>~.");
+}
+
 /* Destroy a session. */
 void
 session_destroy(struct session *s)
@@ -239,15 +269,7 @@ session_destroy(struct session *s)
 
 #ifdef TMATE
 	if (tmate_foreground && !server_exit) {
-		tmate_info("Shell exited, restarting");
-		/*
-		 * throttle restarts. This is a blocking sleep.
-		 * It's simpler than using a timer, but fairly harmless
-		 * from a blocking perspective.
-		 */
-		usleep(500*1000);
-		next_session_id = 0;
-		run_initial_client_cmd();
+		maybe_restart_session();
 	} else {
 		tmate_info("Session closed");
 		tmate_write_fin();
