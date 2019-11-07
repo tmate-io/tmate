@@ -137,7 +137,7 @@ void tmate_session_init(struct event_base *base)
 	tmate_write_header();
 }
 
-static void send_authorized_keys()
+static void send_authorized_keys(void)
 {
 	char *path;
 	path = options_get_string(global_options, "tmate-authorized-keys");

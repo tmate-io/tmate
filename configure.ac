@@ -2,6 +2,7 @@
 
 AC_INIT(tmate, 2.3.1)
 
+AM_SILENT_RULES([yes])
 AC_CONFIG_AUX_DIR(etc)
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 

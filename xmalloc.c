@@ -94,6 +94,7 @@ xasprintf(char **ret, const char *fmt, ...)
 	return i;
 }
 
+__attribute__((__format__(__printf__, 2, 0)))
 int
 xvasprintf(char **ret, const char *fmt, va_list ap)
 {
@@ -120,6 +121,7 @@ xsnprintf(char *str, size_t len, const char *fmt, ...)
 	return i;
 }
 
+__attribute__((__format__(__printf__, 3, 0)))
 int
 xvsnprintf(char *str, size_t len, const char *fmt, va_list ap)
 {

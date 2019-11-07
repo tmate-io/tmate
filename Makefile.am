@@ -33,8 +33,8 @@ CFLAGS += -g
 CFLAGS += -Wno-long-long -Wall -W -Wnested-externs -Wformat=2
 CFLAGS += -Wmissing-prototypes -Wstrict-prototypes -Wmissing-declarations
 CFLAGS += -Wwrite-strings -Wshadow -Wpointer-arith -Wsign-compare
-CFLAGS += -Wundef -Wbad-function-cast -Winline -Wcast-align
-CFLAGS += -Wdeclaration-after-statement -Wno-pointer-sign -Wno-attributes
+CFLAGS += -Wundef -Wbad-function-cast -Winline
+CFLAGS += -Wno-pointer-sign -Wno-attributes
 CPPFLAGS += -DDEBUG
 endif
 if IS_COVERAGE
@@ -43,6 +43,9 @@ LDFLAGS += --coverage
 endif
 CPPFLAGS += -iquote.
 endif
+
+CFLAGS += -Wno-unused-parameter -Wno-unused-variable -Wno-null-pointer-arithmetic
+CFLAGS += -Wno-deprecated-declarations -Wno-format-nonliteral
 
 # Set flags for Solaris.
 if IS_SUNOS

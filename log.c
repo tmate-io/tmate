@@ -98,6 +98,7 @@ log_close(void)
 }
 
 /* Write a log message. */
+__attribute__((__format__(__printf__, 1, 0)))
 static void
 log_vwrite(const char *msg, va_list ap)
 {
@@ -144,6 +145,7 @@ log_emit(int level, const char *msg, ...)
 }
 
 /* Log a critical error with error string and die. */
+__attribute__((__format__(__printf__, 1, 0)))
 __dead void
 fatal(const char *msg, ...)
 {
@@ -153,11 +155,13 @@ fatal(const char *msg, ...)
 	va_start(ap, msg);
 	if (asprintf(&fmt, "fatal: %s: %s", msg, strerror(errno)) == -1)
 		exit(1);
-	log_vwrite(fmt, ap);
+	msg = fmt;
+	log_vwrite(msg, ap);
 	exit(1);
 }
 
 /* Log a critical error and die. */
+__attribute__((__format__(__printf__, 1, 0)))
 __dead void
 fatalx(const char *msg, ...)
 {
@@ -167,6 +171,7 @@ fatalx(const char *msg, ...)
 	va_start(ap, msg);
 	if (asprintf(&fmt, "fatal: %s", msg) == -1)
 		exit(1);
-	log_vwrite(fmt, ap);
+	msg = fmt;
+	log_vwrite(msg, ap);
 	exit(1);
 }

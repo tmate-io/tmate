@@ -115,7 +115,7 @@ static int passphrase_callback(__unused const char *prompt, char *buf, size_t le
 	client->tmate_session->need_passphrase = 1;
 
 	if (client->tmate_session->passphrase)
-		strncpy(buf, client->tmate_session->passphrase, len);
+		strlcpy(buf, client->tmate_session->passphrase, len);
 	else
 		strcpy(buf, "");
 
@@ -268,7 +268,7 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 		}
 
 		client->state = SSH_CONNECT;
-		/* fall through */
+		// fall through
 
 	case SSH_CONNECT:
 		switch (ssh_connect(session)) {
@@ -284,8 +284,8 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 
 			tmate_debug("Establishing connection to %s", client->server_ip);
 			client->state = SSH_AUTH_SERVER;
-			/* fall through */
 		}
+		// fall through
 
 	case SSH_AUTH_SERVER:
 #if LIBSSH_VERSION_INT >= SSH_VERSION_INT(0, 9, 0)
@@ -352,7 +352,7 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 		on_ssh_auth_server_complete(client);
 
 		client->state = SSH_AUTH_CLIENT_NONE;
-		/* fall through */
+		// fall through
 
 	case SSH_AUTH_CLIENT_NONE:
 		switch (ssh_userauth_none(session, NULL)) {
@@ -368,8 +368,8 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 		case SSH_AUTH_PARTIAL:
 		case SSH_AUTH_DENIED:
 			client->state = SSH_AUTH_CLIENT_PUBKEY;
-			/* fall through */
 		}
+		// fall through
 
 	case SSH_AUTH_CLIENT_PUBKEY:
 		client->tried_passphrase = client->tmate_session->passphrase;
@@ -397,8 +397,8 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 		case SSH_AUTH_SUCCESS:
 			tmate_debug("Auth successful with pubkey");
 			client->state = SSH_NEW_CHANNEL;
-			/* fall through */
 		}
+		// fall through
 
 SSH_NEW_CHANNEL:
 	case SSH_NEW_CHANNEL:
@@ -408,6 +408,7 @@ SSH_NEW_CHANNEL:
 			return;
 		}
 		client->state = SSH_OPEN_CHANNEL;
+		// fall through
 
 	case SSH_OPEN_CHANNEL:
 		switch (ssh_channel_open_session(channel)) {
@@ -420,8 +421,8 @@ SSH_NEW_CHANNEL:
 		case SSH_OK:
 			tmate_debug("Session opened, initalizing tmate");
 			client->state = SSH_BOOTSTRAP;
-			/* fall through */
 		}
+		// fall through
 
 	case SSH_BOOTSTRAP:
 		switch (ssh_channel_request_subsystem(channel, "tmate")) {
@@ -449,9 +450,8 @@ SSH_NEW_CHANNEL:
 
 			free(client->tmate_session->last_server_ip);
 			client->tmate_session->last_server_ip = xstrdup(client->server_ip);
-
-			/* fall through */
 		}
+		// fall through
 
 	case SSH_READY:
 		read_channel(client);

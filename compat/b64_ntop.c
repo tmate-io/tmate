@@ -52,6 +52,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "compat.h"
+
 #define Assert(Cond) if (!(Cond)) abort()
 
 static const char Base64[] =
@@ -122,7 +124,7 @@ static const char Pad64 = '=';
    */
 
 int
-b64_ntop(uint8_t const *src, size_t srclength, char *target, size_t targsize) {
+b64_ntop(const char *src, size_t srclength, char *target, size_t targsize) {
 	size_t datalength = 0;
 	uint8_t input[3];
 	uint8_t output[4];

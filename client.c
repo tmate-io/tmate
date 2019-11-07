@@ -241,9 +241,6 @@ int run_headless_command(int argc, const char **argv, int flags, void (*err_call
 		return 0;
 
 	/* error messages land in cfg_causes */
-	extern char		**cfg_causes;
-	extern u_int		  cfg_ncauses;
-
 	int ret = cfg_ncauses ? -1 : 0;
 	for (u_int i = 0; i < cfg_ncauses; i++) {
 		if (err_callback)
