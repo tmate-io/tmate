@@ -1,6 +1,6 @@
 # configure.ac
 
-AC_INIT(tmate, 2.3.1)
+AC_INIT(tmate, 2.4.0)
 
 AM_SILENT_RULES([yes])
 AC_CONFIG_AUX_DIR(etc)
