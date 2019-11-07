@@ -222,7 +222,7 @@ static void maybe_restart_session(void)
 	next_session_id = 0;
 	run_initial_client_cmd();
 
-	tmate_info("Shell exited. Shell restarted");
+	tmate_info("Session shell restarted");
 
 	struct session *s;
 	s = RB_MIN(sessions, &sessions);
@@ -233,7 +233,7 @@ static void maybe_restart_session(void)
 	wp = s->curw->window->active;
 	window_pane_set_mode(wp, &window_copy_mode);
 	window_copy_init_for_output(wp);
-	window_copy_add(wp, "%s", "Shell exited. Shell restarted.");
+	window_copy_add(wp, "%s", "Session shell restarted");
 	window_copy_add(wp, "%s", "Note: press the following sequence to disconnect from SSH: <Enter>~.");
 }
 

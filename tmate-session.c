@@ -190,7 +190,10 @@ void tmate_session_start(void)
 	 * - While we are parsing the config file, we need to be able to
 	 *   serialize it, and so we need a worker encoder.
 	 */
-	if (!tmate_foreground) {
+	if (tmate_foreground) {
+		tmate_set_val("foreground", "true");
+		tmate_info("To connect to the session locally, run: tmate -S %s attach", socket_path);
+	} else {
 		cfg_add_cause("%s", "To see these messages again, run: tmate show-messages");
 		cfg_add_cause("%s", "Press <Enter> to dismiss");
 		cfg_add_cause("%s", "-----------------------------------------------------");
