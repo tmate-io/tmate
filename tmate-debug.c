@@ -85,7 +85,7 @@ void tmate_print_stack_trace(void)
 }
 
 
-static void handle_sigsegv(__unused int sig)
+static void handle_crash(__unused int sig)
 {
 	/* TODO send stack trace to server */
 	tmate_info("CRASH, printing stack trace");
@@ -95,6 +95,7 @@ static void handle_sigsegv(__unused int sig)
 
 void tmate_catch_sigsegv(void)
 {
-	signal(SIGSEGV, handle_sigsegv);
+	signal(SIGSEGV, handle_crash);
+	signal(SIGABRT, handle_crash);
 }
 #endif
