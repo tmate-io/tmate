@@ -62,8 +62,8 @@ usage(void)
 	    "Usage: %s [options] [tmux-command [flags]]\n"
 	    "\n"
 	    "Basic options:\n"
-	    " -n <name>    specify the session name instead of getting a random one\n"
-	    " -r <name>    same, but for the read-only session name\n"
+	    " -n <name>    specify the session token instead of getting a random one\n"
+	    " -r <name>    same, but for the read-only token\n"
 	    " -k <key>     specify the account-key, necessary for named sessions on tmate.io\n"
 	    " -F           set the foreground mode, useful for setting remote access\n"
 	    " -f <path>    set the config file path\n"
@@ -227,8 +227,8 @@ void tmate_load_cli_options(void)
 	} \
 })
 	SET_OPT("tmate-account-key",     account_key);
-	SET_OPT("tmate-account-name",    session_name);
-	SET_OPT("tmate-account-name-ro", session_name_ro);
+	SET_OPT("tmate-session-name",    session_name);
+	SET_OPT("tmate-session-name-ro", session_name_ro);
 	SET_OPT("tmate-authorized-keys", authorized_keys);
 #undef SET_OPT
 }
