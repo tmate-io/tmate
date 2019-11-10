@@ -194,7 +194,8 @@ void tmate_session_start(void)
 		tmate_set_val("foreground", "true");
 		tmate_info("To connect to the session locally, run: tmate -S %s attach", socket_path);
 	} else {
-		cfg_add_cause("%s", "To see these messages again, run: tmate show-messages");
+		cfg_add_cause("%s", "Tip: if you wish to use tmate for remote access, run tmate -F");
+		cfg_add_cause("%s", "To see the following messages again, run: tmate show-messages");
 		cfg_add_cause("%s", "Press <Enter> to dismiss");
 		cfg_add_cause("%s", "-----------------------------------------------------");
 	}
