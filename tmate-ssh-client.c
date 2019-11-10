@@ -86,7 +86,6 @@ static void on_ssh_auth_server_complete(struct tmate_ssh_client *connected_clien
 		if (client == connected_client)
 			continue;
 
-		assert(!client->has_encoder);
 		kill_ssh_client(client, NULL);
 	}
 }
@@ -177,7 +176,9 @@ static void tune_socket_opts(int fd)
 #define SSO(level, optname, val) ({							\
 	int _flag = val;								\
 	if (setsockopt(fd, level, optname, &(_flag), sizeof(int)) < 0) {		\
-		tmate_info("setsockopt(" #level ", " #optname ", %d) failed", val);	\
+		/* If the connection has been closed, we'll get EINVAL */		\
+		if (errno != EINVAL)							\
+			tmate_info("setsockopt(" #level ", " #optname ", %d) failed %s", val, strerror(errno));	\
 	}										\
 })
 
@@ -249,23 +250,11 @@ static void init_conn_fd(struct tmate_ssh_client *client)
 
 static void on_ssh_client_event(struct tmate_ssh_client *client)
 {
-	char *identity;
-	ssh_key pubkey;
-	enum ssh_keytypes_e key_type;
-	unsigned char *hash;
-	ssize_t hash_len;
-	char *hash_str;
-	const char *server_hash_str;
-	int match;
-
-	int verbosity = SSH_LOG_NOLOG + log_get_level();
-	int port = options_get_number(global_options, "tmate-server-port");
-
 	ssh_session session = client->session;
 	ssh_channel channel = client->channel;
 
 	switch (client->state) {
-	case SSH_INIT:
+	case SSH_INIT: {
 		client->session = session = ssh_new();
 		if (!session) {
 			tmate_fatal("cannot ssh_new()");
@@ -274,6 +263,9 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 
 		ssh_set_callbacks(session, &client->ssh_callbacks);
 
+		int verbosity = SSH_LOG_NOLOG + log_get_level();
+		int port = options_get_number(global_options, "tmate-server-port");
+
 		ssh_set_blocking(session, 0);
 		ssh_options_set(session, SSH_OPTIONS_HOST, client->server_ip);
 		ssh_options_set(session, SSH_OPTIONS_LOG_VERBOSITY, &verbosity);
@@ -281,6 +273,7 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 		ssh_options_set(session, SSH_OPTIONS_USER, "tmate");
 		ssh_options_set(session, SSH_OPTIONS_COMPRESSION, "yes");
 
+		char *identity;
 		if ((identity = get_identity())) {
 			/*
 			 * FIXME libssh will continue with the next set of
@@ -295,7 +288,8 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 		}
 
 		client->state = SSH_CONNECT;
-		// fall through
+	}
+	// fall through
 
 	case SSH_CONNECT:
 		switch (ssh_connect(session)) {
@@ -314,7 +308,15 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 		}
 		// fall through
 
-	case SSH_AUTH_SERVER:
+	case SSH_AUTH_SERVER: {
+		ssh_key pubkey;
+		enum ssh_keytypes_e key_type;
+		unsigned char *hash;
+		ssize_t hash_len;
+		char *hash_str;
+		const char *server_hash_str;
+		int match;
+
 #if LIBSSH_VERSION_INT >= SSH_VERSION_INT(0, 9, 0)
 		if (ssh_get_server_publickey(session, &pubkey) < 0)
 			tmate_fatal("ssh_get_server_publickey");
@@ -379,6 +381,7 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 		on_ssh_auth_server_complete(client);
 
 		client->state = SSH_AUTH_CLIENT_NONE;
+	}
 		// fall through
 
 	case SSH_AUTH_CLIENT_NONE:
@@ -573,7 +576,6 @@ struct tmate_ssh_client *tmate_ssh_client_alloc(struct tmate_session *session,
 	client->state = SSH_NONE;
 	client->session = NULL;
 	client->channel = NULL;
-	client->has_encoder = 0;
 
 	return client;
 }

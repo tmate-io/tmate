@@ -130,7 +130,6 @@ struct tmate_ssh_client {
 
 	char *server_ip;
 
-	int has_encoder;
 	int state;
 
 	/*
