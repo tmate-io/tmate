@@ -20,7 +20,7 @@ script:
 # On arch=arm64, some directories are not setup correctly, and 'ruby -S gem
 # install dpl' required by the release push scripts fails.
 - 'if [ "$TRAVIS_TAG" ]; then sudo chown -R $USER: /var/lib/gems /usr/local/bin; fi'
-- 'if [ "$TRAVIS_TAG" ]; then ./package_release.sh $TRAVIS_TAG $PLATFORM; fi'
+- 'if [ "$TRAVIS_TAG" ]; then ./build_static_release.sh $TRAVIS_TAG $PLATFORM; fi'
 
 deploy:
   provider: releases
@@ -29,7 +29,7 @@ deploy:
   skip_cleanup: true
   overwrite: true
   file_glob: true
-  file: /tmp/tmate-release/*.tar.*
+  file: releases/*.tar.*
   on:
     repo: tmate-io/tmate
     branch: master

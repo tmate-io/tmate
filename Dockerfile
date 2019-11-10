@@ -20,9 +20,10 @@ RUN set -ex; \
             make -j $(nproc); \
             make install
 
-COPY . .
+COPY compat ./compat
+COPY *.c *.h autogen.sh Makefile.am configure.ac ./
 
 RUN ./autogen.sh && ./configure --enable-static
 RUN make -j $(nproc)
-RUN strip tmate
+RUN objcopy --only-keep-debug tmate tmate.symbols && strip tmate
 RUN ./tmate -V
