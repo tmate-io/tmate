@@ -167,57 +167,84 @@ static void request_passphrase(struct tmate_ssh_client *client)
 	data->password_cb_private = client;
 }
 
-#define KEEPALIVE_CNT		3
-#define KEEPALIVE_IDLE		20
-#define KEEPALIVE_INTVL		10
+#define KEEPALIVE_IDLE		30
+#define KEEPALIVE_CNT		4
+#define KEEPALIVE_INTVL		11
+#define WRITE_TIMEOUT		80
 
 static void tune_socket_opts(int fd)
 {
 #define SSO(level, optname, val) ({							\
 	int _flag = val;								\
 	if (setsockopt(fd, level, optname, &(_flag), sizeof(int)) < 0) {		\
-		tmate_debug("setsockopt(" #level ", " #optname ", %d) failed", val);	\
+		tmate_info("setsockopt(" #level ", " #optname ", %d) failed", val);	\
 	}										\
 })
 
 	SSO(IPPROTO_TCP, TCP_NODELAY, 1);
 	SSO(SOL_SOCKET, SO_KEEPALIVE, 1);
 #ifdef TCP_KEEPALIVE
+	/*
+	 * The TCP_KEEPALIVE options enable to specify the amount of time, in
+	 * seconds, that the connection must be idle before keepalive probes
+	 * (if enabled) are sent.
+	 */
 	SSO(IPPROTO_TCP, TCP_KEEPALIVE, KEEPALIVE_IDLE);
 #endif
-#ifdef TCP_KEEPCNT
-	SSO(IPPROTO_TCP, TCP_KEEPCNT, KEEPALIVE_CNT);
-#endif
 #ifdef TCP_KEEPIDLE
+	/*
+	 * Same as TCP_KEEPALIVE, but on different systems
+	 */
 	SSO(IPPROTO_TCP, TCP_KEEPIDLE, KEEPALIVE_IDLE);
 #endif
+#ifdef TCP_KEEPCNT
+	/*
+	 * When keepalive probes are enabled, this option will set the number
+	 * of times a keepalive probe should be repeated if the peer is not
+	 * responding. After this many probes, the connection will be closed.
+	 */
+	SSO(IPPROTO_TCP, TCP_KEEPCNT, KEEPALIVE_CNT);
+#endif
 #ifdef TCP_KEEPINTVL
+	/*
+	 * When keepalive probes are enabled, this option will set the amount
+	 * of time in seconds between successive keepalives sent to probe an
+	 * unresponsive peer.
+	 */
 	SSO(IPPROTO_TCP, TCP_KEEPINTVL, KEEPALIVE_INTVL);
+#endif
+#ifdef TCP_USER_TIMEOUT
+	/*
+	 * This option takes an unsigned int as an argument.  When the
+	 * value is greater than 0, it specifies the maximum amount of
+	 * time in milliseconds that transmitted data may remain
+	 * unacknowledged before TCP will forcibly close the
+	 * corresponding connection and return ETIMEDOUT to the
+	 * application.
+	 */
+	SSO(IPPROTO_TCP, TCP_USER_TIMEOUT, 1000*WRITE_TIMEOUT);
 #endif
 #undef SSO
 }
 
-static void init_conn_fd(struct tmate_ssh_client *client, bool tune_socket)
+static void init_conn_fd(struct tmate_ssh_client *client)
 {
 	int fd;
 
-	if (client->has_init_conn_fd)
+	if (client->ev_ssh)
 		return;
 
 	if ((fd = ssh_get_fd(client->session)) < 0)
 		return;
 
-	if (tune_socket)
-		tune_socket_opts(fd);
+	tune_socket_opts(fd);
 
-	assert(!client->ev_ssh);
-	client->ev_ssh = event_new(client->tmate_session->ev_base,
-				   fd, EV_READ | EV_PERSIST, __on_ssh_client_event, client);
+	client->ev_ssh = event_new(client->tmate_session->ev_base, fd,
+				   EV_READ | EV_PERSIST,
+				   __on_ssh_client_event, client);
 	if (!client->ev_ssh)
 		tmate_fatal("out of memory");
 	event_add(client->ev_ssh, NULL);
-
-	client->has_init_conn_fd = true;
 }
 
 static void on_ssh_client_event(struct tmate_ssh_client *client)
@@ -273,14 +300,14 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 	case SSH_CONNECT:
 		switch (ssh_connect(session)) {
 		case SSH_AGAIN:
-			init_conn_fd(client, false);
+			init_conn_fd(client);
 			return;
 		case SSH_ERROR:
 			kill_ssh_client(client, "Error connecting: %s",
 					ssh_get_error(session));
 			return;
 		case SSH_OK:
-			init_conn_fd(client, true);
+			init_conn_fd(client);
 
 			tmate_debug("Establishing connection to %s", client->server_ip);
 			client->state = SSH_AUTH_SERVER;
@@ -482,10 +509,10 @@ static void kill_ssh_client(struct tmate_ssh_client *client,
 
 	tmate_debug("SSH client killed (%s)", client->server_ip);
 
-	if (client->has_init_conn_fd) {
+	if (client->ev_ssh) {
 		event_del(client->ev_ssh);
 		event_free(client->ev_ssh);
-		client->has_init_conn_fd = false;
+		client->ev_ssh = NULL;
 	}
 
 	if (client->state == SSH_READY) {
@@ -547,8 +574,6 @@ struct tmate_ssh_client *tmate_ssh_client_alloc(struct tmate_session *session,
 	client->session = NULL;
 	client->channel = NULL;
 	client->has_encoder = 0;
-
-	client->has_init_conn_fd = false;
 
 	return client;
 }

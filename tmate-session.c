@@ -36,6 +36,9 @@ static void dns_cb(int errcode, struct evutil_addrinfo *addr, void *ptr)
 	struct evutil_addrinfo *ai;
 	const char *host = ptr;
 
+	evdns_base_free(tmate_session.ev_dnsbase, 0);
+	tmate_session.ev_dnsbase = NULL;
+
 	if (errcode) {
 		struct tmate_session *session = &tmate_session;
 
@@ -81,9 +84,6 @@ static void dns_cb(int errcode, struct evutil_addrinfo *addr, void *ptr)
 		connect_ssh_client(ssh_clients[i]);
 
 	evutil_freeaddrinfo(addr);
-
-	evdns_base_free(tmate_session.ev_dnsbase, 0);
-	tmate_session.ev_dnsbase = NULL;
 }
 
 static void lookup_and_connect(void)
