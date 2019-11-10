@@ -203,6 +203,7 @@ extern void tmate_reconnect_session(struct tmate_session *session, const char *m
 /* tmate-debug.c */
 extern void tmate_print_stack_trace(void);
 extern void tmate_catch_sigsegv(void);
+extern void tmate_preload_trace_lib(void);
 
 /* tmate-msg.c */
 

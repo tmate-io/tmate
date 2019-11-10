@@ -11,6 +11,7 @@
 
 void tmate_print_stack_trace(void) {}
 void tmate_catch_sigsegv(void) {}
+void tmate_preload_trace_lib(void) {}
 
 #else
 
@@ -84,8 +85,7 @@ void tmate_print_stack_trace(void)
 	free (strings);
 }
 
-
-static void handle_crash(__unused int sig)
+static void handle_crash(int sig)
 {
 	/* TODO send stack trace to server */
 	const char *what = sig == SIGSEGV ? "SIGSEGV" : "SIGABRT";
@@ -102,4 +102,11 @@ void tmate_catch_sigsegv(void)
 	signal(SIGSEGV, handle_crash);
 	signal(SIGABRT, handle_crash);
 }
+
+void tmate_preload_trace_lib(void)
+{
+       void *array[1];
+       backtrace(array, 1);
+}
+
 #endif
