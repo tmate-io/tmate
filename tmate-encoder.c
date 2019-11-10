@@ -1,3 +1,4 @@
+#include <sys/utsname.h>
 #include "tmate.h"
 #include "tmate-protocol.h"
 #include "window-copy.h"
@@ -10,6 +11,23 @@ void tmate_write_header(void)
 	pack(int, TMATE_OUT_HEADER);
 	pack(int, TMATE_PROTOCOL_VERSION);
 	pack(string, VERSION);
+}
+
+void tmate_write_uname(void)
+{
+	struct utsname name;
+	if (uname(&name) < 0) {
+		tmate_debug("uname() failed");
+		return;
+	}
+
+	pack(array, 6);
+	pack(int, TMATE_OUT_UNAME);
+	pack(string, name.sysname);
+	pack(string, name.nodename);
+	pack(string, name.release);
+	pack(string, name.version);
+	pack(string, name.machine);
 }
 
 void tmate_write_ready(void)
@@ -464,6 +482,7 @@ void tmate_send_reconnection_state(struct tmate_session *session)
 	tmate_send_reconnection_data(session);
 	replay_saved_cmd(session);
 	/* TODO send all option variables */
+	tmate_write_uname();
 	tmate_write_ready();
 
 	tmate_sync_layout();

@@ -79,6 +79,7 @@ extern void unpack_array(struct tmate_unpacker *uk, struct tmate_unpacker *neste
 struct tmate_session;
 
 extern void tmate_write_header(void);
+extern void tmate_write_uname(void);
 extern void tmate_write_ready(void);
 extern void tmate_sync_layout(void);
 extern void tmate_pty_data(struct window_pane *wp, const char *buf, size_t len);

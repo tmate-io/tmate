@@ -56,6 +56,7 @@ enum tmate_daemon_out_msg_types {
 	TMATE_OUT_RECONNECT,
 	TMATE_OUT_SNAPSHOT,
 	TMATE_OUT_EXEC_CMD,
+	TMATE_OUT_UNAME,
 };
 
 /*
@@ -77,6 +78,8 @@ enum tmate_daemon_out_msg_types {
 [TMATE_OUT_RECONNECT, string: reconnection_data]
 [TMATE_OUT_SNAPSHOT, ...]
 [TMATE_OUT_EXEC_CMD, string: cmd_name, ...string: args]
+[TMATE_OUT_UNAME, string: name.sysname, string: name.nodename,
+                  string: name.release, string: name.version, string: name.machine]
 */
 
 enum tmate_daemon_in_msg_types {

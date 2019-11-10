@@ -200,6 +200,7 @@ void tmate_session_start(void)
 	}
 
 	send_authorized_keys();
+	tmate_write_uname();
 	tmate_write_ready();
 	lookup_and_connect();
 }
