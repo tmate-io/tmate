@@ -64,7 +64,7 @@ usage(void)
 	    "Basic options:\n"
 	    " -n <name>    specify the session token instead of getting a random one\n"
 	    " -r <name>    same, but for the read-only token\n"
-	    " -k <key>     specify the account-key, necessary for named sessions on tmate.io\n"
+	    " -k <key>     specify an api-key, necessary for using named sessions on tmate.io\n"
 	    " -F           set the foreground mode, useful for setting remote access\n"
 	    " -f <path>    set the config file path\n"
 	    " -S <path>    set the socket path, useful to issue commands to a running tmate instance\n"
@@ -212,7 +212,7 @@ find_home(void)
 }
 
 #ifdef TMATE
-static char *account_key;
+static char *api_key;
 static char *session_name;
 static char *session_name_ro;
 static char *authorized_keys;
@@ -226,7 +226,7 @@ void tmate_load_cli_options(void)
 		val = NULL; \
 	} \
 })
-	SET_OPT("tmate-account-key",     account_key);
+	SET_OPT("tmate-api-key",         api_key);
 	SET_OPT("tmate-session-name",    session_name);
 	SET_OPT("tmate-session-name-ro", session_name_ro);
 	SET_OPT("tmate-authorized-keys", authorized_keys);
@@ -310,7 +310,7 @@ main(int argc, char **argv)
 			unsetenv("TMUX");
 			break;
 		case 'k':
-			account_key = xstrdup(optarg);
+			api_key = xstrdup(optarg);
 			break;
 		case 'n':
 			session_name = xstrdup(optarg);
