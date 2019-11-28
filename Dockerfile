@@ -1,5 +1,5 @@
 ARG PLATFORM=amd64
-FROM ${PLATFORM}/alpine:3.10
+FROM ${PLATFORM}/alpine:3.10 AS build
 
 WORKDIR /build
 
@@ -25,5 +25,13 @@ COPY *.c *.h autogen.sh Makefile.am configure.ac ./
 
 RUN ./autogen.sh && ./configure --enable-static
 RUN make -j $(nproc)
-RUN objcopy --only-keep-debug tmate tmate.symbols && strip tmate
+RUN objcopy --only-keep-debug tmate tmate.symbols && chmod -x tmate.symbols && strip tmate
 RUN ./tmate -V
+
+FROM alpine:3.9
+
+RUN apk --no-cache add bash
+RUN mkdir /build
+ENV PATH=/build:$PATH
+COPY --from=build /build/tmate.symbols /build
+COPY --from=build /build/tmate /build
