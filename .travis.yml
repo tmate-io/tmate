@@ -14,6 +14,10 @@ matrix:
     env: PLATFORM=arm32v7
   - arch: arm64
     env: PLATFORM=arm64v8
+  - arch: s390x
+    env: PLATFORM=s390x
+  - arch: ppc64le
+    env: PLATFORM=ppc64le
 
 script:
 - 'docker build . --tag local-$PLATFORM/tmate-build --build-arg PLATFORM=$PLATFORM'
