@@ -29,5 +29,5 @@ tar -cf - $RELEASE_NAME | xz > tmate-$VERSION-static-linux-$PLATFORM.tar.xz
 
 rm -rf $RELEASE_NAME-symbols
 mkdir -p $RELEASE_NAME-symbols
-docker run --rm local-$PLATFORM/tmate-build cat tmate.symbols > $RELEASE_NAME-symbols/tmate.symbols
+docker run --rm local-$PLATFORM/tmate-build cat /build/tmate.symbols > $RELEASE_NAME-symbols/tmate.symbols
 tar -cf - $RELEASE_NAME-symbols | xz > dbg-symbols-tmate-$VERSION-static-linux-$PLATFORM.tar.xz
