@@ -38,3 +38,8 @@ deploy:
     repo: tmate-io/tmate
     branch: master
     tags: true
+
+addons:
+  artifacts:
+    paths:
+    - releases/*.tar.*
