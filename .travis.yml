@@ -41,5 +41,6 @@ deploy:
 
 addons:
   artifacts:
+    target_paths: /binaries/$OS_NAME/$LSB_RELEASE/$ARCH
     paths:
-    - releases/*.tar.*
+    - releases/
