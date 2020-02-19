@@ -269,7 +269,6 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 		ssh_set_blocking(session, 0);
 		ssh_options_set(session, SSH_OPTIONS_HOST, client->server_ip);
 		ssh_options_set(session, SSH_OPTIONS_LOG_VERBOSITY, &verbosity);
-		ssh_options_set(session, SSH_OPTIONS_PORT, &port);
 		ssh_options_set(session, SSH_OPTIONS_USER, "tmate");
 		ssh_options_set(session, SSH_OPTIONS_COMPRESSION, "yes");
 
@@ -286,6 +285,14 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 			unsetenv("SSH_AUTH_SOCK");
 			free(identity);
 		}
+
+		/*
+		 * libssh 0.9 calls parse_config if it hasn't been parsed
+		 * when doing a ssh_connect overwriting the port.
+		 * So this overwrites port with our tmate-server-port config.
+		 */
+		ssh_options_parse_config(session, NULL);
+		ssh_options_set(session, SSH_OPTIONS_PORT, &port);
 
 		client->state = SSH_CONNECT;
 	}
