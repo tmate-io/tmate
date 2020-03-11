@@ -61,6 +61,9 @@ log_get_level(void)
 void
 log_open_fp(FILE *f)
 {
+	if (log_file == f)
+		return;
+
 	if (log_file != NULL && !is_log_stdout())
 		fclose(log_file);
 
