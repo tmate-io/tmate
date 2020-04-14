@@ -328,7 +328,7 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 
 		if (ssh_get_publickey_hash(pubkey, SSH_PUBLICKEY_HASH_SHA256,
 					   &hash, &hash_len) < 0) {
-			kill_ssh_client(client, "Cannot authenticate server");
+			kill_ssh_client(client, "Failed to get server fingerprint");
 			return;
 		}
 
@@ -362,15 +362,17 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 		}
 
 		match = !strcmp(hash_str, server_hash_str);
+		if (!match) {
+			kill_ssh_client(client, "Server fingerprint not recognized: "
+				"`%s', expected `%s'", server_hash_str, hash_str);
+		}
 
 		ssh_key_free(pubkey);
 		ssh_clean_pubkey_hash(&hash);
 		free(hash_str);
 
-		if (!match) {
-			kill_ssh_client(client, "Cannot authenticate server");
+		if (!match)
 			return;
-		}
 
 		/*
 		 * At this point, we abort other connection attempts to the
