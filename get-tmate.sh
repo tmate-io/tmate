@@ -73,7 +73,9 @@ get_binaries() {
     freebsd/i386) BINARIES="$BINARY" ;;
     freebsd/ppc64le) BINARIES="$BINARY" ;;
     linux/amd64) BINARIES="$BINARY" ;;
-    linux/arm64) BINARIES="$BINARY" ;;
+    linux/arm64*) BINARIES="$BINARY" ;;
+    linux/armv7*) BINARIES="$BINARY" ;;
+    linux/armv6*) BINARIES="$BINARY" ;;
     linux/i386) BINARIES="$BINARY" ;;
     linux/ppc64le) BINARIES="$BINARY" ;;
     netbsd/amd64) BINARIES="$BINARY" ;;
