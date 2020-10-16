@@ -46,8 +46,8 @@ execute() {
   tmpdir=$(mktemp -d)
   log_debug "downloading files into ${tmpdir}"
   http_download "${tmpdir}/${TARBALL}" "${TARBALL_URL}"
-#SKIP#  http_download "${tmpdir}/${CHECKSUM}" "${CHECKSUM_URL}"
-#SKIP#  hash_sha256_verify "${tmpdir}/${TARBALL}" "${tmpdir}/${CHECKSUM}"
+  http_download "${tmpdir}/${CHECKSUM}" "${CHECKSUM_URL}"
+  hash_sha256_verify "${tmpdir}/${TARBALL}" "${tmpdir}/${CHECKSUM}"
   srcdir="${tmpdir}/${NAME}"
   rm -rf "${srcdir}"
   (cd "${tmpdir}" && untar "${TARBALL}")
@@ -362,6 +362,8 @@ hash_sha256_verify() {
   if [ "$want" != "$got" ]; then
     log_err "hash_sha256_verify checksum for '$TARGET' did not verify ${want} vs $got"
     return 1
+  else
+    log_info "verify checksum OK, '$BASENAME' is $got"
   fi
 }
 cat /dev/null <<EOF
