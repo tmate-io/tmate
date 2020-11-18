@@ -19,10 +19,11 @@
 .Os
 .Sh NAME
 .Nm tmate
-.Nd terminal multiplexer
+.Nd terminal multiplexer with instant terminal sharing
 .Sh SYNOPSIS
 .Nm tmate
 .Bk -words
+.Op show-messages
 .Op Fl 2CluvV
 .Op Fl c Ar shell-command
 .Op Fl f Ar file
@@ -32,13 +33,24 @@
 .Ek
 .Sh DESCRIPTION
 .Nm
-is a terminal multiplexer:
+is a terminal multiplexer with instant terminal sharing:
 it enables a number of terminals to be created, accessed, and
-controlled from a single screen.
+controlled from a single screen and be shared with another mates.
 .Nm
 may be detached from a screen
 and continue running in the background,
-then later reattached.
+then later reattached, like as a daemon.
+.Pp
+.Nm
+provides an instant pairing solution, allowing you to share a terminal
+with one or several teammates. Together with a voice call, it's almost like
+pairing in person. The terminal sharing works by using SSH connections to
+backend servers maintained by tmate upstream developers; teammates need to be
+given a randomly-generated token to be able to join a session.
+.Pp
+.Nm
+is a modified version of tmux, and uses the same configurations such as
+keybindings, color schemes, etc.
 .Pp
 When
 .Nm
@@ -47,9 +59,9 @@ is started it creates a new
 with a single
 .Em window
 and displays it on screen.
-A status line at the bottom of the screen
-shows information on the current session
-and is used to enter interactive commands.
+A status line at the bottom of the screen shows information
+on the current session, such as ssh command to share with
+your mate, and is used to enter interactive commands.
 .Pp
 A session is a single collection of
 .Em pseudo terminals
