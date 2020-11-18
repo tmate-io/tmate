@@ -453,7 +453,7 @@ SSH_NEW_CHANNEL:
 					ssh_get_error(session));
 			return;
 		case SSH_OK:
-			tmate_debug("Session opened, initalizing tmate");
+			tmate_debug("Session opened, initializing tmate");
 			client->state = SSH_BOOTSTRAP;
 		}
 		// fall through
