@@ -68,6 +68,7 @@ usage(void)
 	    " -F           set the foreground mode, useful for setting remote access\n"
 	    " -f <path>    set the config file path\n"
 	    " -S <path>    set the socket path, useful to issue commands to a running tmate instance\n"
+	    " -a <path>    limit access to ssh public keys listed in provided file\n"
 	    " -v           set verbosity (can be repeated)\n"
 	    " -V           print version\n"
 	    ,__progname);
