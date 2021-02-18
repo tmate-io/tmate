@@ -183,6 +183,7 @@ static void tune_socket_opts(int fd)
 	}										\
 })
 
+	SSO(IPPROTO_IP, IP_TOS, 0x10); /* IPTOS_LOWDELAY */
 	SSO(IPPROTO_TCP, TCP_NODELAY, 1);
 	SSO(SOL_SOCKET, SO_KEEPALIVE, 1);
 #ifdef TCP_KEEPALIVE
