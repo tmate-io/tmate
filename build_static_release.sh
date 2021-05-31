@@ -31,3 +31,6 @@ rm -rf $RELEASE_NAME-symbols
 mkdir -p $RELEASE_NAME-symbols
 docker run --rm local-$PLATFORM/tmate-build cat /build/tmate.symbols > $RELEASE_NAME-symbols/tmate.symbols
 tar -cf - $RELEASE_NAME-symbols | xz > dbg-symbols-tmate-$VERSION-static-linux-$PLATFORM.tar.xz
+ls *
+pwd
+ls -hl /home/travis/build/travis-ci/tmate/releases/*.tar.*
