@@ -31,10 +31,9 @@ jobs:
         usesh: true
         run: |
           ln -s  /usr/local/bin/egcc  /usr/local/bin/gcc
-          autoupdate
-          aclocal --print-ac-dir
           export AUTOMAKE_VERSION=1.16
           export AUTOCONF_VERSION=2.71
+          autoupdate
           ./autogen.sh
           ./configure
           make
