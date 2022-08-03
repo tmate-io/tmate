@@ -1,0 +1,44 @@
+name: OpenBSD
+on:
+  push:
+    branches:
+      - '*'
+    paths:
+      - '**.c'
+      - '**.h'
+      - 'compat/*'
+      - '.github/workflows/OpenBSD.yml'
+  pull_request:
+    branches:
+      - '*'
+    paths:
+      - '**.c'
+      - '**.h'
+      - 'compat/*'
+      - '.github/workflows/OpenBSD.yml'
+
+
+
+jobs:
+  OpenBSD:
+    runs-on: macos-12
+    steps:
+    - uses: actions/checkout@v2
+    - uses: vmactions/openbsd-vm@v0
+      with:
+        prepare: |
+          pkg_add  gmake  automake-1.16.3  autoconf-2.71  libtool pkgconf libevent msgpack libssh  gcc-11.2.0p2
+        usesh: true
+        run: |
+          ln -s  /usr/local/bin/egcc  /usr/local/bin/gcc
+          autoupdate
+          aclocal --print-ac-dir
+          export AUTOMAKE_VERSION=1.16
+          export AUTOCONF_VERSION=2.71
+          ./autogen.sh
+          ./configure
+          make
+          make install
+
+
+
