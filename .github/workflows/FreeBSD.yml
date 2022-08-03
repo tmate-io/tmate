@@ -1,0 +1,40 @@
+name: FreeBSD
+on:
+  push:
+    branches:
+      - '*'
+    paths:
+      - '**.c'
+      - '**.h'
+      - 'compat/*'
+      - '.github/workflows/FreeBSD.yml'
+  pull_request:
+    branches:
+      - '*'
+    paths:
+      - '**.c'
+      - '**.h'
+      - 'compat/*'
+      - '.github/workflows/FreeBSD.yml'
+
+
+
+jobs:
+  FreeBSD:
+    runs-on: macos-12
+    steps:
+    - uses: actions/checkout@v2
+    - uses: vmactions/freebsd-vm@v0
+      with:
+        prepare: |
+          pkg install -y  gmake  automake autoconf libtool pkgconf libevent msgpack libssh
+        usesh: true
+        run: |
+          autoupdate
+          ./autogen.sh
+          ./configure
+          make
+          make install
+
+
+
