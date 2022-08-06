@@ -25,7 +25,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - run: |
-        brew install automake
+        brew install automake msgpack
         autoupdate
         ./autogen.sh
         ./configure
