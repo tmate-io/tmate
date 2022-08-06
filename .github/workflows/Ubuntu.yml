@@ -30,7 +30,7 @@ jobs:
         ACLOCAL_PATH=/usr/share/aclocal ./autogen.sh
         ./configure
         make
-        make install
+        sudo make install
 
 
 
