@@ -27,10 +27,17 @@ jobs:
     - uses: vmactions/openbsd-vm@v0
       with:
         prepare: |
-          pkg_add  gmake  automake-1.16.3  autoconf-2.71  libtool pkgconf libevent msgpack libssh  gcc-11.2.0p2
+          pkg_add  automake-1.16.3  autoconf-2.71  libtool pkgconf libevent msgpack libssh
         usesh: true
         run: |
-          ln -s  /usr/local/bin/egcc  /usr/local/bin/gcc
+          sed -i 's,<event.h>,<event2/event.h>,'  *.[ch]
+          curl https://raw.githubusercontent.com/openbsd/ports/master/sysutils/tmate/patches/patch-Makefile_am       | patch
+          curl https://raw.githubusercontent.com/openbsd/ports/master/sysutils/tmate/patches/patch-server_c          | patch
+          curl https://raw.githubusercontent.com/openbsd/ports/master/sysutils/tmate/patches/patch-tmate-debug_c     | patch
+          curl https://raw.githubusercontent.com/openbsd/ports/master/sysutils/tmate/patches/patch-tmate_h           | patch
+          curl https://raw.githubusercontent.com/openbsd/ports/master/sysutils/tmate/patches/patch-tmux_c            | patch
+          curl https://raw.githubusercontent.com/openbsd/ports/master/sysutils/tmate/patches/patch-tmux_h            | patch
+          curl https://raw.githubusercontent.com/openbsd/ports/master/sysutils/tmate/patches/patch-osdep-openbsd_c   | patch
           export AUTOMAKE_VERSION=1.16
           export AUTOCONF_VERSION=2.71
           autoupdate
