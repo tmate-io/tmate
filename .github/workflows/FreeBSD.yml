@@ -27,7 +27,7 @@ jobs:
     - uses: vmactions/freebsd-vm@v0
       with:
         prepare: |
-          pkg install -y  gmake  automake autoconf libtool pkgconf libevent msgpack libssh
+          pkg install -y  automake autoconf libtool pkgconf libevent msgpack libssh
         usesh: true
         run: |
           autoupdate
