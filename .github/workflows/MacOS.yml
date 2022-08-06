@@ -1,0 +1,37 @@
+name: MacOS
+on:
+  push:
+    branches:
+      - '*'
+    paths:
+      - '**.c'
+      - '**.h'
+      - 'compat/*'
+      - '.github/workflows/MacOS.yml'
+  pull_request:
+    branches:
+      - '*'
+    paths:
+      - '**.c'
+      - '**.h'
+      - 'compat/*'
+      - '.github/workflows/MacOS.yml'
+
+
+
+jobs:
+  NetBSD:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - run: |
+        brew install automake
+        autoupdate
+        ./autogen.sh
+        ./configure
+        make
+        make install
+
+
+
+
