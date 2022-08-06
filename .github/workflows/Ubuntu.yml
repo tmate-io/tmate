@@ -1,0 +1,37 @@
+name: Ubuntu
+on:
+  push:
+    branches:
+      - '*'
+    paths:
+      - '**.c'
+      - '**.h'
+      - 'compat/*'
+      - '.github/workflows/Ubuntu.yml'
+  pull_request:
+    branches:
+      - '*'
+    paths:
+      - '**.c'
+      - '**.h'
+      - 'compat/*'
+      - '.github/workflows/Ubuntu.yml'
+
+
+
+jobs:
+  Ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - run: |
+        apt-get install -y  build-essential automake libtool libevent-dev libncurses5-dev libmsgpack-dev libssh-dev pkg-config
+        autoupdate
+        ACLOCAL_PATH=/usr/share/aclocal ./autogen.sh
+        ./configure
+        make
+        make install
+
+
+
+
