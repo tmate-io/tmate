@@ -27,7 +27,7 @@ jobs:
     - uses: vmactions/openbsd-vm@v0
       with:
         prepare: |
-          pkg_add  automake-1.16.3  autoconf-2.71  libtool pkgconf libevent msgpack libssh
+          pkg_add  automake-1.16.3  autoconf-2.71  libtool pkgconf libevent msgpack libssh curl
         usesh: true
         run: |
           sed -i 's,<event.h>,<event2/event.h>,'  *.[ch]
