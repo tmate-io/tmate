@@ -25,7 +25,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - run: |
-        apt-get install -y  build-essential automake libtool libevent-dev libncurses5-dev libmsgpack-dev libssh-dev pkg-config
+        sudo apt-get install -y  build-essential automake libtool libevent-dev libncurses5-dev libmsgpack-dev libssh-dev pkg-config
         autoupdate
         ACLOCAL_PATH=/usr/share/aclocal ./autogen.sh
         ./configure
