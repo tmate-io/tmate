@@ -207,7 +207,19 @@ PKG_CHECK_MODULES(
     LIBS="$MSGPACK_LIBS $LIBS"
     found_msgpack=yes
   ],
-  found_msgpack=no
+	[
+    # msgpack.pc was renamed to msgpack-c.pc in 6.0.0.
+    PKG_CHECK_MODULES(
+      MSGPACKC,
+      msgpack-c >= 1.1.0,
+      [
+        CPPFLAGS="$MSGPACKC_CFLAGS $CPPFLAGS"
+        LIBS="$MSGPACKC_LIBS $LIBS"
+        found_msgpack=yes
+      ],
+      found_msgpack=no
+    )
+  ]
 )
 if test "x$found_msgpack" = xno; then
   AC_MSG_ERROR("msgpack >= 1.1.0 not found")

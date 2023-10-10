@@ -21,7 +21,7 @@
 #include "tmux.h"
 
 int
-setenv(const char *name, const char *value, unused int overwrite)
+setenv(const char *name, const char *value, __unused int overwrite)
 {
 	char	*newval;
 
