@@ -1,0 +1,2 @@
+DOCKER_FILE_PATH: /harness/tmate/docker/Dockerfile-tmate
+CONTEXT_PATH: /harness/tmate

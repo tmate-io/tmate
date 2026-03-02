@@ -1,0 +1,77 @@
+# ---------------------------------------------------------#
+#                   Build Tmate Binary                     #
+# ---------------------------------------------------------#
+FROM us-west1-docker.pkg.dev/gar-setup/docker/alpine:3.21 as builder
+
+WORKDIR /build
+
+# Install build dependencies
+RUN apk add --no-cache wget cmake make gcc g++ linux-headers zlib-dev openssl-dev \
+            automake autoconf libevent-dev ncurses-dev msgpack-c-dev libexecinfo-dev \
+            ncurses-static libexecinfo-static libevent-static msgpack-c ncurses-libs \
+            libevent libexecinfo openssl zlib git
+
+# Build libssh
+RUN set -ex; \
+    mkdir -p /src/libssh/build; \
+    cd /src; \
+    wget -O libssh.tar.xz https://www.libssh.org/files/0.9/libssh-0.9.0.tar.xz; \
+    tar -xf libssh.tar.xz -C /src/libssh --strip-components=1; \
+    cd /src/libssh/build; \
+    cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+    -DWITH_SFTP=OFF -DWITH_SERVER=OFF -DWITH_PCAP=OFF \
+    -DWITH_STATIC_LIB=ON -DWITH_GSSAPI=OFF ..; \
+    make -j $(nproc); \
+    make install
+
+# Copy source code
+COPY compat ./compat
+COPY *.c *.h autogen.sh Makefile.am configure.ac ./
+
+# Build arguments for metadata
+ARG BUILD_VERSION
+ARG BUILD_TIME
+ARG COMMIT_SHA
+ARG BRANCH_NAME
+ARG TARGETOS=linux
+ARG TARGETARCH
+
+# Build tmate
+RUN ./autogen.sh && ./configure --enable-static
+RUN make -j $(nproc)
+RUN objcopy --only-keep-debug tmate tmate.symbols && chmod -x tmate.symbols && strip tmate
+
+# Verify build
+RUN ./tmate -V
+
+# ---------------------------------------------------------#
+#                   Create final image                     #
+# ---------------------------------------------------------#
+FROM scratch
+
+WORKDIR /binaries
+
+# Copy the binary
+COPY --from=builder /build/tmate /binaries/tmate
+
+# Build metadata labels
+ARG BUILD_VERSION
+ARG BUILD_TIME
+ARG COMMIT_SHA
+ARG BRANCH_NAME
+ARG TARGETARCH
+ARG TARGETOS
+
+LABEL org.opencontainers.image.title="Tmate"
+LABEL org.opencontainers.image.description="Tmate terminal sharing binary for Harness CI"
+LABEL org.opencontainers.image.vendor="Harness Inc."
+LABEL org.opencontainers.image.created="${BUILD_TIME}"
+LABEL org.opencontainers.image.revision="${COMMIT_SHA}"
+LABEL org.opencontainers.image.source="https://github.com/harness/tmate"
+LABEL org.opencontainers.image.version="${BUILD_VERSION}"
+LABEL BUILD_VERSION="${BUILD_VERSION}"
+LABEL BUILD_TIME="${BUILD_TIME}"
+LABEL BRANCH_NAME="${BRANCH_NAME}"
+LABEL COMMIT_SHA="${COMMIT_SHA}"
+LABEL ARCHITECTURE="${TARGETARCH}"
+LABEL OS="${TARGETOS}"
