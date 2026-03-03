@@ -1,21 +1,26 @@
 # ---------------------------------------------------------#
 #                   Build Tmate Binary                     #
 # ---------------------------------------------------------#
-FROM us-west1-docker.pkg.dev/gar-setup/docker/alpine:3.21 as builder
+FROM debian:bullseye-slim AS builder
 
 WORKDIR /build
 
 # Install build dependencies
-RUN apk add --no-cache wget cmake make gcc g++ linux-headers zlib-dev openssl-dev \
-            automake autoconf libevent-dev ncurses-dev msgpack-c-dev \
-            ncurses-static libevent-static msgpack-c ncurses-libs \
-            libevent openssl zlib git
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget ca-certificates xz-utils \
+    cmake make gcc g++ \
+    pkg-config \
+    zlib1g-dev libssl-dev \
+    automake autoconf libtool \
+    libevent-dev libncurses-dev libmsgpack-dev \
+    git \
+    && rm -rf /var/lib/apt/lists/*
 
-# Build libssh
+# Build libssh from source without GSSAPI to avoid static linking issues
 RUN set -ex; \
     mkdir -p /src/libssh/build; \
     cd /src; \
-    wget -O libssh.tar.xz https://www.libssh.org/files/0.9/libssh-0.9.0.tar.xz; \
+    wget -O libssh.tar.xz https://www.libssh.org/files/0.10/libssh-0.10.6.tar.xz; \
     tar -xf libssh.tar.xz -C /src/libssh --strip-components=1; \
     cd /src/libssh/build; \
     cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr \
@@ -28,6 +33,9 @@ RUN set -ex; \
 COPY compat ./compat
 COPY *.c *.h autogen.sh Makefile.am configure.ac ./
 
+# Create empty forkpty-linux.c stub (forkpty is provided by glibc on Linux)
+RUN echo '/* forkpty is provided by glibc on Linux - no compat needed */' > compat/forkpty-linux.c
+
 # Build arguments for metadata
 ARG BUILD_VERSION
 ARG BUILD_TIME
@@ -36,8 +44,8 @@ ARG BRANCH_NAME
 ARG TARGETOS=linux
 ARG TARGETARCH
 
-# Build tmate
-RUN ./autogen.sh && ./configure --enable-static
+# Build tmate (without --enable-static to avoid compat library issues)
+RUN ./autogen.sh && ./configure
 RUN make -j $(nproc)
 RUN objcopy --only-keep-debug tmate tmate.symbols && chmod -x tmate.symbols && strip tmate
 
@@ -47,9 +55,17 @@ RUN ./tmate -V
 # ---------------------------------------------------------#
 #                   Create final image                     #
 # ---------------------------------------------------------#
-FROM scratch
+FROM debian:bullseye-slim
 
 WORKDIR /binaries
+
+# Install runtime dependencies for dynamically linked tmate binary
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libevent-2.1-7 \
+    libncurses6 \
+    libmsgpackc2 \
+    libssh-4 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy the binary
 COPY --from=builder /build/tmate /binaries/tmate
