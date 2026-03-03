@@ -1,2 +1,3 @@
 DOCKER_FILE_PATH: /harness/tmate/docker/Dockerfile-tmate
 CONTEXT_PATH: /harness/tmate
+HELM_CHART_SOURCE_DIRECTORY: /harness/tmate/chart
