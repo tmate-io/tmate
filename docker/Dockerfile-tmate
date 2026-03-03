@@ -7,9 +7,9 @@ WORKDIR /build
 
 # Install build dependencies
 RUN apk add --no-cache wget cmake make gcc g++ linux-headers zlib-dev openssl-dev \
-            automake autoconf libevent-dev ncurses-dev msgpack-c-dev libexecinfo-dev \
-            ncurses-static libexecinfo-static libevent-static msgpack-c ncurses-libs \
-            libevent libexecinfo openssl zlib git
+            automake autoconf libevent-dev ncurses-dev msgpack-c-dev \
+            ncurses-static libevent-static msgpack-c ncurses-libs \
+            libevent openssl zlib git
 
 # Build libssh
 RUN set -ex; \
