@@ -1,7 +1,7 @@
 # ---------------------------------------------------------#
 #                   Build Tmate Binary                     #
 # ---------------------------------------------------------#
-FROM debian:bullseye-slim AS builder
+FROM debian:bookworm-slim AS builder
 
 WORKDIR /build
 
@@ -55,7 +55,7 @@ RUN ./tmate -V
 # ---------------------------------------------------------#
 #                   Create final image                     #
 # ---------------------------------------------------------#
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 
 WORKDIR /binaries
 
