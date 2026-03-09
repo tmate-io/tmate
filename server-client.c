@@ -121,8 +121,14 @@ server_client_create(int fd)
 	c->cmdq->client_exit = 1;
 
 	c->stdin_data = evbuffer_new();
+	if (c->stdin_data == NULL)
+		fatalx("out of memory");
 	c->stdout_data = evbuffer_new();
+	if (c->stdout_data == NULL)
+		fatalx("out of memory");
 	c->stderr_data = evbuffer_new();
+	if (c->stderr_data == NULL)
+		fatalx("out of memory");
 
 	c->tty.fd = -1;
 	c->title = NULL;

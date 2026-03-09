@@ -468,6 +468,8 @@ format_cb_pane_tabs(struct format_tree *ft, struct format_entry *fe)
 		return;
 
 	buffer = evbuffer_new();
+	if (buffer == NULL)
+		fatalx("out of memory");
 	for (i = 0; i < wp->base.grid->sx; i++) {
 		if (!bit_test(wp->base.tabs, i))
 			continue;
