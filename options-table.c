@@ -902,6 +902,12 @@ const struct options_table_entry options_table[] = {
 	  .default_str = ""
 	},
 
+	{ .name = "tmate-user",
+	  .type = OPTIONS_TABLE_STRING,
+	  .scope = OPTIONS_TABLE_SERVER,
+	  .default_str = ""
+	},
+
 	{ .name = "tmate-server-host",
 	  .type = OPTIONS_TABLE_STRING,
 	  .scope = OPTIONS_TABLE_SERVER,

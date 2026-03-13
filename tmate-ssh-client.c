@@ -250,6 +250,8 @@ static void init_conn_fd(struct tmate_ssh_client *client)
 	event_add(client->ev_ssh, NULL);
 }
 
+static const size_t MAX_ACCOUNT_LEN = 30;
+
 static void on_ssh_client_event(struct tmate_ssh_client *client)
 {
 	ssh_session session = client->session;
@@ -272,7 +274,16 @@ static void on_ssh_client_event(struct tmate_ssh_client *client)
 		ssh_options_set(session, SSH_OPTIONS_HOST, client->server_ip);
 		ssh_options_set(session, SSH_OPTIONS_LOG_VERBOSITY, &verbosity);
 		ssh_options_set(session, SSH_OPTIONS_PORT, &port);
-		ssh_options_set(session, SSH_OPTIONS_USER, "tmate");
+		char* tmate_user = options_get_string(global_options,
+						"tmate-user");
+		size_t tmate_user_len = strlen(tmate_user);
+
+		if (tmate_user_len > MAX_ACCOUNT_LEN)
+		{
+			tmate_fatal("Invalid tmate-user");
+		}
+
+		ssh_options_set(session, SSH_OPTIONS_USER, tmate_user);
 		ssh_options_set(session, SSH_OPTIONS_COMPRESSION, "yes");
 
 		char *identity;

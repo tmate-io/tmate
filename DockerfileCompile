@@ -1,12 +1,8 @@
 ARG PLATFORM=amd64
-FROM ${PLATFORM}/alpine:3.10
+FROM  harness/tmate-ssh-server:tmate-client-build AS build
 
 WORKDIR /build
 
-RUN apk add --no-cache wget cmake make gcc g++ linux-headers zlib-dev openssl-dev \
-            automake autoconf libevent-dev ncurses-dev msgpack-c-dev libexecinfo-dev \
-            ncurses-static libexecinfo-static libevent-static msgpack-c ncurses-libs \
-            libevent libexecinfo openssl zlib
 
 RUN set -ex; \
             mkdir -p /src/libssh/build; \

@@ -8,11 +8,6 @@ PLATFORM=$2
 
 SRC_VERSION=`cat configure.ac | grep AC_INIT | sed -E 's/^AC_INIT\(tmate, (.+)\)$/\1/'`
 
-if [ $SRC_VERSION != $VERSION ]; then
-  echo "Version mismatch: $SRC_VERSION != $VERSION"
-  exit 1
-fi
-
 RELEASE_NAME=tmate-$VERSION-static-linux-$PLATFORM
 echo "Building $RELEASE_NAME"
 
