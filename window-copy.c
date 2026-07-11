@@ -43,6 +43,7 @@ void	window_copy_write_lines(struct window_pane *,
 	    struct screen_write_ctx *, u_int, u_int);
 
 void	window_copy_scroll_to(struct window_pane *, u_int, u_int);
+void	window_copy_scroll_line_to(struct window_pane *, u_int);
 int	window_copy_search_compare(struct grid *, u_int, u_int, struct grid *,
 	    u_int, int);
 int	window_copy_search_lr(struct grid *, struct grid *, u_int *, u_int,
@@ -531,6 +532,15 @@ __window_copy_key(struct window_pane *wp, struct client *c, struct session *sess
 		window_copy_update_selection(wp, 1);
 		window_copy_redraw_screen(wp);
 		break;
+	case MODEKEYCOPY_SCROLLTOP:
+		window_copy_scroll_line_to(wp, 0);
+		break;
+	case MODEKEYCOPY_SCROLLMIDDLE:
+		window_copy_scroll_line_to(wp, (screen_size_y(s) - 1) / 2);
+		break;
+	case MODEKEYCOPY_SCROLLBOTTOM:
+		window_copy_scroll_line_to(wp, screen_size_y(s) - 1);
+		break;
 	case MODEKEYCOPY_TOPLINE:
 		data->cx = 0;
 		data->cy = 0;
@@ -942,6 +952,37 @@ window_copy_key_numeric_prefix(struct window_pane *wp, key_code key)
 
 	window_copy_redraw_lines(wp, screen_size_y(s) - 1, 1);
 	return (0);
+}
+
+/*
+ * Scroll the view to put the current line on screen row `to`, keeping the
+ * cursor on that line and column. (This is Vim's zt/zz/zb, and similar to
+ * vi's z<Enter>/z./z-.) Near the beginning/end of the history where the
+ * line cannot reach `to`, the view is clamped and the cursor ends up
+ * short of the top/bottom line.
+ */
+void
+window_copy_scroll_line_to(struct window_pane *wp, u_int to)
+{
+	struct window_copy_mode_data	*data = wp->modedata;
+	u_int				 hsize, py, vstart;
+
+	hsize = screen_hsize(data->backing);
+	py = hsize - data->oy + data->cy;	/* cursor line, absolute */
+
+	/* Top line of the view we want, clamped to the history. */
+	if (py < to)
+		vstart = 0;
+	else if (py - to > hsize)
+		vstart = hsize;
+	else
+		vstart = py - to;
+
+	data->cy = py - vstart;
+	data->oy = hsize - vstart;
+
+	window_copy_update_selection(wp, 1);
+	window_copy_redraw_screen(wp);
 }
 
 void
