@@ -1,0 +1,93 @@
+# ---------------------------------------------------------#
+#                   Build Tmate Binary                     #
+# ---------------------------------------------------------#
+FROM debian:bookworm-slim AS builder
+
+WORKDIR /build
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget ca-certificates xz-utils \
+    cmake make gcc g++ \
+    pkg-config \
+    zlib1g-dev libssl-dev \
+    automake autoconf libtool \
+    libevent-dev libncurses-dev libmsgpack-dev \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build libssh from source without GSSAPI to avoid static linking issues
+RUN set -ex; \
+    mkdir -p /src/libssh/build; \
+    cd /src; \
+    wget -O libssh.tar.xz https://www.libssh.org/files/0.10/libssh-0.10.6.tar.xz; \
+    tar -xf libssh.tar.xz -C /src/libssh --strip-components=1; \
+    cd /src/libssh/build; \
+    cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+    -DWITH_SFTP=OFF -DWITH_SERVER=OFF -DWITH_PCAP=OFF \
+    -DWITH_STATIC_LIB=ON -DWITH_GSSAPI=OFF ..; \
+    make -j $(nproc); \
+    make install
+
+# Copy source code
+COPY compat ./compat
+COPY *.c *.h autogen.sh Makefile.am configure.ac ./
+
+# Create empty forkpty-linux.c stub (forkpty is provided by glibc on Linux)
+RUN echo '/* forkpty is provided by glibc on Linux - no compat needed */' > compat/forkpty-linux.c
+
+# Build arguments for metadata
+ARG BUILD_VERSION
+ARG BUILD_TIME
+ARG COMMIT_SHA
+ARG BRANCH_NAME
+ARG TARGETOS=linux
+ARG TARGETARCH
+
+# Build tmate (without --enable-static to avoid compat library issues)
+RUN ./autogen.sh && ./configure
+RUN make -j $(nproc)
+RUN objcopy --only-keep-debug tmate tmate.symbols && chmod -x tmate.symbols && strip tmate
+
+# Verify build
+RUN ./tmate -V
+
+# ---------------------------------------------------------#
+#                   Create final image                     #
+# ---------------------------------------------------------#
+FROM debian:bookworm-slim
+
+WORKDIR /binaries
+
+# Install runtime dependencies for dynamically linked tmate binary
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libevent-2.1-7 \
+    libncurses6 \
+    libmsgpackc2 \
+    libssh-4 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the binary
+COPY --from=builder /build/tmate /binaries/tmate
+
+# Build metadata labels
+ARG BUILD_VERSION
+ARG BUILD_TIME
+ARG COMMIT_SHA
+ARG BRANCH_NAME
+ARG TARGETARCH
+ARG TARGETOS
+
+LABEL org.opencontainers.image.title="Tmate"
+LABEL org.opencontainers.image.description="Tmate terminal sharing binary for Harness CI"
+LABEL org.opencontainers.image.vendor="Harness Inc."
+LABEL org.opencontainers.image.created="${BUILD_TIME}"
+LABEL org.opencontainers.image.revision="${COMMIT_SHA}"
+LABEL org.opencontainers.image.source="https://github.com/harness/tmate"
+LABEL org.opencontainers.image.version="${BUILD_VERSION}"
+LABEL BUILD_VERSION="${BUILD_VERSION}"
+LABEL BUILD_TIME="${BUILD_TIME}"
+LABEL BRANCH_NAME="${BRANCH_NAME}"
+LABEL COMMIT_SHA="${COMMIT_SHA}"
+LABEL ARCHITECTURE="${TARGETARCH}"
+LABEL OS="${TARGETOS}"

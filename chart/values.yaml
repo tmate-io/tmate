@@ -1,0 +1,5 @@
+image:
+  registry: ""
+  repository: "harness-vm-runner-tmate"
+  tag: "latest"
+  pullPolicy: IfNotPresent

@@ -1,0 +1,5 @@
+This chart contains the Harness VM Runner Tmate binary.
+The binary is available in the Docker image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+
+This chart is not meant to be deployed as a Kubernetes application.
+It exists only to satisfy the build pipeline requirements.
