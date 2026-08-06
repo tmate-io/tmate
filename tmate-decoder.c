@@ -5,7 +5,12 @@ static void handle_notify(__unused struct tmate_session *session,
 			  struct tmate_unpacker *uk)
 {
 	char *msg = unpack_string(uk);
-	tmate_status_message("%s", msg);
+#ifdef TMATE_SESSION_RO
+        if (!strstr(msg, "session: "))
+                tmate_status_message("%s", msg);
+#else
+        tmate_status_message("%s", msg);
+#endif
 	free(msg);
 }
 

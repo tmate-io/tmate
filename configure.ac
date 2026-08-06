@@ -65,6 +65,15 @@ if test "x$found_static" = xyes; then
 	])
 fi
 
+# Is this a readonly session build?
+AC_ARG_ENABLE(
+	session-write,
+	AC_HELP_STRING(--disable-session-write, create read-only sessions)
+)
+if test "x${enable_session_write}" = xno; then
+        CFLAGS="$CFLAGS -DTMATE_SESSION_RO"
+fi
+
 # Is this gcc?
 AM_CONDITIONAL(IS_GCC, test "x$GCC" = xyes)
 
